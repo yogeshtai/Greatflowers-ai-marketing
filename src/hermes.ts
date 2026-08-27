@@ -8,12 +8,12 @@ import {
 export interface CampaignInput {
   campaignGoal: string;
   product: string;
-  occasion?: string;
+  occasion?: string | undefined;
   audience: string;
   trafficSource: string;
   platforms: string[];
   priority: string;
-  additionalContext?: string;
+  additionalContext?: string | undefined;
 }
 
 function buildPrompt(input: CampaignInput): string {

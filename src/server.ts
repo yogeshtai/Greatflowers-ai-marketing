@@ -10,6 +10,7 @@ import {
 } from "./ga4.analytics.js";
 import {
   publishFacebook,
+  publishInstagram,
 } from "./meta.publisher.js";
 import {
   getCampaigns,
@@ -31,6 +32,7 @@ import {
 import {
   getMetaConnectionStatus,
 } from "./meta.service.js";
+import { prepareInstagramImage } from "./meta.image.js";
 
 const app = express();
 
@@ -764,6 +766,80 @@ app.post(
     }
   }
 );
+
+app.post(
+  "/api/campaigns/:id/publish/instagram",
+  async (req, res) => {
+    try {
+      const campaign =
+        await getCampaignById(req.params.id);
+
+      if (!campaign) {
+        return res.status(404).json({
+          success: false,
+          error: "Campaign not found",
+        });
+      }
+
+      if (campaign.status !== "approved") {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Campaign must be approved before publishing",
+        });
+      }
+
+      const result =
+        await publishInstagram(campaign);
+
+      return res.json({
+        success: true,
+        result,
+      });
+    } catch (error) {
+      console.error(
+        "Instagram publishing failed:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        error:
+          "Instagram publishing failed",
+        details:
+          error instanceof Error
+            ? error.message
+            : String(error),
+      });
+    }
+  }
+);
+
+app.get("/api/meta/test-image", async (req, res) => {
+  try {
+    const originalImage =
+      "https://greatflowers.s3.us-west-2.amazonaws.com/products/img/european-meadow.webp";
+
+    const instagramImage =
+      await prepareInstagramImage(originalImage);
+
+    return res.json({
+      success: true,
+      originalImage,
+      instagramImage,
+    });
+  } catch (error) {
+    console.error("Instagram image test failed:", error);
+
+    return res.status(500).json({
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : String(error),
+    });
+  }
+});
 
 const PORT = process.env.PORT || 3000;
 

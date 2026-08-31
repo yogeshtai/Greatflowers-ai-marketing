@@ -147,7 +147,7 @@ const availablePlatforms = [
   "YouTube Shorts",
 ];
 
-const API_BASE = "http://localhost:3000";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 async function scheduleCampaignPost(campaignId: string, payload: any) {
   const response = await fetch(

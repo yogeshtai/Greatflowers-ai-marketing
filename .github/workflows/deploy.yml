@@ -1,0 +1,38 @@
+name: Deploy GreatFlowers Marketing
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to AWS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.AWS_HOST }}
+          username: ${{ secrets.AWS_USER }}
+          key: ${{ secrets.AWS_SSH_KEY }}
+          script: |
+            set -e
+
+            cd /var/www/Greatflowers-ai-marketing
+
+            git fetch origin
+            git reset --hard origin/main
+
+            npm ci
+
+            cd client
+            npm ci
+            npm run build
+
+            cd ..
+
+            pm2 restart greatflowers-marketing-api
+            pm2 restart greatflowers-marketing-admin
+
+            pm2 save

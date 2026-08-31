@@ -128,6 +128,15 @@ type SavedCampaign = {
 
   createdAt: string;
   updatedAt: string;
+
+  publishStatus?: "draft" | "scheduled" | "published" | "failed";
+  scheduledAt?: string;
+  scheduledPlatforms?: string[];
+  scheduledTimezone?: string;
+  scheduleRecurrence?: string;
+  publishedAt?: string;
+  publishAttempts?: number;
+  publishError?: string;
 };
 
 const availablePlatforms = [
@@ -137,6 +146,67 @@ const availablePlatforms = [
   "X",
   "YouTube Shorts",
 ];
+
+const API_BASE = "http://localhost:3000";
+
+async function scheduleCampaignPost(campaignId: string, payload: any) {
+  const response = await fetch(
+    `${API_BASE}/api/campaigns/${campaignId}/schedule`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || "Scheduling failed");
+  }
+
+  return data;
+}
+
+async function rescheduleCampaignPost(campaignId: string, payload: any) {
+  const response = await fetch(
+    `${API_BASE}/api/campaigns/${campaignId}/schedule`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || "Rescheduling failed");
+  }
+
+  return data;
+}
+
+async function cancelCampaignSchedule(campaignId: string) {
+  const response = await fetch(
+    `${API_BASE}/api/campaigns/${campaignId}/schedule/cancel`,
+    {
+      method: "POST",
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || "Cancel failed");
+  }
+
+  return data;
+}
 
 function App() {
   const [campaigns, setCampaigns] = useState<SavedCampaign[]>([]);
@@ -153,6 +223,21 @@ function App() {
     trafficSource: "Organic Social",
     priority: "Conversions",
     additionalContext: "",
+  });
+  const [
+    scheduleCampaign,
+    setScheduleCampaign,
+  ] = useState<SavedCampaign | null>(null);
+  const [
+    scheduleForm,
+    setScheduleForm,
+  ] = useState({
+    date: "",
+    time: "",
+    timezone: "Asia/Kolkata",
+    facebook: true,
+    instagram: true,
+    recurrence: "none",
   });
 
   const [platforms, setPlatforms] = useState<string[]>([
@@ -373,6 +458,95 @@ function App() {
       );
     } finally {
       setRecommending(false);
+    }
+  };
+
+  const handleScheduleSubmit = async () => {
+    if (!scheduleCampaign) {
+      return;
+    }
+
+    if (
+      !scheduleForm.date ||
+      !scheduleForm.time
+    ) {
+      alert("Select date and time");
+      return;
+    }
+
+    const platforms: string[] = [];
+
+    if (scheduleForm.facebook) {
+      platforms.push("facebook");
+    }
+
+    if (scheduleForm.instagram) {
+      platforms.push("instagram");
+    }
+
+    if (!platforms.length) {
+      alert("Select at least one platform");
+      return;
+    }
+
+    try {
+      const scheduledAt =
+        new Date(
+          `${scheduleForm.date}T${scheduleForm.time}`
+        ).toISOString();
+
+      if (
+        scheduleCampaign.publishStatus ===
+        "scheduled" ||
+        scheduleCampaign.publishStatus ===
+        "failed"
+      ) {
+        await rescheduleCampaignPost(
+          scheduleCampaign.id,
+          {
+            scheduledAt,
+            timezone:
+              scheduleForm.timezone,
+            platforms,
+            recurrence:
+              scheduleForm.recurrence,
+          }
+        );
+      } else {
+        await scheduleCampaignPost(
+          scheduleCampaign.id,
+          {
+            scheduledAt,
+            timezone:
+              scheduleForm.timezone,
+            platforms,
+            recurrence:
+              scheduleForm.recurrence,
+            maxAttempts: 3,
+          }
+        );
+      }
+
+      setScheduleCampaign(null);
+
+      setScheduleForm({
+        date: "",
+        time: "",
+        timezone: "Asia/Kolkata",
+        facebook: true,
+        instagram: true,
+        recurrence: "none",
+      });
+
+      await loadCampaigns();
+    } catch (error) {
+      console.error(error);
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Scheduling failed"
+      );
     }
   };
 
@@ -1030,9 +1204,120 @@ ${strategy.platformContent.youtubeShorts.cta}`}
                       )
                     )}
                   </div>
+                  {campaign.publishStatus && (
+                    <div className="schedule-status">
+                      <strong>Publish status:</strong>{" "}
+                      {campaign.publishStatus}
+                    </div>
+                  )}
+                  {campaign.publishStatus === "scheduled" &&
+                    campaign.scheduledAt && (
+                      <div className="schedule-info">
+                        <div>
+                          Scheduled:{" "}
+                          {new Date(
+                            campaign.scheduledAt
+                          ).toLocaleString()}
+                        </div>
+
+                        <div>
+                          Platforms:{" "}
+                          {campaign.scheduledPlatforms?.join(
+                            ", "
+                          )}
+                        </div>
+
+                        <div>
+                          Repeat:{" "}
+                          {campaign.scheduleRecurrence ||
+                            "none"}
+                        </div>
+                      </div>
+                    )}
+                  {campaign.publishStatus === "published" &&
+                    campaign.publishedAt && (
+                      <div className="schedule-info">
+                        Published:{" "}
+                        {new Date(
+                          campaign.publishedAt
+                        ).toLocaleString()}
+                      </div>
+                    )}
+                  {campaign.publishStatus === "failed" && (
+                    <div className="schedule-error">
+                      Failed after{" "}
+                      {campaign.publishAttempts || 0} attempts.
+
+                      {campaign.publishError && (
+                        <div>
+                          {campaign.publishError}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="campaign-actions">
+                  {campaign.status === "approved" && (
+                    <button
+                      className="secondary-button"
+                      onClick={() => {
+                        setScheduleCampaign(campaign);
+
+                        if (campaign.scheduledAt) {
+                          const existing = new Date(
+                            campaign.scheduledAt
+                          );
+
+                          setScheduleForm({
+                            date: existing
+                              .toISOString()
+                              .slice(0, 10),
+
+                            time: existing
+                              .toISOString()
+                              .slice(11, 16),
+
+                            timezone:
+                              campaign.scheduledTimezone ||
+                              "Asia/Kolkata",
+
+                            facebook:
+                              campaign.scheduledPlatforms?.includes(
+                                "facebook"
+                              ) ?? true,
+
+                            instagram:
+                              campaign.scheduledPlatforms?.includes(
+                                "instagram"
+                              ) ?? true,
+
+                            recurrence:
+                              campaign.scheduleRecurrence ||
+                              "none",
+                          });
+                        }
+                      }}
+                    >
+                      {campaign.publishStatus === "scheduled"
+                        ? "Reschedule"
+                        : "Schedule Post"}
+                    </button>
+                  )}
+                  {campaign.publishStatus === "scheduled" && (
+                    <button
+                      className="reject-button"
+                      onClick={async () => {
+                        await cancelCampaignSchedule(
+                          campaign.id
+                        );
+
+                        await loadCampaigns();
+                      }}
+                    >
+                      Cancel Schedule
+                    </button>
+                  )}
                   <button
                     className="secondary-button"
                     onClick={() =>
@@ -1075,6 +1360,175 @@ ${strategy.platformContent.youtubeShorts.cta}`}
           </div>
         )}
       </section>
+      {scheduleCampaign && (
+        <div className="schedule-overlay">
+          <div className="schedule-modal">
+            <h2>
+              {scheduleCampaign.publishStatus ===
+                "scheduled"
+                ? "Reschedule Post"
+                : "Schedule Post"}
+            </h2>
+
+            <p>
+              {scheduleCampaign.input.product}
+            </p>
+
+            <label>
+              Date
+              <input
+                type="date"
+                value={scheduleForm.date}
+                onChange={(e) =>
+                  setScheduleForm({
+                    ...scheduleForm,
+                    date: e.target.value,
+                  })
+                }
+              />
+            </label>
+
+            <label>
+              Time
+              <input
+                type="time"
+                value={scheduleForm.time}
+                onChange={(e) =>
+                  setScheduleForm({
+                    ...scheduleForm,
+                    time: e.target.value,
+                  })
+                }
+              />
+            </label>
+
+            <label>
+              Timezone
+
+              <select
+                value={scheduleForm.timezone}
+                onChange={(e) =>
+                  setScheduleForm({
+                    ...scheduleForm,
+                    timezone:
+                      e.target.value,
+                  })
+                }
+              >
+                <option value="Asia/Kolkata">
+                  India — IST
+                </option>
+
+                <option value="America/Los_Angeles">
+                  US — Pacific
+                </option>
+
+                <option value="America/Denver">
+                  US — Mountain
+                </option>
+
+                <option value="America/Chicago">
+                  US — Central
+                </option>
+
+                <option value="America/New_York">
+                  US — Eastern
+                </option>
+              </select>
+            </label>
+
+            <div className="schedule-platforms">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={
+                    scheduleForm.facebook
+                  }
+                  onChange={(e) =>
+                    setScheduleForm({
+                      ...scheduleForm,
+                      facebook:
+                        e.target.checked,
+                    })
+                  }
+                />
+
+                Facebook
+              </label>
+
+              <label>
+                <input
+                  type="checkbox"
+                  checked={
+                    scheduleForm.instagram
+                  }
+                  onChange={(e) =>
+                    setScheduleForm({
+                      ...scheduleForm,
+                      instagram:
+                        e.target.checked,
+                    })
+                  }
+                />
+
+                Instagram
+              </label>
+            </div>
+
+            <label>
+              Repeat
+
+              <select
+                value={
+                  scheduleForm.recurrence
+                }
+                onChange={(e) =>
+                  setScheduleForm({
+                    ...scheduleForm,
+                    recurrence:
+                      e.target.value,
+                  })
+                }
+              >
+                <option value="none">
+                  Do not repeat
+                </option>
+
+                <option value="daily">
+                  Every day
+                </option>
+
+                <option value="weekly">
+                  Every week
+                </option>
+              </select>
+            </label>
+
+            <div className="schedule-actions">
+              <button
+                type="button"
+                onClick={() =>
+                  setScheduleCampaign(null)
+                }
+              >
+                Close
+              </button>
+
+              <button
+                type="button"
+                onClick={
+                  handleScheduleSubmit
+                }
+              >
+                {scheduleCampaign.publishStatus ===
+                  "scheduled"
+                  ? "Update Schedule"
+                  : "Schedule"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

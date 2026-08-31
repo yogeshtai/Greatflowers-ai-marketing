@@ -3,6 +3,9 @@ import {
   getGreatFlowersProducts,
 } from "./greatflowers.products.js";
 import {
+  startCampaignScheduler,
+} from "./campaign.scheduler.js";
+import {
   generateCampaignRecommendation,
 } from "./campaign.recommender.js";
 import {
@@ -17,6 +20,7 @@ import {
   getCampaignById,
   saveCampaign,
   updateCampaignStatus,
+  updateCampaign,
 } from "./campaign.store.js";
 import cors from "cors";
 import express from "express";
@@ -815,6 +819,318 @@ app.post(
   }
 );
 
+app.post(
+  "/api/campaigns/:id/schedule",
+  async (req, res) => {
+    try {
+      const campaign =
+        await getCampaignById(
+          req.params.id
+        );
+
+      if (!campaign) {
+        return res
+          .status(404)
+          .json({
+            success: false,
+            error:
+              "Campaign not found",
+          });
+      }
+
+      if (
+        campaign.status !==
+        "approved"
+      ) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            error:
+              "Only approved campaigns can be scheduled",
+          });
+      }
+
+      const {
+        scheduledAt,
+        timezone =
+          "America/Los_Angeles",
+        platforms = [
+          "facebook",
+          "instagram",
+        ],
+        recurrence =
+          "none",
+        maxAttempts = 3,
+      } = req.body;
+
+      if (!scheduledAt) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            error:
+              "scheduledAt is required",
+          });
+      }
+
+      const scheduledDate =
+        new Date(scheduledAt);
+
+      if (
+        Number.isNaN(
+          scheduledDate.getTime()
+        )
+      ) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            error:
+              "Invalid scheduledAt",
+          });
+      }
+
+      if (
+        scheduledDate.getTime() <=
+        Date.now()
+      ) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            error:
+              "Schedule must be in the future",
+          });
+      }
+
+      const allowedPlatforms = [
+        "facebook",
+        "instagram",
+      ];
+
+      const selectedPlatforms =
+        platforms.filter(
+          (platform: string) =>
+            allowedPlatforms.includes(
+              platform
+            )
+        );
+
+      if (
+        selectedPlatforms.length === 0
+      ) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            error:
+              "Select at least one platform",
+          });
+      }
+
+      if (
+        ![
+          "none",
+          "daily",
+          "weekly",
+        ].includes(recurrence)
+      ) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            error:
+              "Invalid recurrence",
+          });
+      }
+
+      const updated =
+        await updateCampaign(
+          campaign.id,
+          {
+            scheduledAt:
+              scheduledDate.toISOString(),
+
+            scheduledTimezone:
+              timezone,
+
+            scheduledPlatforms:
+              selectedPlatforms,
+
+            scheduleRecurrence:
+              recurrence,
+
+            publishStatus:
+              "scheduled",
+
+            publishAttempts: 0,
+
+            maxPublishAttempts:
+              maxAttempts,
+          }
+        );
+
+      return res.json({
+        success: true,
+        campaign: updated,
+      });
+    } catch (error) {
+      console.error(
+        "Schedule failed:",
+        error
+      );
+
+      return res
+        .status(500)
+        .json({
+          success: false,
+          error:
+            "Failed to schedule campaign",
+        });
+    }
+  }
+);
+
+app.patch(
+  "/api/campaigns/:id/schedule",
+  async (req, res) => {
+    try {
+      const campaign =
+        await getCampaignById(
+          req.params.id
+        );
+
+      if (!campaign) {
+        return res.status(404).json({
+          success: false,
+          error:
+            "Campaign not found",
+        });
+      }
+
+      if (
+        campaign.status !==
+        "approved"
+      ) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Only approved campaigns can be scheduled",
+        });
+      }
+
+      const {
+        scheduledAt,
+        timezone,
+        platforms,
+        recurrence,
+      } = req.body;
+
+      const updates: Partial<
+        typeof campaign
+      > = {
+        publishStatus:
+          "scheduled",
+      };
+
+      if (scheduledAt) {
+        const date =
+          new Date(scheduledAt);
+
+        if (
+          Number.isNaN(
+            date.getTime()
+          ) ||
+          date.getTime() <=
+            Date.now()
+        ) {
+          return res.status(400).json({
+            success: false,
+            error:
+              "Invalid schedule time",
+          });
+        }
+
+        updates.scheduledAt =
+          date.toISOString();
+      }
+
+      if (timezone) {
+        updates.scheduledTimezone =
+          timezone;
+      }
+
+      if (platforms) {
+        updates.scheduledPlatforms =
+          platforms;
+      }
+
+      if (recurrence) {
+        updates.scheduleRecurrence =
+          recurrence;
+      }
+
+      const updated =
+        await updateCampaign(
+          campaign.id,
+          updates
+        );
+
+      return res.json({
+        success: true,
+        campaign: updated,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        error:
+          "Failed to reschedule campaign",
+      });
+    }
+  }
+);
+
+app.post(
+  "/api/campaigns/:id/schedule/cancel",
+  async (req, res) => {
+    try {
+      const campaign =
+        await getCampaignById(
+          req.params.id
+        );
+
+      if (!campaign) {
+        return res.status(404).json({
+          success: false,
+          error:
+            "Campaign not found",
+        });
+      }
+
+      const updated =
+        await updateCampaign(
+          campaign.id,
+          {
+            publishStatus:
+              "cancelled",
+          }
+        );
+
+      return res.json({
+        success: true,
+        campaign: updated,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        error:
+          "Failed to cancel schedule",
+      });
+    }
+  }
+);
+
 app.get("/api/meta/test-image", async (req, res) => {
   try {
     const originalImage =
@@ -842,6 +1158,8 @@ app.get("/api/meta/test-image", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
+
+startCampaignScheduler();
 
 app.listen(PORT, () => {
   console.log(

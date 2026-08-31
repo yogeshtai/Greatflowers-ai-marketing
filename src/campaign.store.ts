@@ -19,6 +19,34 @@ export interface SavedCampaign {
 
   status: CampaignStatus;
 
+  scheduledAt?: string;
+
+  scheduledTimezone?: string;
+
+  scheduledPlatforms?: Array<
+    "facebook" | "instagram"
+  >;
+
+  scheduleRecurrence?: "none" | "daily" | "weekly";
+
+  publishStatus?:
+  | "not_scheduled"
+  | "scheduled"
+  | "publishing"
+  | "published"
+  | "failed"
+  | "cancelled";
+
+  publishedAt?: string;
+
+  publishError?: string;
+
+  publishedPlatforms?: string[];
+
+  publishAttempts?: number;
+
+  maxPublishAttempts?: number;
+
   createdAt: string;
   updatedAt: string;
   selectedProduct?: {
@@ -144,4 +172,43 @@ export async function updateCampaignStatus(
   await writeCampaigns(campaigns);
 
   return campaign;
+}
+
+export async function updateCampaign(
+  id: string,
+  updates: Partial<SavedCampaign>
+) {
+  const campaigns =
+    await readCampaigns();
+
+  const index =
+    campaigns.findIndex(
+      (campaign) =>
+        campaign.id === id
+    );
+
+  if (index === -1) {
+    return null;
+  }
+
+  const currentCampaign =
+    campaigns[index];
+
+  if (!currentCampaign) {
+    return null;
+  }
+
+  const updatedCampaign: SavedCampaign = {
+    ...currentCampaign,
+    ...updates,
+    updatedAt:
+      new Date().toISOString(),
+  };
+
+  campaigns[index] =
+    updatedCampaign;
+
+  await writeCampaigns(campaigns);
+
+  return updatedCampaign;
 }

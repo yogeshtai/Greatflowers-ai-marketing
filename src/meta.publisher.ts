@@ -11,7 +11,7 @@ const GRAPH_VERSION =
 const GRAPH_URL =
   `https://graph.facebook.com/${GRAPH_VERSION}`;
 
-  const instagramId =
+const instagramId =
   process.env.META_INSTAGRAM_ACCOUNT_ID;
 
 const pageId =
@@ -26,6 +26,33 @@ function ensureMetaConfig() {
       "Meta environment variables are missing"
     );
   }
+}
+
+const sleep = (ms: number) =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+function formatMetaError(data: any) {
+  if (!data?.error) {
+    return "Meta API request failed";
+  }
+
+  const error = data.error;
+
+  return [
+    error.message,
+    error.type ? `type=${error.type}` : "",
+    error.code !== undefined
+      ? `code=${error.code}`
+      : "",
+    error.error_subcode !== undefined
+      ? `subcode=${error.error_subcode}`
+      : "",
+    error.fbtrace_id
+      ? `fbtrace_id=${error.fbtrace_id}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" | ");
 }
 
 async function graphPost(
@@ -56,13 +83,127 @@ async function graphPost(
   const data = await response.json();
 
   if (!response.ok || data.error) {
-    throw new Error(
-      data.error?.message ||
-        "Meta publishing request failed"
-    );
+    throw new Error(formatMetaError(data));
   }
 
   return data;
+}
+
+async function getInstagramContainerStatus(
+  containerId: string
+) {
+  ensureMetaConfig();
+
+  const url = new URL(
+    `${GRAPH_URL}/${containerId}`
+  );
+
+  url.searchParams.set(
+    "fields",
+    "id,status_code,status"
+  );
+
+  url.searchParams.set(
+    "access_token",
+    accessToken!
+  );
+
+  const response = await fetch(url);
+
+  const data = await response.json();
+
+  if (!response.ok || data.error) {
+    throw new Error(formatMetaError(data));
+  }
+
+  return data;
+}
+
+async function waitForInstagramContainer(
+  containerId: string
+) {
+  const maxAttempts = 10;
+  const delayMs = 3000;
+
+  for (
+    let attempt = 1;
+    attempt <= maxAttempts;
+    attempt++
+  ) {
+    const status =
+      await getInstagramContainerStatus(
+        containerId
+      );
+
+    console.log(
+      `[Instagram] Container ${containerId} status:`,
+      status.status_code,
+      status.status
+    );
+
+    if (status.status_code === "FINISHED") {
+      return;
+    }
+
+    if (
+      status.status_code === "ERROR" ||
+      status.status_code === "EXPIRED"
+    ) {
+      throw new Error(
+        `Instagram container failed: ${status.status || status.status_code
+        }`
+      );
+    }
+
+    if (attempt < maxAttempts) {
+      await sleep(delayMs);
+    }
+  }
+
+  throw new Error(
+    `Instagram container ${containerId} did not become ready in time.`
+  );
+}
+
+async function publishInstagramContainer(
+  instagramId: string,
+  containerId: string
+) {
+  const maxAttempts = 3;
+
+  let lastError: unknown;
+
+  for (
+    let attempt = 1;
+    attempt <= maxAttempts;
+    attempt++
+  ) {
+    try {
+      console.log(
+        `[Instagram] Publishing container ${containerId}, attempt ${attempt}/${maxAttempts}`
+      );
+
+      return await graphPost(
+        `${instagramId}/media_publish`,
+        {
+          creation_id: containerId,
+        }
+      );
+    } catch (error) {
+      lastError = error;
+
+      console.error(
+        `[Instagram] Publish attempt ${attempt} failed:`,
+        error
+      );
+
+      if (attempt < maxAttempts) {
+        await sleep(3000 * attempt);
+      }
+    }
+  }
+
+  throw lastError;
 }
 
 export async function publishFacebook(
@@ -99,8 +240,8 @@ export async function publishFacebook(
       // Product URL is supplied separately as Facebook link.
       ...(campaign.selectedProduct?.url
         ? {
-            link: campaign.selectedProduct.url,
-          }
+          link: campaign.selectedProduct.url,
+        }
         : {}),
     }
   );
@@ -171,13 +312,17 @@ export async function publishInstagram(
     );
   }
 
-  // Publish the container
-  const result = await graphPost(
-    `${instagramId}/media_publish`,
-    {
-      creation_id: container.id,
-    }
+  // Wait until Meta confirms the media is ready.
+  await waitForInstagramContainer(
+    container.id
   );
+
+  // Publish with retry protection for transient Meta failures.
+  const result =
+    await publishInstagramContainer(
+      instagramId,
+      container.id
+    );
 
   return {
     platform: "instagram",

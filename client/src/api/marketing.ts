@@ -1,5 +1,7 @@
 import axios from "axios";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3005";
+
 export interface CampaignInput {
   campaignGoal: string;
   product: string;
@@ -15,7 +17,7 @@ export async function generateStrategy(
   campaign: CampaignInput
 ) {
   const response = await axios.post(
-    "http://localhost:3000/api/strategies/generate",
+    `${API_URL}/api/strategies/generate`,
     campaign
   );
 
@@ -28,7 +30,7 @@ export async function saveCampaign(
   selectedProduct?: unknown
 ) {
   const response = await axios.post(
-    "http://localhost:3000/api/campaigns",
+    `${API_URL}/api/campaigns`,
     {
       input,
       strategy,
@@ -41,7 +43,7 @@ export async function saveCampaign(
 
 export async function getCampaigns() {
   const response = await axios.get(
-    "http://localhost:3000/api/campaigns"
+    `${API_URL}/api/campaigns`
   );
 
   return response.data;
@@ -52,7 +54,7 @@ export async function updateCampaignStatus(
   status: "draft" | "approved" | "rejected"
 ) {
   const response = await axios.patch(
-    `http://localhost:3000/api/campaigns/${id}/status`,
+    `${API_URL}/api/campaigns/${id}/status`,
     {
       status,
     }
@@ -63,7 +65,7 @@ export async function updateCampaignStatus(
 
 export async function recommendCampaign() {
   const response = await axios.post(
-    "http://localhost:3000/api/recommendations/generate"
+    `${API_URL}/api/recommendations/generate`
   );
 
   return response.data;

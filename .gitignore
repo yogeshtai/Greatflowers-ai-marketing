@@ -47,3 +47,4 @@ coverage/
 # Temporary files
 *.tmp
 .cache/
+src/hermes.ts.backup

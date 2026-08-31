@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process";
 
 import {
   marketingStrategySchema,
@@ -269,63 +268,71 @@ function normalizeStrategyUrls(data: any) {
   return data;
 }
 
-export function generateMarketingStrategy(
+export async function generateMarketingStrategy(
   input: CampaignInput
 ): Promise<MarketingStrategy> {
-  return new Promise((resolve, reject) => {
-    const prompt = buildPrompt(input);
+  const apiUrl =
+    process.env.HERMES_API_URL ||
+    "http://127.0.0.1:8642/v1/chat/completions";
 
-    const hermes = spawn(
-      process.env.HERMES_BIN ||
-        `${process.env.HOME}/.local/bin/hermes`,
-      [
-        "-s",
-        "greatflowers-marketing-strategist",
-        "-z",
-        prompt,
+  const apiKey = process.env.HERMES_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("HERMES_API_KEY is not configured");
+  }
+
+  const prompt = `
+Use the greatflowers-marketing-strategist skill.
+
+${buildPrompt(input)}
+`.trim();
+
+  const response = await fetch(apiUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "hermes-agent",
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
       ],
-      {
-        env: process.env,
-      }
-    );
-
-    let output = "";
-    let errorOutput = "";
-
-    hermes.stdout.on("data", (data) => {
-      output += data.toString();
-    });
-
-    hermes.stderr.on("data", (data) => {
-      errorOutput += data.toString();
-    });
-
-    hermes.on("error", reject);
-
-    hermes.on("close", (code) => {
-      if (code !== 0) {
-        reject(
-          new Error(
-            `Hermes failed with code ${code}\n${errorOutput}`
-          )
-        );
-        return;
-      }
-
-      try {
-        const jsonText = extractJSON(output);
-        const parsedJSON = JSON.parse(jsonText);
-
-	const normalizedJSON = normalizeStrategyUrls(parsedJSON);
-
-	const strategy =
-  marketingStrategySchema.parse(normalizedJSON);
-
-        resolve(strategy);
-      } catch (error) {
-        console.error("Raw Hermes output:", output);
-        reject(error);
-      }
-    });
+    }),
   });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+
+    throw new Error(
+      `Hermes API failed (${response.status}): ${errorText}`
+    );
+  }
+
+  const data = (await response.json()) as any;
+
+  const output = data?.choices?.[0]?.message?.content;
+
+  if (!output || typeof output !== "string") {
+    console.error("Unexpected Hermes API response:", data);
+    throw new Error("Hermes API returned no message content");
+  }
+
+  try {
+    const jsonText = extractJSON(output);
+    const parsedJSON = JSON.parse(jsonText);
+
+    const normalizedJSON =
+      normalizeStrategyUrls(parsedJSON);
+
+    return marketingStrategySchema.parse(
+      normalizedJSON
+    );
+  } catch (error) {
+    console.error("Raw Hermes output:", output);
+    throw error;
+  }
 }

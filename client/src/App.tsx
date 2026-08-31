@@ -214,7 +214,7 @@ function App() {
   const [savedCampaignId, setSavedCampaignId] = useState<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [recommending, setRecommending] = useState(false);
-  const [recommendationReason, setRecommendationReason] = useState<string | null>(null);
+  const [, setRecommendationReason] = useState<string | null>(null);
   const [form, setForm] = useState({
     campaignGoal: "Generate orders",
     product: "Build Your Bouquet",

@@ -40,9 +40,22 @@ import { prepareInstagramImage } from "./meta.image.js";
 
 const app = express();
 
+const allowedOrigins = [
+  "https://marketing-admin.greatflowers.net",
+  "http://localhost:5173",
+];
+
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || "http://localhost:5173",
+    origin: (origin, callback) => {
+      // Allow requests without an Origin header (curl/server-to-server)
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error(`CORS blocked origin: ${origin}`));
+    },
+    credentials: true,
   })
 );
 

@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process";
 import type {
   WebsitePageContext,
 } from "./website.context.js";
@@ -61,28 +60,39 @@ function createCompactCatalog(
     }));
 }
 
-export function generateCampaignRecommendation(
+export async function generateCampaignRecommendation(
   products: MarketingProduct[],
   websiteContext: WebsitePageContext[],
   recentOccasions: string[] = [],
   analytics: ProductAnalyticsSignal[] = []
 ): Promise<CampaignRecommendation> {
-  return new Promise((resolve, reject) => {
-    const catalog =
-      createCompactCatalog(products);
+  const apiUrl =
+    process.env.HERMES_API_URL ||
+    "http://127.0.0.1:8642/v1/chat/completions";
 
-    const today = new Date()
-      .toISOString()
-      .slice(0, 10);
+  const apiKey = process.env.HERMES_API_KEY;
 
-    const liveWebsiteContext =
-      websiteContext.map((page) => ({
-        url: page.url,
-        title: page.title,
-        text: page.text.slice(0, 3500),
-      }));
+  if (!apiKey) {
+    throw new Error("HERMES_API_KEY is not configured");
+  }
 
-    const prompt = `
+  const catalog =
+    createCompactCatalog(products);
+
+  const today = new Date()
+    .toISOString()
+    .slice(0, 10);
+
+  const liveWebsiteContext =
+    websiteContext.map((page) => ({
+      url: page.url,
+      title: page.title,
+      text: page.text.slice(0, 3500),
+    }));
+
+  const prompt = `
+Use the greatflowers-marketing-strategist skill.
+
 You are choosing what GreatFlowers should market next.
 
 Market:
@@ -393,63 +403,50 @@ Return the complete JSON object directly.
 
 `.trim();
 
-    const hermes = spawn(
-      process.env.HERMES_BIN ||
-      `${process.env.HOME}/.local/bin/hermes`,
-      [
-        "-s",
-        "greatflowers-marketing-strategist",
-        "-z",
-        prompt,
+  const response = await fetch(apiUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "hermes-agent",
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
       ],
-      {
-        env: process.env,
-      }
-    );
-
-    let output = "";
-    let errorOutput = "";
-
-    hermes.stdout.on("data", (data) => {
-      output += data.toString();
-    });
-
-    hermes.stderr.on("data", (data) => {
-      errorOutput += data.toString();
-    });
-
-    hermes.on("error", reject);
-
-    hermes.on("close", (code) => {
-      if (code !== 0) {
-        reject(
-          new Error(
-            `Hermes recommender failed with code ${code}\n${errorOutput}`
-          )
-        );
-
-        return;
-      }
-
-      try {
-        const json = JSON.parse(
-          extractJSON(output)
-        );
-
-        const recommendation =
-          campaignRecommendationSchema.parse(
-            json
-          );
-
-        resolve(recommendation);
-      } catch (error) {
-        console.error(
-          "Raw recommendation:",
-          output
-        );
-
-        reject(error);
-      }
-    });
+    }),
   });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+
+    throw new Error(
+      `Hermes API failed (${response.status}): ${errorText}`
+    );
+  }
+
+  const data = (await response.json()) as any;
+
+  const output = data?.choices?.[0]?.message?.content;
+
+  if (!output || typeof output !== "string") {
+    console.error("Unexpected Hermes API response:", data);
+    throw new Error("Hermes API returned no message content");
+  }
+
+  try {
+    const jsonText = extractJSON(output);
+    const parsedJSON = JSON.parse(jsonText);
+
+    const recommendation =
+      campaignRecommendationSchema.parse(parsedJSON);
+
+    return recommendation;
+  } catch (error) {
+    console.error("Raw Hermes output:", output);
+    throw error;
+  }
 }

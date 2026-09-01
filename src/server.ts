@@ -516,8 +516,23 @@ ${recommendation.additionalContext}
             url: selectedProduct.url,
           },
 
+          decisionSummary:
+            recommendation.decisionSummary,
+
+          websiteEvidence:
+            recommendation.websiteEvidence,
+
           catalogEvidence:
             recommendation.catalogEvidence,
+
+          analyticsEvidence:
+            recommendation.analyticsEvidence,
+
+          rotationEvidence:
+            recommendation.rotationEvidence,
+
+          assumptions:
+            recommendation.assumptions,
 
           websitePagesChecked:
             websiteContext.map((page) => ({
@@ -542,9 +557,6 @@ ${recommendation.additionalContext}
 
           analyticsAvailable:
             productAnalytics.length > 0,
-
-          assumptions:
-            recommendation.assumptions,
         },
       });
     } catch (error) {

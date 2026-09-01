@@ -162,10 +162,13 @@ Use wording such as:
 "not enough evidence yet"
 
 When useful GA4 evidence exists,
-include it inside catalogEvidence.
+include it inside analyticsEvidence.
 
 If the data is too limited,
-say that instead of inventing a conclusion.
+return something like:
+"Current GA4 data is too limited to materially influence this recommendation."
+
+Zero activity must NOT be interpreted as poor performance.
 
 WEBSITE CONTEXT RULES:
 
@@ -252,6 +255,50 @@ No Markdown.
 No code fences.
 No explanation outside JSON.
 
+EVIDENCE GENERATION RULES:
+
+WEBSITE EVIDENCE (websiteEvidence):
+- Must come only from the supplied LIVE GREATFLOWERS WEBSITE CONTEXT.
+- State only verified facts observed on the website.
+- Do not add recommendations, suggestions, or strategic ideas to website evidence.
+- WRONG: "WELCOME10, which could be paired with a birthday campaign."
+- RIGHT: "The live website currently displays a 10% first-order promotion using WELCOME10."
+- Do not invent promotions, delivery claims, features or seasonal messaging.
+- If website context did not meaningfully influence the decision, explicitly say so.
+
+CATALOG EVIDENCE (catalogEvidence):
+- Must come only from the supplied product catalog.
+- Explain which verified product characteristics support the recommendation.
+- Product name/id/category/price/description/availability can be used.
+- Do not invent product characteristics.
+
+ANALYTICS EVIDENCE (analyticsEvidence):
+- Must come only from the supplied GA4 data.
+- Explain which actual signals influenced the recommendation.
+- If there is no useful analytics evidence, return:
+  "Current GA4 data is too limited to materially influence this recommendation."
+- Zero activity must NOT be interpreted as poor performance.
+
+ROTATION EVIDENCE (rotationEvidence):
+- Explain whether recent campaign occasions/history influenced the selection.
+- Do not claim rotation influenced the decision if it did not.
+- Do not choose a weak/irrelevant occasion simply for variety.
+
+ASSUMPTIONS (assumptions):
+- Any reasoning not directly supported by website/catalog/GA4/history must appear here.
+- Keep facts and assumptions clearly separated.
+
+DECISION SUMMARY (decisionSummary):
+- Return a concise business-friendly summary explaining:
+  "Based on [actual evidence], this product + occasion + marketing angle is worth testing next."
+- Do not present predicted performance as verified evidence.
+- WRONG: "The visually striking product may generate stronger social engagement and click-through."
+- RIGHT: "The visually distinctive product is worth testing for social engagement and click-through."
+- Use "worth testing" framing, not performance claims.
+- Any predicted outcome without GA4 data backing it must go in assumptions, not here.
+- Do not reveal private/internal chain-of-thought.
+- Only provide concise conclusions tied to supplied evidence.
+
 Use exactly:
 
 {
@@ -282,7 +329,21 @@ Use exactly:
 
   "marketingAngle": "string",
 
+  "decisionSummary": "string",
+
+  "websiteEvidence": [
+    "string"
+  ],
+
   "catalogEvidence": [
+    "string"
+  ],
+
+  "analyticsEvidence": [
+    "string"
+  ],
+
+  "rotationEvidence": [
     "string"
   ],
 
@@ -443,6 +504,23 @@ Return the complete JSON object directly.
 
     const recommendation =
       campaignRecommendationSchema.parse(parsedJSON);
+
+    console.log("\n================ AI DECISION ================\n");
+    console.log(`PRODUCT:\n${recommendation.selectedProductName} (ID: ${recommendation.selectedProductId})\n`);
+    console.log(`OCCASION:\n${recommendation.occasion}\n`);
+    console.log(`MARKETING ANGLE:\n${recommendation.marketingAngle}\n`);
+    console.log("WEBSITE EVIDENCE:");
+    recommendation.websiteEvidence.forEach((e) => console.log(`- ${e}`));
+    console.log("\nCATALOG EVIDENCE:");
+    recommendation.catalogEvidence.forEach((e) => console.log(`- ${e}`));
+    console.log("\nGA4 EVIDENCE:");
+    recommendation.analyticsEvidence.forEach((e) => console.log(`- ${e}`));
+    console.log("\nCAMPAIGN HISTORY / ROTATION:");
+    recommendation.rotationEvidence.forEach((e) => console.log(`- ${e}`));
+    console.log("\nASSUMPTIONS:");
+    recommendation.assumptions.forEach((a) => console.log(`- ${a}`));
+    console.log(`\nDECISION SUMMARY:\n${recommendation.decisionSummary}`);
+    console.log("\n=============================================\n");
 
     return recommendation;
   } catch (error) {

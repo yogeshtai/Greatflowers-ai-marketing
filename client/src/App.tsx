@@ -19,20 +19,30 @@ type RecommendationEvidence = {
     url: string;
   };
 
-  catalogEvidence: string[];
+  decisionSummary?: string;
 
-  websitePagesChecked: {
+  websiteEvidence?: string[];
+
+  catalogEvidence?: string[];
+
+  analyticsEvidence?: string[];
+
+  rotationEvidence?: string[];
+
+  assumptions?: string[];
+
+  websitePagesChecked?: {
     title: string;
     url: string;
   }[];
 
-  recentCampaigns: {
+  recentCampaigns?: {
     productName: string;
     occasion: string;
     recommendedAt: string;
   }[];
 
-  analytics: {
+  analytics?: {
     itemId: string;
     itemName: string;
     views: number;
@@ -41,9 +51,7 @@ type RecommendationEvidence = {
     purchases: number;
   } | null;
 
-  analyticsAvailable: boolean;
-
-  assumptions: string[];
+  analyticsAvailable?: boolean;
 };
 
 type Strategy = {
@@ -885,174 +893,64 @@ function App() {
           </div>
 
           {recommendationEvidence && (
-            <section className="evidence-panel">
-              <div className="evidence-heading">
+            <section className="ai-evidence-section">
+              <div className="ai-evidence-header">
                 <span className="step">
-                  Recommendation Evidence
+                  Why AI Recommended This
                 </span>
 
                 <h2>
-                  Why was this campaign recommended?
+                  Why AI Recommended This
                 </h2>
 
                 <p>
-                  Data and context checked before creating
-                  this campaign.
+                  Data and signals used to choose this campaign.
                 </p>
               </div>
 
-              <div className="evidence-grid">
-                <div className="evidence-card">
-                  <h3>Product / Catalog</h3>
-
-                  <strong>
-                    {
-                      recommendationEvidence.catalog
-                        .productName
-                    }
-                  </strong>
-
-                  <p>
-                    $
-                    {
-                      recommendationEvidence.catalog
-                        .price
-                    }{" "}
-                    ·{" "}
-                    {
-                      recommendationEvidence.catalog
-                        .stockStatus
-                    }
-                  </p>
-
-                  <div className="tags">
-                    {recommendationEvidence.catalog.categories
-                      .slice(0, 6)
-                      .map((category) => (
-                        <span key={category}>
-                          {category}
-                        </span>
-                      ))}
-                  </div>
-
-                  <BulletList
-                    items={
-                      recommendationEvidence.catalogEvidence
-                    }
-                  />
+              {recommendationEvidence.decisionSummary && (
+                <div className="ai-decision-summary">
+                  <h3>AI Decision Summary</h3>
+                  <p>{recommendationEvidence.decisionSummary}</p>
                 </div>
+              )}
 
-                <div className="evidence-card">
-                  <h3>Live Website Checked</h3>
+              <div className="ai-evidence-groups">
+                <EvidenceGroup
+                  title="Website Evidence"
+                  items={recommendationEvidence.websiteEvidence}
+                />
 
-                  {recommendationEvidence.websitePagesChecked.map(
-                    (page) => (
-                      <div
-                        className="evidence-row"
-                        key={page.url}
-                      >
-                        <span>✓</span>
+                <EvidenceGroup
+                  title="Product / Catalog Evidence"
+                  items={recommendationEvidence.catalogEvidence}
+                />
 
-                        <a
-                          href={page.url}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          {page.title}
-                        </a>
-                      </div>
-                    )
-                  )}
-                </div>
+                <EvidenceGroup
+                  title="GA4 Analytics Evidence"
+                  items={recommendationEvidence.analyticsEvidence}
+                />
 
-                <div className="evidence-card">
-                  <h3>Recent Campaigns</h3>
-
-                  {recommendationEvidence.recentCampaigns
-                    .length === 0 ? (
-                    <p>
-                      No previous recommendation history.
-                    </p>
-                  ) : (
-                    recommendationEvidence.recentCampaigns.map(
-                      (campaign, index) => (
-                        <div
-                          className="history-evidence-row"
-                          key={`${campaign.productName}-${index}`}
-                        >
-                          <strong>
-                            {campaign.productName}
-                          </strong>
-
-                          <span>
-                            {campaign.occasion}
-                          </span>
-                        </div>
-                      )
-                    )
-                  )}
-                </div>
-
-                <div className="evidence-card">
-                  <h3>GA4 Customer Behavior</h3>
-
-                  {recommendationEvidence.analytics ? (
-                    <div className="analytics-grid">
-                      <Metric
-                        label="Views"
-                        value={
-                          recommendationEvidence.analytics
-                            .views
-                        }
-                      />
-
-                      <Metric
-                        label="Add to Cart"
-                        value={
-                          recommendationEvidence.analytics
-                            .addToCarts
-                        }
-                      />
-
-                      <Metric
-                        label="Checkout"
-                        value={
-                          recommendationEvidence.analytics
-                            .checkouts
-                        }
-                      />
-
-                      <Metric
-                        label="Purchases"
-                        value={
-                          recommendationEvidence.analytics
-                            .purchases
-                        }
-                      />
-                    </div>
-                  ) : (
-                    <p className="muted">
-                      No clean GA4 behavior data is
-                      available for this product yet.
-                      Recommendation was not based on
-                      performance data.
-                    </p>
-                  )}
-                </div>
+                <EvidenceGroup
+                  title="Campaign History & Rotation"
+                  items={recommendationEvidence.rotationEvidence}
+                />
               </div>
 
-              {recommendationEvidence.assumptions.length >
-                0 && (
-                  <div className="hypothesis-box">
-                    <h3>AI Hypotheses to Test</h3>
+              {(recommendationEvidence.assumptions?.length ?? 0) > 0 && (
+                <div className="ai-assumptions-box">
+                  <h3>⚠ Assumptions / Needs Validation</h3>
+                  <ul>
+                    {recommendationEvidence.assumptions!.map((item, i) => (
+                      <li key={`assumption-${i}`}>⚠ {item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
-                    <BulletList
-                      items={
-                        recommendationEvidence.assumptions
-                      }
-                    />
-                  </div>
-                )}
+              {(recommendationEvidence.websitePagesChecked?.length ?? 0) > 0 && (
+                <SourcesChecked pages={recommendationEvidence.websitePagesChecked!} />
+              )}
             </section>
           )}
 
@@ -1760,6 +1658,64 @@ function Metric({
     <div className="metric">
       <strong>{value}</strong>
       <span>{label}</span>
+    </div>
+  );
+}
+
+function EvidenceGroup({
+  title,
+  items,
+}: {
+  title: string;
+  items?: string[];
+}) {
+  if (!items || items.length === 0) return null;
+
+  return (
+    <div className="ai-evidence-group">
+      <h4>{title}</h4>
+      <ul>
+        {items.map((item, i) => (
+          <li key={`${title}-${i}`}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function SourcesChecked({
+  pages,
+}: {
+  pages: { title: string; url: string }[];
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="ai-sources-checked">
+      <button
+        type="button"
+        className="ai-sources-toggle"
+        onClick={() => setOpen(!open)}
+      >
+        {open ? "▾" : "▸"} Sources Checked ({pages.length})
+      </button>
+
+      {open && (
+        <div className="ai-sources-list">
+          {pages.map((page) => (
+            <div className="ai-source-item" key={page.url}>
+              <span>{page.title}</span>
+              <a
+                href={page.url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {page.url}
+              </a>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

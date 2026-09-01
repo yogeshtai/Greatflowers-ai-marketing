@@ -24,11 +24,29 @@ export const campaignRecommendationSchema =
 
     marketingAngle: z.string(),
 
-    catalogEvidence: z.array(z.string()),
+    catalogEvidence: z
+      .array(z.string().min(1))
+      .min(1),
 
-    assumptions: z.array(z.string()),
+    assumptions: z
+      .array(z.string().min(1))
+      .min(1),
 
     additionalContext: z.string(),
+
+    decisionSummary: z.string().min(10),
+
+    websiteEvidence: z
+      .array(z.string().min(1))
+      .min(1),
+
+    analyticsEvidence: z
+      .array(z.string().min(1))
+      .min(1),
+
+    rotationEvidence: z
+      .array(z.string().min(1))
+      .min(1),
   });
 
 export type CampaignRecommendation =

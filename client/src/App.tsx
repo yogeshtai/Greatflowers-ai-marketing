@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import {
   generateStrategy,
   saveCampaign,
+  updateCampaign,
   getCampaigns,
   updateCampaignStatus,
   recommendCampaign,
+  generateCreatives,
 } from "./api/marketing";
 import "./App.css";
 
@@ -112,6 +114,37 @@ type Strategy = {
 
   assumptions: string[];
   needsVerification: string[];
+  
+  creativeBrief?: {
+    headline: string;
+    subheadline: string;
+    cta: string;
+    mood: string;
+    backgroundDirection: string;
+    productTreatment: string;
+    logoPlacement: string;
+    textPlacement: string;
+    creativeGoal: string;
+    variants: CreativeVariant[];
+  };
+};
+
+type CreativeVariant = {
+  type: "emotional" | "product-focused" | "premium-minimal";
+  headline: string;
+  subheadline: string;
+  cta: string;
+  visualDirection: string;
+};
+
+type Creative = {
+  type: string;
+  localPath: string;
+  headline: string;
+  subheadline: string;
+  cta: string;
+  success: boolean;
+  error?: string;
 };
 
 type CampaignStatus = "draft" | "approved" | "rejected";
@@ -145,6 +178,23 @@ type SavedCampaign = {
   publishedAt?: string;
   publishAttempts?: number;
   publishError?: string;
+  
+  selectedProduct?: {
+    id: number;
+    name: string;
+    url: string;
+    image: string | null;
+  };
+  
+  creatives?: Creative[];
+  selectedCreative?: {
+    type: string;
+    imageUrl: string;
+    headline: string;
+    subheadline: string;
+    cta: string;
+    isFallback: boolean;
+  };
 };
 
 const availablePlatforms = [
@@ -264,6 +314,20 @@ function App() {
   const [error, setError] = useState("");
   const [recommendationEvidence, setRecommendationEvidence] = useState<RecommendationEvidence | null>(null);
   const [recommendedProduct, setRecommendedProduct] = useState<any | null>(null);
+  
+  // Creative state (separate from recommendation)
+  const [creatives, setCreatives] = useState<Creative[]>([]);
+  const [creativesLoading, setCreativesLoading] = useState(false);
+  const [creativesError, setCreativesError] = useState("");
+  const [creativeFallbackImage, setCreativeFallbackImage] = useState<string | null>(null);
+  const [selectedCreative, setSelectedCreative] = useState<{
+    type: string;
+    imageUrl: string;
+    headline: string;
+    subheadline: string;
+    cta: string;
+    isFallback: boolean;
+  } | null>(null);
   
   // Check if already authenticated on mount
   useEffect(() => {
@@ -481,6 +545,31 @@ function App() {
     setStrategy(campaign.strategy);
 
     setSavedCampaignId(campaign.id);
+    
+    // Load saved creatives if they exist
+    if (campaign.creatives && campaign.creatives.length > 0) {
+      setCreatives(campaign.creatives);
+      setCreativesError("");
+      // Set fallback image from selectedProduct if available
+      if (campaign.selectedProduct?.image) {
+        setCreativeFallbackImage(campaign.selectedProduct.image);
+      }
+    } else {
+      setCreatives([]);
+      setCreativesError("");
+    }
+    
+    // Load selectedProduct if it exists (for fallback and display)
+    if (campaign.selectedProduct) {
+      setRecommendedProduct(campaign.selectedProduct);
+    }
+
+    // Load selectedCreative if it exists
+    if (campaign.selectedCreative) {
+      setSelectedCreative(campaign.selectedCreative);
+    } else {
+      setSelectedCreative(null);
+    }
 
     window.scrollTo({
       top: 0,
@@ -529,13 +618,28 @@ function App() {
         platforms,
       };
 
-      const response = await saveCampaign(
-        input,
-        strategy,
-        recommendedProduct
-      );
+      let response;
 
-      setSavedCampaignId(response.campaign.id);
+      if (savedCampaignId) {
+        response = await updateCampaign(
+          savedCampaignId,
+          input,
+          strategy,
+          recommendedProduct,
+          creatives.length > 0 ? creatives : undefined,
+          selectedCreative || undefined
+        );
+      } else {
+        response = await saveCampaign(
+          input,
+          strategy,
+          recommendedProduct,
+          creatives.length > 0 ? creatives : undefined,
+          selectedCreative || undefined
+        );
+
+        setSavedCampaignId(response.campaign.id);
+      }
 
       await loadCampaigns();
     } catch (error) {
@@ -598,6 +702,12 @@ function App() {
       );
 
       setStrategy(strategy);
+      
+      // Clear previous creatives when new recommendation is generated
+      setCreatives([]);
+      setCreativesError("");
+      setCreativeFallbackImage(null);
+      setSelectedCreative(null);
     } catch (error) {
       console.error(
         "Recommendation failed:",
@@ -609,6 +719,124 @@ function App() {
       );
     } finally {
       setRecommending(false);
+    }
+  };
+
+  const handleSelectCreative = (creative: Creative) => {
+    // Only allow selection of completed creatives (not placeholders)
+    if (!creative.success && !creative.localPath && !creativeFallbackImage) {
+      return;
+    }
+
+    // Check if localPath is already a full S3 URL or a local path
+    const isS3Url = creative.localPath?.startsWith('http');
+    const imageUrl = creative.success && creative.localPath
+      ? (isS3Url 
+          ? creative.localPath 
+          : `${API_BASE}/${creative.localPath.replace(/^.*test-creatives\//, 'test-creatives/')}`)
+      : (creativeFallbackImage || recommendedProduct?.image || '');
+
+    setSelectedCreative({
+      type: creative.type,
+      imageUrl,
+      headline: creative.headline,
+      subheadline: creative.subheadline,
+      cta: creative.cta,
+      isFallback: !creative.success || !creative.localPath,
+    });
+  };
+
+  const handleGenerateCreatives = async () => {
+    if (!strategy?.creativeBrief || !recommendedProduct?.image) {
+      setCreativesError("Missing creative brief or product image");
+      return;
+    }
+
+    // Validate that the product hasn't been manually changed
+    if (form.product !== recommendedProduct.name) {
+      setCreativesError(
+        `Product mismatch: You selected "${form.product}" but the recommendation is for "${recommendedProduct.name}". ` +
+        `Please generate a new recommendation for "${form.product}" first.`
+      );
+      return;
+    }
+
+    try {
+      setCreativesLoading(true);
+      setCreativesError("");
+      setCreatives([]);
+      setSelectedCreative(null);
+
+      // Use fetch to POST and get SSE stream
+      const response = await fetch(`${API_BASE}/api/creatives/generate/stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productImageUrl: recommendedProduct.image,
+          creativeBrief: strategy.creativeBrief,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to start creative generation');
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) {
+        throw new Error('No response stream');
+      }
+
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) {
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = JSON.parse(line.slice(6));
+
+            if (data.type === 'start') {
+              setCreativeFallbackImage(data.productImageUrl);
+            } else if (data.type === 'progress') {
+              // Add or update the creative immediately
+              setCreatives(prev => {
+                const newCreatives = [...prev];
+                const existingIndex = newCreatives.findIndex(c => c.type === data.creative.type);
+                
+                if (existingIndex >= 0) {
+                  newCreatives[existingIndex] = data.creative;
+                } else {
+                  newCreatives.push(data.creative);
+                }
+                
+                return newCreatives;
+              });
+              setCreativeFallbackImage(data.productImageUrl);
+            } else if (data.type === 'error') {
+              setCreativesError(data.error || 'Creative generation failed');
+              setCreativeFallbackImage(data.productImageUrl);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Creative generation failed:", error);
+      setCreativesError("Failed to generate creatives");
+      setCreatives([]);
+    } finally {
+      setCreativesLoading(false);
     }
   };
 
@@ -881,12 +1109,12 @@ function App() {
               <button
                 className="primary-action-button"
                 onClick={handleSaveCampaign}
-                disabled={saving || !!savedCampaignId}
+                disabled={saving}
               >
                 {saving
                   ? "Saving..."
                   : savedCampaignId
-                    ? "Saved ✓"
+                    ? "Update Campaign"
                     : "Save Campaign"}
               </button>
             </div>
@@ -950,6 +1178,250 @@ function App() {
 
               {(recommendationEvidence.websitePagesChecked?.length ?? 0) > 0 && (
                 <SourcesChecked pages={recommendationEvidence.websitePagesChecked!} />
+              )}
+            </section>
+          )}
+
+          {strategy?.creativeBrief && recommendedProduct && (
+            <section className="campaign-creatives-section">
+              <div className="creatives-header">
+                <h2>🎨 Campaign Creatives</h2>
+                <p>AI-generated social media creatives for this campaign</p>
+              </div>
+
+              {!creativesLoading && creatives.length === 0 && !creativesError && (
+                <div className="creatives-generate-prompt">
+                  <button
+                    onClick={handleGenerateCreatives}
+                    className="btn-generate-creatives"
+                    disabled={creativesLoading}
+                  >
+                    Generate Creatives
+                  </button>
+                  <p className="creatives-hint">
+                    Generate 3 AI creative variants (Emotional, Product-Focused, Premium-Minimal)
+                  </p>
+                </div>
+              )}
+
+              {creativesLoading && (
+                <div className="creatives-loading">
+                  <p className="loading-message">
+                    🎨 AI creatives are being generated. This may take several minutes.
+                    <br />
+                    <strong>{creatives.length} of 3 completed</strong>
+                  </p>
+                  
+                  {/* Show completed creatives immediately */}
+                  {creatives.length > 0 && (
+                    <div className="creatives-grid">
+                      {creatives.map((creative, index) => {
+                        const isSelected = selectedCreative?.type === creative.type;
+                        return (
+                          <div 
+                            key={`creative-${index}`} 
+                            className={`creative-card selectable ${isSelected ? 'selected' : ''}`}
+                            onClick={() => handleSelectCreative(creative)}
+                          >
+                            <div className="creative-image-container">
+                              {creative.success && creative.localPath ? (
+                                <img
+                                  src={creative.localPath.startsWith('http') 
+                                    ? creative.localPath 
+                                    : `${API_BASE}/${creative.localPath.replace(/^.*test-creatives\//, 'test-creatives/')}`}
+                                  alt={creative.headline}
+                                  className="creative-image"
+                                />
+                              ) : (
+                                <>
+                                  <img
+                                    src={creativeFallbackImage || recommendedProduct.image}
+                                    alt={creative.headline}
+                                    className="creative-image fallback"
+                                  />
+                                  <div className="fallback-badge">
+                                    Using original product image
+                                  </div>
+                                </>
+                              )}
+                              {isSelected && (
+                                <div className="selected-badge">
+                                  ✓ Selected
+                                </div>
+                              )}
+                            </div>
+                            <div className="creative-details">
+                              <span className="creative-type-badge">
+                                {creative.type}
+                              </span>
+                              <h3 className="creative-headline">{creative.headline}</h3>
+                              {creative.subheadline && (
+                                <p className="creative-subheadline">{creative.subheadline}</p>
+                              )}
+                              <p className="creative-cta">CTA: {creative.cta}</p>
+                              {!creative.success && creative.error && (
+                                <p className="creative-error-note">⚠ {creative.error}</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Show placeholders for remaining variants */}
+                  <div className="creatives-placeholders" style={{ marginTop: creatives.length > 0 ? '24px' : '0' }}>
+                    {!creatives.some(c => c.type === 'emotional') && (
+                      <div className={`creative-placeholder ${creatives.length === 0 ? 'generating' : 'waiting'}`}>
+                        {creatives.length === 0 ? (
+                          <div className="placeholder-spinner"></div>
+                        ) : (
+                          <div className="placeholder-waiting">⏳</div>
+                        )}
+                        <p>
+                          {creatives.length === 0 
+                            ? 'Generating Emotional Creative...' 
+                            : 'Emotional Creative - Waiting'}
+                        </p>
+                      </div>
+                    )}
+                    {!creatives.some(c => c.type === 'product-focused') && (
+                      <div className={`creative-placeholder ${creatives.length === 1 ? 'generating' : 'waiting'}`}>
+                        {creatives.length === 1 ? (
+                          <div className="placeholder-spinner"></div>
+                        ) : (
+                          <div className="placeholder-waiting">⏳</div>
+                        )}
+                        <p>
+                          {creatives.length === 1 
+                            ? 'Generating Product-Focused Creative...' 
+                            : 'Product-Focused Creative - Waiting'}
+                        </p>
+                      </div>
+                    )}
+                    {!creatives.some(c => c.type === 'premium-minimal') && (
+                      <div className={`creative-placeholder ${creatives.length === 2 ? 'generating' : 'waiting'}`}>
+                        {creatives.length === 2 ? (
+                          <div className="placeholder-spinner"></div>
+                        ) : (
+                          <div className="placeholder-waiting">⏳</div>
+                        )}
+                        <p>
+                          {creatives.length === 2 
+                            ? 'Generating Premium-Minimal Creative...' 
+                            : 'Premium-Minimal Creative - Waiting'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {!creativesLoading && creatives.length > 0 && (
+                <>
+                  <div className="creatives-grid">
+                    {creatives.map((creative, index) => {
+                      const isSelected = selectedCreative?.type === creative.type;
+                      return (
+                        <div 
+                          key={`creative-${index}`} 
+                          className={`creative-card selectable ${isSelected ? 'selected' : ''}`}
+                          onClick={() => handleSelectCreative(creative)}
+                        >
+                          <div className="creative-image-container">
+                            {creative.success && creative.localPath ? (
+                              <img
+                                src={creative.localPath.startsWith('http') 
+                                  ? creative.localPath 
+                                  : `${API_BASE}/${creative.localPath.replace(/^.*test-creatives\//, 'test-creatives/')}`}
+                                alt={creative.headline}
+                                className="creative-image"
+                              />
+                            ) : (
+                              <>
+                                <img
+                                  src={creativeFallbackImage || recommendedProduct.image}
+                                  alt={creative.headline}
+                                  className="creative-image fallback"
+                                />
+                                <div className="fallback-badge">
+                                  Using original product image
+                                </div>
+                              </>
+                            )}
+                            {isSelected && (
+                              <div className="selected-badge">
+                                ✓ Selected
+                              </div>
+                            )}
+                          </div>
+                          <div className="creative-details">
+                            <span className="creative-type-badge">
+                              {creative.type}
+                            </span>
+                            <h3 className="creative-headline">{creative.headline}</h3>
+                            {creative.subheadline && (
+                              <p className="creative-subheadline">{creative.subheadline}</p>
+                            )}
+                            <p className="creative-cta">CTA: {creative.cta}</p>
+                            {!creative.success && creative.error && (
+                              <p className="creative-error-note">⚠ {creative.error}</p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  {/* Selection Summary */}
+                  {selectedCreative && (
+                    <div className="creative-selection-summary">
+                      <h3>Selected Creative</h3>
+                      <div className="selection-info">
+                        <p className="selection-type"><strong>{selectedCreative.type}</strong></p>
+                        <p className="selection-headline">{selectedCreative.headline}</p>
+                        <p className="selection-cta">CTA: {selectedCreative.cta}</p>
+                        {selectedCreative.isFallback && (
+                          <p className="selection-fallback-note">⚠ Using original product image</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {!creativesLoading && creatives.length === 0 && creativesError && (
+                <div className="creatives-fallback">
+                  <div className="fallback-message">
+                    <p>⚠ {creativesError}</p>
+                    <p>Using original product image as fallback creative.</p>
+                    <button 
+                      className="retry-button"
+                      onClick={handleGenerateCreatives}
+                    >
+                      🔄 Retry Creative Generation
+                    </button>
+                  </div>
+                  <div className="creative-card fallback-card">
+                    <div className="creative-image-container">
+                      <img
+                        src={creativeFallbackImage || recommendedProduct.image}
+                        alt={strategy.creativeBrief.headline}
+                        className="creative-image fallback"
+                      />
+                      <div className="fallback-badge">
+                        AI creative generation was unavailable. Using the original product image instead.
+                      </div>
+                    </div>
+                    <div className="creative-details">
+                      <h3 className="creative-headline">{strategy.creativeBrief.headline}</h3>
+                      {strategy.creativeBrief.subheadline && (
+                        <p className="creative-subheadline">{strategy.creativeBrief.subheadline}</p>
+                      )}
+                      <p className="creative-cta">CTA: {strategy.creativeBrief.cta}</p>
+                    </div>
+                  </div>
+                </div>
               )}
             </section>
           )}

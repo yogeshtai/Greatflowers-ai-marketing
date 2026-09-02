@@ -1,7 +1,21 @@
 import { spawn } from "node:child_process";
-import { writeFile, mkdir } from "node:fs/promises";
+import { writeFile, mkdir, readFile, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
+import fetch from "node-fetch";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+
+const REGION = process.env.AWS_REGION!;
+const BUCKET = process.env.AWS_S3_BUCKET!;
+const PREFIX = process.env.AWS_S3_CREATIVE_PREFIX || "campaign";
+
+const s3 = new S3Client({
+  region: REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  },
+});
 
 export interface CreativeVariant {
   type: "emotional" | "product-focused" | "premium-minimal";
@@ -62,6 +76,27 @@ async function downloadToTemp(
   return tempPath;
 }
 
+async function uploadToS3(
+  localPath: string,
+  filename: string
+): Promise<string> {
+  const fileBuffer = await readFile(localPath);
+
+  const key = `${PREFIX}/${filename}`;
+
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      Body: fileBuffer,
+      ContentType: "image/png",
+    })
+  );
+
+  // Return public S3 URL
+  return `https://${BUCKET}.s3.${REGION}.amazonaws.com/${key}`;
+}
+
 function buildCodexPrompt(
   variant: CreativeVariant,
   creativeBrief: CreativeBrief
@@ -86,6 +121,13 @@ TEXT OVERLAY (verbatim):
 Headline: "${variant.headline}"
 Subheadline: "${variant.subheadline}"
 CTA: "${variant.cta}"
+
+IMPORTANT IMAGE CONTENT RULES:
+- Do not render buttons, CTA buttons, links, website URLs, or clickable-looking UI elements inside the image.
+- The CTA will be added separately to the social media post.
+- Keep the creative visually clean and editorial.
+- Text may include only the campaign headline and a short supporting line when appropriate.
+- Do not put CTA text such as "Shop Now", "Send Flowers", "Buy Now", "View Flowers", or similar action phrases inside the image.
 
 LOGO PLACEMENT:
 ${creativeBrief.logoPlacement}
@@ -218,9 +260,22 @@ async function generateCreativeVariant(
       outputFilename
     );
 
+    // Upload to S3
+    console.log(`📤 Uploading ${variant.type} to S3...`);
+    const s3Url = await uploadToS3(localPath, outputFilename);
+    console.log(`✅ Uploaded to: ${s3Url}`);
+
+    // Clean up local file
+    try {
+      await unlink(localPath);
+      console.log(`🗑️  Cleaned up local file: ${localPath}`);
+    } catch (cleanupError) {
+      console.warn(`⚠️  Could not delete local file: ${localPath}`);
+    }
+
     return {
       type: variant.type,
-      localPath,
+      localPath: s3Url, // Now contains S3 URL instead of local path
       headline: variant.headline,
       subheadline: variant.subheadline,
       cta: variant.cta,
@@ -249,7 +304,8 @@ async function generateCreativeVariant(
 
 export async function generateAllCreatives(
   productImageUrl: string,
-  creativeBrief: CreativeBrief
+  creativeBrief: CreativeBrief,
+  onProgress?: (result: CreativeResult, index: number, total: number) => void
 ): Promise<CreativeResult[]> {
   console.log(
     "\n🎨 Starting AI creative generation (3 variants)..."
@@ -262,8 +318,11 @@ export async function generateAllCreatives(
   );
 
   const results: CreativeResult[] = [];
+  const total = creativeBrief.variants.length;
 
-  for (const variant of creativeBrief.variants) {
+  for (let i = 0; i < creativeBrief.variants.length; i++) {
+    const variant = creativeBrief.variants[i]!;
+    
     console.log(
       `\n🔄 Generating ${variant.type} variant...`
     );
@@ -284,6 +343,11 @@ export async function generateAllCreatives(
       console.log(
         `❌ ${variant.type}: ${result.error}`
       );
+    }
+
+    // Emit progress event
+    if (onProgress) {
+      onProgress(result, i + 1, total);
     }
   }
 

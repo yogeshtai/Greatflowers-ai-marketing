@@ -61,6 +61,9 @@ app.use(
 
 app.use(express.json());
 
+// Serve generated creative images
+app.use('/test-creatives', express.static('test-creatives'));
+
 const campaignSchema = z.object({
   campaignGoal: z.string().min(1),
   product: z.string().min(1),
@@ -121,6 +124,8 @@ app.post("/api/campaigns", async (req, res) => {
       input,
       strategy,
       selectedProduct,
+      creatives,
+      selectedCreative,
     } = req.body;
 
     if (!input || !strategy) {
@@ -133,7 +138,9 @@ app.post("/api/campaigns", async (req, res) => {
     const campaign = await saveCampaign(
       input,
       strategy,
-      selectedProduct
+      selectedProduct,
+      creatives,
+      selectedCreative
     );
 
     return res.status(201).json({
@@ -189,6 +196,53 @@ app.get(
       success: true,
       campaign,
     });
+  }
+);
+
+app.put(
+  "/api/campaigns/:id",
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const {
+        input,
+        strategy,
+        selectedProduct,
+        creatives,
+        selectedCreative,
+      } = req.body;
+
+      const campaign = await updateCampaign(id, {
+        ...(input ? { input } : {}),
+        ...(strategy ? { strategy } : {}),
+        ...(selectedProduct
+          ? { selectedProduct }
+          : {}),
+        ...(creatives ? { creatives } : {}),
+        ...(selectedCreative
+          ? { selectedCreative }
+          : {}),
+      });
+
+      if (!campaign) {
+        return res.status(404).json({
+          success: false,
+          error: "Campaign not found",
+        });
+      }
+
+      return res.json({
+        success: true,
+        campaign,
+      });
+    } catch (error) {
+      console.error("Update campaign failed:", error);
+
+      return res.status(500).json({
+        success: false,
+        error: "Failed to update campaign",
+      });
+    }
   }
 );
 
@@ -583,32 +637,32 @@ ${recommendation.additionalContext}
 app.post(
   "/api/creatives/generate",
   async (req, res) => {
+    const { productImageUrl, creativeBrief } =
+      req.body;
+
+    if (
+      !productImageUrl ||
+      typeof productImageUrl !== "string"
+    ) {
+      return res.status(400).json({
+        success: false,
+        error:
+          "productImageUrl is required and must be a string",
+      });
+    }
+
+    if (
+      !creativeBrief ||
+      typeof creativeBrief !== "object"
+    ) {
+      return res.status(400).json({
+        success: false,
+        error:
+          "creativeBrief is required and must be an object",
+      });
+    }
+
     try {
-      const { productImageUrl, creativeBrief } =
-        req.body;
-
-      if (
-        !productImageUrl ||
-        typeof productImageUrl !== "string"
-      ) {
-        return res.status(400).json({
-          success: false,
-          error:
-            "productImageUrl is required and must be a string",
-        });
-      }
-
-      if (
-        !creativeBrief ||
-        typeof creativeBrief !== "object"
-      ) {
-        return res.status(400).json({
-          success: false,
-          error:
-            "creativeBrief is required and must be an object",
-        });
-      }
-
       console.log(
         "\n🎨 AI Creative Generation Request"
       );
@@ -629,21 +683,126 @@ app.post(
       return res.json({
         success: true,
         creatives,
+        productImageUrl,
       });
     } catch (error) {
       console.error(
-        "❌ Creative generation failed:",
+        "❌ Creative generation failed completely:",
         error
       );
 
-      return res.status(500).json({
-        success: false,
-        error: "Failed to generate creatives",
+      return res.json({
+        success: true,
+        creatives: [],
+        productImageUrl,
+        error: "Creative generation unavailable",
         details:
           error instanceof Error
             ? error.message
             : String(error),
       });
+    }
+  }
+);
+
+app.post(
+  "/api/creatives/generate/stream",
+  async (req, res) => {
+    const { productImageUrl, creativeBrief } =
+      req.body;
+
+    if (
+      !productImageUrl ||
+      typeof productImageUrl !== "string"
+    ) {
+      return res.status(400).json({
+        success: false,
+        error:
+          "productImageUrl is required and must be a string",
+      });
+    }
+
+    if (
+      !creativeBrief ||
+      typeof creativeBrief !== "object"
+    ) {
+      return res.status(400).json({
+        success: false,
+        error:
+          "creativeBrief is required and must be an object",
+      });
+    }
+
+    // Set up SSE headers
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    console.log(
+      "\n🎨 AI Creative Generation Stream Request"
+    );
+    console.log(
+      `Product: ${productImageUrl}`
+    );
+
+    try {
+      const { generateAllCreatives } = await import(
+        "./codex.creative.js"
+      );
+
+      // Send initial event
+      res.write(
+        `data: ${JSON.stringify({
+          type: "start",
+          productImageUrl,
+          total: creativeBrief.variants.length,
+        })}\n\n`
+      );
+
+      await generateAllCreatives(
+        productImageUrl,
+        creativeBrief,
+        (result, index, total) => {
+          // Send progress event for each completed creative
+          res.write(
+            `data: ${JSON.stringify({
+              type: "progress",
+              creative: result,
+              index,
+              total,
+              productImageUrl,
+            })}\n\n`
+          );
+        }
+      );
+
+      // Send completion event
+      res.write(
+        `data: ${JSON.stringify({
+          type: "complete",
+        })}\n\n`
+      );
+
+      res.end();
+    } catch (error) {
+      console.error(
+        "❌ Creative generation stream failed:",
+        error
+      );
+
+      res.write(
+        `data: ${JSON.stringify({
+          type: "error",
+          error: "Creative generation unavailable",
+          productImageUrl,
+          details:
+            error instanceof Error
+              ? error.message
+              : String(error),
+        })}\n\n`
+      );
+
+      res.end();
     }
   }
 );

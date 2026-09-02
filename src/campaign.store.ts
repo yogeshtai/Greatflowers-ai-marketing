@@ -55,6 +55,23 @@ export interface SavedCampaign {
     url: string;
     image: string | null;
   };
+  creatives?: Array<{
+    type: string;
+    localPath: string;
+    headline: string;
+    subheadline: string;
+    cta: string;
+    success: boolean;
+    error?: string;
+  }>;
+  selectedCreative?: {
+    type: string;
+    imageUrl: string;
+    headline: string;
+    subheadline: string;
+    cta: string;
+    isFallback: boolean;
+  };
 }
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -107,6 +124,23 @@ export async function saveCampaign(
     name: string;
     url: string;
     image: string | null;
+  },
+  creatives?: Array<{
+    type: string;
+    localPath: string;
+    headline: string;
+    subheadline: string;
+    cta: string;
+    success: boolean;
+    error?: string;
+  }>,
+  selectedCreative?: {
+    type: string;
+    imageUrl: string;
+    headline: string;
+    subheadline: string;
+    cta: string;
+    isFallback: boolean;
   }
 ) {
   const campaigns = await readCampaigns();
@@ -121,6 +155,14 @@ export async function saveCampaign(
 
     ...(selectedProduct
       ? { selectedProduct }
+      : {}),
+
+    ...(creatives && creatives.length > 0
+      ? { creatives }
+      : {}),
+
+    ...(selectedCreative
+      ? { selectedCreative }
       : {}),
 
     status: "draft",

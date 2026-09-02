@@ -3,6 +3,7 @@ import type {
 } from "./campaign.store.js";
 import {
   prepareInstagramImage,
+  prepareFacebookImage,
 } from "./meta.image.js";
 
 const GRAPH_VERSION =
@@ -19,6 +20,54 @@ const pageId =
 
 const accessToken =
   process.env.META_PAGE_ACCESS_TOKEN;
+
+async function resolveImageUrl(
+  prepareImage: (url: string) => Promise<string>,
+  selectedCreativeUrl: string | undefined,
+  productImageUrl: string | null | undefined
+): Promise<string> {
+  const candidateUrls: string[] = [];
+  if (selectedCreativeUrl) {
+    candidateUrls.push(selectedCreativeUrl);
+  }
+  if (productImageUrl) {
+    candidateUrls.push(productImageUrl);
+  }
+
+  for (let i = 0; i < candidateUrls.length; i++) {
+    const url = candidateUrls[i];
+
+    if (!url) {
+      continue;
+    }
+
+    try {
+      const preparedUrl = await prepareImage(url);
+      console.log(
+        `✅ Prepared image for publishing: ${preparedUrl}`
+      );
+      return preparedUrl;
+    } catch (error) {
+      console.warn(
+        `⚠️ Failed to prepare image ${url}:`,
+        error
+      );
+
+      // If this is the last candidate, return the original URL
+      // as a last resort so the flow doesn't stop.
+      if (i === candidateUrls.length - 1) {
+        console.warn(
+          `🔄 Falling back to original image URL: ${url}`
+        );
+        return url;
+      }
+    }
+  }
+
+  throw new Error(
+    "No image URL available for publishing"
+  );
+}
 
 function ensureMetaConfig() {
   if (!pageId || !accessToken) {
@@ -224,25 +273,36 @@ export async function publishFacebook(
     );
   }
 
-  // No duplicate product URL here.
+  const productImage = campaign.selectedProduct?.image;
+
+  if (!productImage) {
+    throw new Error(
+      "Campaign does not have a product image. A product image is required to publish."
+    );
+  }
+
+  const productUrl = campaign.selectedProduct?.url || "";
+
   const message = [
     facebook.post,
+    productUrl,
     facebook.cta || "",
   ]
     .filter(Boolean)
     .join("\n\n");
 
+  // Use selected creative image if available, fall back to product image
+  const imageUrl = await resolveImageUrl(
+    prepareFacebookImage,
+    campaign.selectedCreative?.imageUrl,
+    productImage
+  );
+
   const result = await graphPost(
-    `${pageId}/feed`,
+    `${pageId}/photos`,
     {
       message,
-
-      // Product URL is supplied separately as Facebook link.
-      ...(campaign.selectedProduct?.url
-        ? {
-          link: campaign.selectedProduct.url,
-        }
-        : {}),
+      url: imageUrl,
     }
   );
 
@@ -271,12 +331,11 @@ export async function publishInstagram(
     );
   }
 
-  const originalImage =
-    campaign.selectedProduct?.image;
+  const productImage = campaign.selectedProduct?.image;
 
-  if (!originalImage) {
+  if (!productImage) {
     throw new Error(
-      "Campaign does not have a product image."
+      "Campaign does not have a product image. A product image is required to publish."
     );
   }
 
@@ -286,9 +345,12 @@ export async function publishInstagram(
     );
   }
 
-  // WebP → JPEG → public S3 URL
-  const imageUrl =
-    await prepareInstagramImage(originalImage);
+  // Use selected creative image if available, fall back to product image
+  const imageUrl = await resolveImageUrl(
+    prepareInstagramImage,
+    campaign.selectedCreative?.imageUrl,
+    productImage
+  );
 
   const caption = [
     instagram.caption,

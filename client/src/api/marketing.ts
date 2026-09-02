@@ -27,7 +27,9 @@ export async function generateStrategy(
 export async function saveCampaign(
   input: CampaignInput,
   strategy: unknown,
-  selectedProduct?: unknown
+  selectedProduct?: unknown,
+  creatives?: unknown,
+  selectedCreative?: unknown
 ) {
   const response = await axios.post(
     `${API_URL}/api/campaigns`,
@@ -35,6 +37,30 @@ export async function saveCampaign(
       input,
       strategy,
       selectedProduct,
+      creatives,
+      selectedCreative,
+    }
+  );
+
+  return response.data;
+}
+
+export async function updateCampaign(
+  id: string,
+  input: CampaignInput,
+  strategy: unknown,
+  selectedProduct?: unknown,
+  creatives?: unknown,
+  selectedCreative?: unknown
+) {
+  const response = await axios.put(
+    `${API_URL}/api/campaigns/${id}`,
+    {
+      input,
+      strategy,
+      selectedProduct,
+      creatives,
+      selectedCreative,
     }
   );
 
@@ -66,6 +92,21 @@ export async function updateCampaignStatus(
 export async function recommendCampaign() {
   const response = await axios.post(
     `${API_URL}/api/recommendations/generate`
+  );
+
+  return response.data;
+}
+
+export async function generateCreatives(
+  productImageUrl: string,
+  creativeBrief: unknown
+) {
+  const response = await axios.post(
+    `${API_URL}/api/creatives/generate`,
+    {
+      productImageUrl,
+      creativeBrief,
+    }
   );
 
   return response.data;

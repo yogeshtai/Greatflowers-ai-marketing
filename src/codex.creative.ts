@@ -1,9 +1,31 @@
 import { spawn } from "node:child_process";
 import { writeFile, mkdir, readFile, unlink } from "node:fs/promises";
-import { join } from "node:path";
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import fetch from "node-fetch";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+function resolveCodexBinary(): string {
+  // Prefer locally installed @openai/codex so it works after npm install
+  const localBin = join(
+    __dirname,
+    "..",
+    "node_modules",
+    ".bin",
+    "codex"
+  );
+
+  if (existsSync(localBin)) {
+    return localBin;
+  }
+
+  // Fall back to global PATH (e.g. Homebrew on macOS or global npm on Linux)
+  return "codex";
+}
 
 const REGION = process.env.AWS_REGION!;
 const BUCKET = process.env.AWS_S3_BUCKET!;
@@ -176,7 +198,11 @@ async function executeCodex(
       `🎨 Executing Codex for ${outputFilename}...`
     );
 
-    const codex = spawn("codex", args, {
+    const codexBinary = resolveCodexBinary();
+
+    console.log(`🔧 Codex binary: ${codexBinary}`);
+
+    const codex = spawn(codexBinary, args, {
       stdio: ["ignore", "pipe", "pipe"],
     });
 

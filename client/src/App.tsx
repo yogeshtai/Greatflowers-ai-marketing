@@ -6,7 +6,6 @@ import {
   getCampaigns,
   updateCampaignStatus,
   recommendCampaign,
-  generateCreatives,
 } from "./api/marketing";
 import "./App.css";
 
@@ -2116,21 +2115,6 @@ function CopyButton({
     >
       {copied ? "Copied ✓" : label}
     </button>
-  );
-}
-
-function Metric({
-  label,
-  value,
-}: {
-  label: string;
-  value: number;
-}) {
-  return (
-    <div className="metric">
-      <strong>{value}</strong>
-      <span>{label}</span>
-    </div>
   );
 }
 

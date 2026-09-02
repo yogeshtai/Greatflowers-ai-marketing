@@ -149,8 +149,209 @@ Use exactly this structure:
 
   "needsVerification": [
     "string"
-  ]
+  ],
+
+  "creativeBrief": {
+    "headline": "string",
+    "subheadline": "string",
+    "cta": "string",
+    "mood": "string",
+    "backgroundDirection": "string",
+    "productTreatment": "string",
+    "logoPlacement": "string",
+    "textPlacement": "string",
+    "creativeGoal": "string",
+    "variants": [
+      {
+        "type": "emotional",
+        "headline": "string",
+        "subheadline": "string",
+        "cta": "string",
+        "visualDirection": "string"
+      },
+      {
+        "type": "product-focused",
+        "headline": "string",
+        "subheadline": "string",
+        "cta": "string",
+        "visualDirection": "string"
+      },
+      {
+        "type": "premium-minimal",
+        "headline": "string",
+        "subheadline": "string",
+        "cta": "string",
+        "visualDirection": "string"
+      }
+    ]
+  }
 }
+
+CREATIVE BRIEF RULES:
+
+The creativeBrief is for a future AI visual-generation system that will create social media campaign images.
+
+The future system will use:
+- the REAL GreatFlowers product image from the catalog
+- the official GreatFlowers logo (https://greatflowers.net/assets/svg/greatflowers-logo.svg)
+- your creative brief instructions
+
+to generate finished campaign creatives.
+
+IMPORTANT PRODUCT ACCURACY RULE:
+
+The real catalog product image will be used as the hero product.
+
+Do NOT instruct the image generator to redesign or replace the product.
+
+The creativeBrief may describe:
+- background environment
+- lighting
+- mood
+- layout/composition
+- typography placement
+- decorative elements
+
+The creativeBrief must NOT request changes to:
+- flower types
+- flower colors
+- bouquet composition
+- vase/container
+- arrangement style
+- core product appearance
+
+productTreatment field:
+
+Must explicitly state to preserve the real product.
+
+Example wording:
+"Use the real GreatFlowers product image as the hero product. Preserve the bouquet, flower colors, arrangement, container and important product details faithfully. Do not redesign the product."
+
+You may adapt slightly based on the product, but the meaning must remain.
+
+headline:
+
+Short primary ad headline suitable for image creative.
+Avoid long paragraphs.
+Keep concise.
+
+subheadline:
+
+One short supporting sentence.
+Must not invent unsupported claims.
+
+cta:
+
+Short CTA suitable for social advertising.
+
+Safe CTA examples:
+- Send Flowers
+- Shop Flowers
+- Explore the Collection
+- Send Something Thoughtful
+- Shop [Product Name]
+
+Do NOT create unsupported CTAs:
+- Get 50% Off (unless verified promotion exists)
+- Guaranteed Delivery Today (unless verified)
+- Lowest Price (unless verified)
+
+mood:
+
+Overall visual/emotional direction.
+
+Examples:
+- calm, comforting and elegant
+- romantic, warm and premium
+- cheerful, bright and celebratory
+
+backgroundDirection:
+
+Describe the surrounding scene/environment for the image generator.
+
+Example:
+"Soft premium interior with natural window light, neutral tones and subtle botanical elements."
+
+Describe environment only.
+Do NOT tell the generator to replace or redesign the bouquet.
+
+logoPlacement:
+
+Simple design instruction for the GreatFlowers logo.
+
+Examples:
+- top-left with comfortable margin
+- centered at top
+- bottom-right, small and unobtrusive
+
+textPlacement:
+
+Simple composition instruction.
+
+Example:
+"Place headline in the upper-left negative space and CTA below it without covering the bouquet."
+
+creativeGoal:
+
+Short statement explaining what this creative should achieve.
+
+Example:
+"Create a respectful sympathy ad that communicates thoughtfulness while keeping the real product as the visual focus."
+
+variants:
+
+You MUST return exactly 3 creative variants.
+
+Each variant must have a different type:
+
+1. type: "emotional"
+Focus on recipient emotion / occasion / customer need.
+
+2. type: "product-focused"
+Focus more directly on the selected product and its verified catalog characteristics.
+
+3. type: "premium-minimal"
+Minimal copy, clean upscale design, strong product focus.
+
+Each variant should have:
+- different headline
+- different approach
+- different visualDirection
+
+Do not duplicate the exact same headline across all variants.
+
+SAME-DAY DELIVERY RULE:
+
+If delivery messaging is used in creative copy, use safe wording:
+"Same-day delivery available in eligible areas."
+
+Do NOT say:
+- Same-day delivery guaranteed
+- Same-day delivery everywhere
+- Order now for guaranteed same-day delivery
+
+unless explicitly verified.
+
+FACTUAL SAFETY RULES FOR CREATIVE COPY:
+
+Do NOT invent:
+- discounts or coupon codes
+- prices
+- delivery guarantees
+- customer reviews or ratings
+- order counts or popularity claims
+- bestseller claims
+- sales performance claims
+- flower contents not in verified product data
+- statistics or competitor comparisons
+
+Creative copy must come from:
+1. verified live website information
+2. verified selected-product information
+3. the selected campaign occasion/intent
+4. explicitly supported campaign context
+
+If something is unknown, do not state it as fact.
 
 URL RULES:
 
@@ -167,6 +368,8 @@ Never use Markdown link syntax anywhere in the JSON.
 Only include platformContent entries for the platforms requested by the campaign.
 
 Never place unsupported business claims inside the JSON.
+
+The creativeBrief is REQUIRED for all new strategies.
 
 FACT CLASSIFICATION:
 

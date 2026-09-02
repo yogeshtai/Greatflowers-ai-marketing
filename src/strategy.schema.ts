@@ -1,5 +1,39 @@
 import { z } from "zod";
 
+const creativeVariantSchema = z.object({
+  type: z.enum(["emotional", "product-focused", "premium-minimal"]),
+  headline: z.string().min(1),
+  subheadline: z.string(),
+  cta: z.string().min(1),
+  visualDirection: z.string().min(1),
+});
+
+const creativeBriefSchema = z.object({
+  headline: z.string().min(1),
+  subheadline: z.string(),
+  cta: z.string().min(1),
+  mood: z.string().min(1),
+  backgroundDirection: z.string().min(1),
+  productTreatment: z.string().min(1),
+  logoPlacement: z.string().min(1),
+  textPlacement: z.string().min(1),
+  creativeGoal: z.string().min(1),
+  variants: z.array(creativeVariantSchema).length(3).refine(
+    (variants) => {
+      const types = variants.map((v) => v.type);
+      return (
+        types.includes("emotional") &&
+        types.includes("product-focused") &&
+        types.includes("premium-minimal") &&
+        new Set(types).size === 3
+      );
+    },
+    {
+      message: "Must have exactly one of each variant type: emotional, product-focused, premium-minimal",
+    }
+  ),
+});
+
 export const marketingStrategySchema = z.object({
   campaignObjective: z.string(),
 
@@ -77,6 +111,8 @@ export const marketingStrategySchema = z.object({
   assumptions: z.array(z.string()),
 
   needsVerification: z.array(z.string()),
+
+  creativeBrief: creativeBriefSchema.optional(),
 });
 
 export type MarketingStrategy = z.infer<

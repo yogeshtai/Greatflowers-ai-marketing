@@ -580,6 +580,74 @@ ${recommendation.additionalContext}
   }
 );
 
+app.post(
+  "/api/creatives/generate",
+  async (req, res) => {
+    try {
+      const { productImageUrl, creativeBrief } =
+        req.body;
+
+      if (
+        !productImageUrl ||
+        typeof productImageUrl !== "string"
+      ) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "productImageUrl is required and must be a string",
+        });
+      }
+
+      if (
+        !creativeBrief ||
+        typeof creativeBrief !== "object"
+      ) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "creativeBrief is required and must be an object",
+        });
+      }
+
+      console.log(
+        "\n🎨 AI Creative Generation Request"
+      );
+      console.log(
+        `Product: ${productImageUrl}`
+      );
+
+      const { generateAllCreatives } = await import(
+        "./codex.creative.js"
+      );
+
+      const creatives =
+        await generateAllCreatives(
+          productImageUrl,
+          creativeBrief
+        );
+
+      return res.json({
+        success: true,
+        creatives,
+      });
+    } catch (error) {
+      console.error(
+        "❌ Creative generation failed:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        error: "Failed to generate creatives",
+        details:
+          error instanceof Error
+            ? error.message
+            : String(error),
+      });
+    }
+  }
+);
+
 app.get(
   "/api/greatflowers/website-context",
   async (_req, res) => {

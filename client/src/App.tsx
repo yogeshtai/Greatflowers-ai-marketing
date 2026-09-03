@@ -746,6 +746,56 @@ function App() {
     });
   };
 
+  const handleRegenerateVariant = async (variantType: string) => {
+    if (!strategy?.creativeBrief || !recommendedProduct?.image) {
+      return;
+    }
+
+    try {
+      // Mark this variant as loading by updating its state
+      setCreatives(prev => 
+        prev.map(c => 
+          c.type === variantType 
+            ? { ...c, success: false, error: 'Regenerating...', localPath: '' }
+            : c
+        )
+      );
+
+      const result = await regenerateCreativeVariant(
+        recommendedProduct.image,
+        strategy.creativeBrief,
+        variantType
+      );
+
+      if (result.success && result.creative) {
+        // Update the specific creative
+        setCreatives(prev =>
+          prev.map(c =>
+            c.type === variantType ? result.creative : c
+          )
+        );
+      } else {
+        // Keep the error state
+        setCreatives(prev =>
+          prev.map(c =>
+            c.type === variantType
+              ? { ...c, success: false, error: result.error || 'Regeneration failed' }
+              : c
+          )
+        );
+      }
+    } catch (error) {
+      console.error(`Failed to regenerate ${variantType}:`, error);
+      setCreatives(prev =>
+        prev.map(c =>
+          c.type === variantType
+            ? { ...c, success: false, error: 'Regeneration failed' }
+            : c
+        )
+      );
+    }
+  };
+
   const handleGenerateCreatives = async () => {
     if (!strategy?.creativeBrief || !recommendedProduct?.image) {
       setCreativesError("Missing creative brief or product image");
@@ -1260,7 +1310,20 @@ function App() {
                               )}
                               <p className="creative-cta">CTA: {creative.cta}</p>
                               {!creative.success && creative.error && (
-                                <p className="creative-error-note">⚠ {creative.error}</p>
+                                <>
+                                  <p className="creative-error-note">⚠ {creative.error}</p>
+                                  {creative.error !== 'Regenerating...' && (
+                                    <button
+                                      className="retry-button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRegenerateVariant(creative.type);
+                                      }}
+                                    >
+                                      🔄 Retry
+                                    </button>
+                                  )}
+                                </>
                               )}
                             </div>
                           </div>
@@ -1365,7 +1428,20 @@ function App() {
                             )}
                             <p className="creative-cta">CTA: {creative.cta}</p>
                             {!creative.success && creative.error && (
-                              <p className="creative-error-note">⚠ {creative.error}</p>
+                              <>
+                                <p className="creative-error-note">⚠ {creative.error}</p>
+                                {creative.error !== 'Regenerating...' && (
+                                  <button
+                                    className="retry-button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRegenerateVariant(creative.type);
+                                    }}
+                                  >
+                                    🔄 Retry
+                                  </button>
+                                )}
+                              </>
                             )}
                           </div>
                         </div>

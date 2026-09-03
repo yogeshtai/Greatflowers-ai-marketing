@@ -218,6 +218,18 @@ async function executeCodex(
     });
 
     codex.on("close", (code) => {
+      console.log(`📤 Codex exit code: ${code}`);
+
+      if (stdout.trim()) {
+        console.log("📤 Codex stdout:");
+        console.log(stdout);
+      }
+
+      if (stderr.trim()) {
+        console.error("📤 Codex stderr:");
+        console.error(stderr);
+      }
+
       if (code !== 0) {
         reject(
           new Error(
@@ -232,9 +244,16 @@ async function executeCodex(
         outputFilename
       );
 
-      console.log(
-        `✅ Codex completed: ${outputFilename}`
-      );
+      if (!existsSync(outputPath)) {
+        reject(
+          new Error(
+            `Codex exited successfully but image was not created at: ${outputPath}`
+          )
+        );
+        return;
+      }
+
+      console.log(`✅ Codex image created: ${outputPath}`);
 
       resolve(outputPath);
     });
@@ -247,7 +266,7 @@ async function executeCodex(
   });
 }
 
-async function generateCreativeVariant(
+export async function generateCreativeVariant(
   variant: CreativeVariant,
   productImageUrl: string,
   creativeBrief: CreativeBrief
@@ -348,7 +367,7 @@ export async function generateAllCreatives(
 
   for (let i = 0; i < creativeBrief.variants.length; i++) {
     const variant = creativeBrief.variants[i]!;
-    
+
     console.log(
       `\n🔄 Generating ${variant.type} variant...`
     );

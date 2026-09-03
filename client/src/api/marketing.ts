@@ -111,3 +111,20 @@ export async function generateCreatives(
 
   return response.data;
 }
+
+export async function regenerateCreativeVariant(
+  productImageUrl: string,
+  creativeBrief: unknown,
+  variantType: string
+) {
+  const response = await axios.post(
+    `${API_URL}/api/creatives/generate/variant`,
+    {
+      productImageUrl,
+      creativeBrief,
+      variantType,
+    }
+  );
+
+  return response.data;
+}

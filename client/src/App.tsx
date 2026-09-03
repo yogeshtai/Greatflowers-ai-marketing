@@ -6,6 +6,7 @@ import {
   getCampaigns,
   updateCampaignStatus,
   recommendCampaign,
+  regenerateCreativeVariant,
 } from "./api/marketing";
 import "./App.css";
 

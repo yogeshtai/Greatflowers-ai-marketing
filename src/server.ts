@@ -807,6 +807,89 @@ app.post(
   }
 );
 
+app.post(
+  "/api/creatives/generate/variant",
+  async (req, res) => {
+    const { productImageUrl, creativeBrief, variantType } =
+      req.body;
+
+    if (
+      !productImageUrl ||
+      typeof productImageUrl !== "string"
+    ) {
+      return res.status(400).json({
+        success: false,
+        error:
+          "productImageUrl is required and must be a string",
+      });
+    }
+
+    if (
+      !creativeBrief ||
+      typeof creativeBrief !== "object" ||
+      !Array.isArray(creativeBrief.variants)
+    ) {
+      return res.status(400).json({
+        success: false,
+        error:
+          "creativeBrief with variants array is required",
+      });
+    }
+
+    if (!variantType || typeof variantType !== "string") {
+      return res.status(400).json({
+        success: false,
+        error: "variantType is required and must be a string",
+      });
+    }
+
+    const variant = creativeBrief.variants.find(
+      (v: { type: string }) => v.type === variantType
+    );
+
+    if (!variant) {
+      return res.status(400).json({
+        success: false,
+        error: `Variant ${variantType} not found in creativeBrief`,
+      });
+    }
+
+    try {
+      const { generateCreativeVariant } = await import(
+        "./codex.creative.js"
+      );
+
+      const creative = await generateCreativeVariant(
+        variant,
+        productImageUrl,
+        creativeBrief
+      );
+
+      return res.json({
+        success: true,
+        creative,
+        productImageUrl,
+      });
+    } catch (error) {
+      console.error(
+        "❌ Single variant creative generation failed:",
+        error
+      );
+
+      return res.json({
+        success: true,
+        creative: null,
+        productImageUrl,
+        error: "Creative generation unavailable",
+        details:
+          error instanceof Error
+            ? error.message
+            : String(error),
+      });
+    }
+  }
+);
+
 app.get(
   "/api/greatflowers/website-context",
   async (_req, res) => {

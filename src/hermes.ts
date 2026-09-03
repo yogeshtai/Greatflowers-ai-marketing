@@ -282,7 +282,9 @@ textPlacement:
 Simple composition instruction.
 
 Example:
-"Place headline in the upper-left negative space and CTA below it without covering the bouquet."
+"Place the headline in the upper portion of the frame with comfortable negative space.
+Place the short supporting line below the headline if space permits.
+Do not render the CTA anywhere inside the image."
 
 creativeGoal:
 

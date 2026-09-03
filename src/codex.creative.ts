@@ -272,6 +272,24 @@ async function executeCodex(
       try {
         console.log(`📤 Codex exit code: ${code}`);
 
+        const debugLogPath = `/tmp/codex-debug-${Date.now()}.log`;
+
+        await writeFile(
+          debugLogPath,
+          [
+            `Exit code: ${code}`,
+            "",
+            "===== STDOUT =====",
+            stdout,
+            "",
+            "===== STDERR =====",
+            stderr,
+          ].join("\n"),
+          "utf8"
+        );
+
+        console.log(`📝 Codex debug output: ${debugLogPath}`);
+
         if (stdout.trim()) {
           console.log("📤 Codex stdout:");
           console.log(stdout);

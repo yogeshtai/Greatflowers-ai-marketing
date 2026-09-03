@@ -1027,8 +1027,26 @@ a {
 }
 
 .btn-generate-creatives:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
+}
+
+.btn-stop-generation {
+  margin: 16px auto 0;
+  padding: 10px 20px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: block;
+}
+
+.btn-stop-generation:hover {
+  background: #c82333;
 }
 
 .creatives-hint {

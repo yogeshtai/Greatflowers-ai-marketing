@@ -130,7 +130,7 @@ type Strategy = {
 };
 
 type CreativeVariant = {
-  type: "emotional" | "product-focused" | "premium-minimal";
+  type: "emotional" | "product-focused";
   headline: string;
   subheadline: string;
   cta: string;
@@ -328,6 +328,7 @@ function App() {
     cta: string;
     isFallback: boolean;
   } | null>(null);
+  const [generationAbortController, setGenerationAbortController] = useState<AbortController | null>(null);
   
   // Check if already authenticated on mount
   useEffect(() => {
@@ -817,6 +818,10 @@ function App() {
       setCreatives([]);
       setSelectedCreative(null);
 
+      // Create abort controller for this generation
+      const abortController = new AbortController();
+      setGenerationAbortController(abortController);
+
       // Use fetch to POST and get SSE stream
       const response = await fetch(`${API_BASE}/api/creatives/generate/stream`, {
         method: 'POST',
@@ -827,6 +832,7 @@ function App() {
           productImageUrl: recommendedProduct.image,
           creativeBrief: strategy.creativeBrief,
         }),
+        signal: abortController.signal,
       });
 
       if (!response.ok) {
@@ -882,11 +888,25 @@ function App() {
         }
       }
     } catch (error) {
-      console.error("Creative generation failed:", error);
-      setCreativesError("Failed to generate creatives");
-      setCreatives([]);
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log("Creative generation stopped by user");
+        setCreativesError("");
+      } else {
+        console.error("Creative generation failed:", error);
+        setCreativesError("Failed to generate creatives");
+        setCreatives([]);
+      }
     } finally {
       setCreativesLoading(false);
+      setGenerationAbortController(null);
+    }
+  };
+
+  const handleStopGeneration = () => {
+    if (generationAbortController) {
+      generationAbortController.abort();
+      setCreativesLoading(false);
+      setGenerationAbortController(null);
     }
   };
 
@@ -1249,7 +1269,7 @@ function App() {
                     Generate Creatives
                   </button>
                   <p className="creatives-hint">
-                    Generate 3 AI creative variants (Emotional, Product-Focused, Premium-Minimal)
+                    Generate 2 AI creative variants (Emotional, Product-Focused)
                   </p>
                 </div>
               )}
@@ -1259,8 +1279,17 @@ function App() {
                   <p className="loading-message">
                     🎨 AI creatives are being generated. This may take several minutes.
                     <br />
-                    <strong>{creatives.length} of 3 completed</strong>
+                    <strong>{creatives.length} of 2 completed</strong>
                   </p>
+                  
+                  {creatives.length > 0 && (
+                    <button
+                      onClick={handleStopGeneration}
+                      className="btn-stop-generation"
+                    >
+                      ⏹ Stop Generation (Use Current Creative)
+                    </button>
+                  )}
                   
                   {/* Show completed creatives immediately */}
                   {creatives.length > 0 && (
@@ -1359,20 +1388,6 @@ function App() {
                           {creatives.length === 1 
                             ? 'Generating Product-Focused Creative...' 
                             : 'Product-Focused Creative - Waiting'}
-                        </p>
-                      </div>
-                    )}
-                    {!creatives.some(c => c.type === 'premium-minimal') && (
-                      <div className={`creative-placeholder ${creatives.length === 2 ? 'generating' : 'waiting'}`}>
-                        {creatives.length === 2 ? (
-                          <div className="placeholder-spinner"></div>
-                        ) : (
-                          <div className="placeholder-waiting">⏳</div>
-                        )}
-                        <p>
-                          {creatives.length === 2 
-                            ? 'Generating Premium-Minimal Creative...' 
-                            : 'Premium-Minimal Creative - Waiting'}
                         </p>
                       </div>
                     )}

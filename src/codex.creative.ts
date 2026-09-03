@@ -82,7 +82,7 @@ const s3 = new S3Client({
 });
 
 export interface CreativeVariant {
-  type: "emotional" | "product-focused" | "premium-minimal";
+  type: "emotional" | "product-focused";
   headline: string;
   subheadline: string;
   cta: string;

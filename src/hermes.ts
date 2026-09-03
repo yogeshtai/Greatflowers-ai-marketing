@@ -175,13 +175,6 @@ Use exactly this structure:
         "subheadline": "string",
         "cta": "string",
         "visualDirection": "string"
-      },
-      {
-        "type": "premium-minimal",
-        "headline": "string",
-        "subheadline": "string",
-        "cta": "string",
-        "visualDirection": "string"
       }
     ]
   }
@@ -300,7 +293,7 @@ Example:
 
 variants:
 
-You MUST return exactly 3 creative variants.
+You MUST return exactly 2 creative variants.
 
 Each variant must have a different type:
 
@@ -309,9 +302,6 @@ Focus on recipient emotion / occasion / customer need.
 
 2. type: "product-focused"
 Focus more directly on the selected product and its verified catalog characteristics.
-
-3. type: "premium-minimal"
-Minimal copy, clean upscale design, strong product focus.
 
 Each variant should have:
 - different headline

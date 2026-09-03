@@ -226,8 +226,8 @@ async function executeCodex(
       }
 
       if (stderr.trim()) {
-        console.error("📤 Codex stderr:");
-        console.error(stderr);
+        console.log("📤 Codex stderr:");
+        console.log(stderr);
       }
 
       if (code !== 0) {
@@ -239,23 +239,37 @@ async function executeCodex(
         return;
       }
 
-      const outputPath = join(
-        OUTPUT_DIR,
-        outputFilename
+      const combinedOutput = `${stdout}\n${stderr}`;
+
+      const generatedImageMatch = combinedOutput.match(
+        /\/[^\s`"']*\.codex\/generated_images\/[^\s`"']+\.png/
       );
 
-      if (!existsSync(outputPath)) {
+      if (!generatedImageMatch) {
         reject(
           new Error(
-            `Codex exited successfully but image was not created at: ${outputPath}`
+            `Codex completed but generated image path was not found in output`
           )
         );
         return;
       }
 
-      console.log(`✅ Codex image created: ${outputPath}`);
+      const generatedImagePath = generatedImageMatch[0];
 
-      resolve(outputPath);
+      if (!existsSync(generatedImagePath)) {
+        reject(
+          new Error(
+            `Codex reported image path but file does not exist: ${generatedImagePath}`
+          )
+        );
+        return;
+      }
+
+      console.log(
+        `✅ Codex image found: ${generatedImagePath}`
+      );
+
+      resolve(generatedImagePath);
     });
 
     codex.on("error", (error) => {

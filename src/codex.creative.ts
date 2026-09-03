@@ -1,5 +1,12 @@
 import { spawn } from "node:child_process";
-import { writeFile, mkdir, readFile, unlink } from "node:fs/promises";
+import {
+  writeFile,
+  mkdir,
+  readFile,
+  unlink,
+  readdir,
+  stat,
+} from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,6 +15,8 @@ import fetch from "node-fetch";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const CODEX_GENERATED_IMAGES_DIR =
+  "/home/ubuntu/.codex/generated_images";
 
 function resolveCodexBinary(): string {
   // Prefer locally installed @openai/codex so it works after npm install
@@ -25,6 +34,39 @@ function resolveCodexBinary(): string {
 
   // Fall back to global PATH (e.g. Homebrew on macOS or global npm on Linux)
   return "codex";
+}
+
+async function getCodexGeneratedImages(): Promise<string[]> {
+  const images: string[] = [];
+
+  if (!existsSync(CODEX_GENERATED_IMAGES_DIR)) {
+    return images;
+  }
+
+  const sessionFolders = await readdir(
+    CODEX_GENERATED_IMAGES_DIR
+  );
+
+  for (const sessionFolder of sessionFolders) {
+    const sessionPath = join(
+      CODEX_GENERATED_IMAGES_DIR,
+      sessionFolder
+    );
+
+    try {
+      const files = await readdir(sessionPath);
+
+      for (const file of files) {
+        if (file.toLowerCase().endsWith(".png")) {
+          images.push(join(sessionPath, file));
+        }
+      }
+    } catch {
+      // Ignore folders/files that cannot be read
+    }
+  }
+
+  return images;
 }
 
 const REGION = process.env.AWS_REGION!;
@@ -181,6 +223,15 @@ async function executeCodex(
   logoPath: string,
   outputFilename: string
 ): Promise<string> {
+  // Take a snapshot of all Codex images BEFORE starting this generation
+  const beforeImages = new Set(
+    await getCodexGeneratedImages()
+  );
+
+  console.log(
+    `📸 Codex images before generation: ${beforeImages.size}`
+  );
+
   return new Promise((resolve, reject) => {
     const args = [
       "exec",
@@ -217,64 +268,108 @@ async function executeCodex(
       stderr += data.toString();
     });
 
-    codex.on("close", (code) => {
-      console.log(`📤 Codex exit code: ${code}`);
+    codex.on("close", async (code) => {
+      try {
+        console.log(`📤 Codex exit code: ${code}`);
 
-      if (stdout.trim()) {
-        console.log("📤 Codex stdout:");
-        console.log(stdout);
-      }
+        if (stdout.trim()) {
+          console.log("📤 Codex stdout:");
+          console.log(stdout);
+        }
 
-      if (stderr.trim()) {
-        console.log("📤 Codex stderr:");
-        console.log(stderr);
-      }
+        if (stderr.trim()) {
+          console.log("📤 Codex stderr:");
+          console.log(stderr);
+        }
 
-      if (code !== 0) {
-        reject(
-          new Error(
-            `Codex failed with exit code ${code}: ${stderr}`
-          )
+        if (code !== 0) {
+          reject(
+            new Error(
+              `Codex failed with exit code ${code}: ${stderr}`
+            )
+          );
+          return;
+        }
+
+        // Check all Codex generated images AFTER this run
+        const afterImages =
+          await getCodexGeneratedImages();
+
+        // Find images that did not exist before this Codex execution
+        const newImages = afterImages.filter(
+          (imagePath) => !beforeImages.has(imagePath)
         );
-        return;
-      }
 
-      const combinedOutput = `${stdout}\n${stderr}`;
-
-      const generatedImageMatch = combinedOutput.match(
-        /\/[^\s`"']*\.codex\/generated_images\/[^\s`"']+\.png/
-      );
-
-      if (!generatedImageMatch) {
-        reject(
-          new Error(
-            `Codex completed but generated image path was not found in output`
-          )
+        console.log(
+          `🖼️ New Codex images found: ${newImages.length}`
         );
-        return;
-      }
 
-      const generatedImagePath = generatedImageMatch[0];
+        if (newImages.length === 0) {
+          reject(
+            new Error(
+              "Codex completed but no new generated image was found"
+            )
+          );
+          return;
+        }
 
-      if (!existsSync(generatedImagePath)) {
-        reject(
-          new Error(
-            `Codex reported image path but file does not exist: ${generatedImagePath}`
-          )
+        // If more than one image exists, select the newest one
+        const imagesWithStats = await Promise.all(
+          newImages.map(async (imagePath) => {
+            const fileStats = await stat(imagePath);
+
+            return {
+              path: imagePath,
+              modifiedAt: fileStats.mtimeMs,
+            };
+          })
         );
-        return;
+
+        imagesWithStats.sort(
+          (a, b) => b.modifiedAt - a.modifiedAt
+        );
+
+        const newestImage = imagesWithStats[0];
+
+        if (!newestImage) {
+          reject(
+            new Error(
+              "Codex completed but no generated image metadata was available"
+            )
+          );
+          return;
+        }
+
+        const generatedImagePath = newestImage.path;
+
+        if (!existsSync(generatedImagePath)) {
+          reject(
+            new Error(
+              `Generated Codex image does not exist: ${generatedImagePath}`
+            )
+          );
+          return;
+        }
+
+        console.log(
+          `✅ Codex generated image found: ${generatedImagePath}`
+        );
+
+        resolve(generatedImagePath);
+      } catch (error) {
+        reject(
+          error instanceof Error
+            ? error
+            : new Error(String(error))
+        );
       }
-
-      console.log(
-        `✅ Codex image found: ${generatedImagePath}`
-      );
-
-      resolve(generatedImagePath);
     });
 
     codex.on("error", (error) => {
       reject(
-        new Error(`Failed to spawn codex: ${error.message}`)
+        new Error(
+          `Failed to spawn codex: ${error.message}`
+        )
       );
     });
   });

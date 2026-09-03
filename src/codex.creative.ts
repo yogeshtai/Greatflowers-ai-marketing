@@ -170,7 +170,13 @@ function buildCodexPrompt(
 CRITICAL PRODUCT ACCURACY REQUIREMENT:
 ${creativeBrief.productTreatment}
 
-Use the second image (GreatFlowers logo SVG) as the official brand logo. Do not generate, spell, or recreate the logo. Use it as-is.
+CRITICAL LOGO REQUIREMENT - MUST INCLUDE:
+The second image is the official GreatFlowers logo SVG. You MUST include this logo in the final creative.
+- Use the logo image exactly as provided (second input image)
+- Do not generate, spell, recreate, or modify the logo
+- Place it clearly visible in the composition
+- The logo must be present and legible in the final image
+- Logo placement: ${creativeBrief.logoPlacement}
 
 BACKGROUND & ENVIRONMENT:
 ${creativeBrief.backgroundDirection}
@@ -193,9 +199,6 @@ IMPORTANT IMAGE CONTENT RULES:
 - Text may include only the campaign headline and a short supporting line when appropriate.
 - Do not put CTA text such as "Shop Now", "Send Flowers", "Buy Now", "View Flowers", or similar action phrases inside the image.
 
-LOGO PLACEMENT:
-${creativeBrief.logoPlacement}
-
 TEXT PLACEMENT:
 ${creativeBrief.textPlacement}
 
@@ -203,10 +206,11 @@ CREATIVE GOAL:
 ${creativeBrief.creativeGoal}
 
 CONSTRAINTS:
+- MUST include the GreatFlowers logo from the second input image
 - Preserve the actual bouquet, flower colors, arrangement, and vase faithfully
 - Do not redesign or replace the product
 - Use exact text as provided (verbatim)
-- Keep the GreatFlowers logo unchanged
+- Keep the GreatFlowers logo unchanged and clearly visible
 - Create a clean, professional social media image
 - No watermarks
 - Output format: PNG

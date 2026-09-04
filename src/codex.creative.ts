@@ -170,13 +170,17 @@ function buildCodexPrompt(
 CRITICAL PRODUCT ACCURACY REQUIREMENT:
 ${creativeBrief.productTreatment}
 
-CRITICAL LOGO REQUIREMENT - MUST INCLUDE:
-The second image is the official GreatFlowers logo SVG. You MUST include this logo in the final creative.
-- Use the logo image exactly as provided (second input image)
-- Do not generate, spell, recreate, or modify the logo
-- Place it clearly visible in the composition
-- The logo must be present and legible in the final image
+CRITICAL LOGO REQUIREMENT - MUST INCLUDE AND MUST NOT MODIFY:
+The second image is the official GreatFlowers logo SVG. It must be placed in the final creative as an exact, unmodified copy.
+STRICT RULES:
+- You must use the second input image as the logo. Place it directly into the final composition.
+- Do not draw, paint, render, generate, spell, or recreate the GreatFlowers logo yourself.
+- Do not write the text "GreatFlowers", "Great Flowers", or any brand name or logo text anywhere in the image.
+- Do not create any flower icon, leaf icon, or brand mark that resembles the GreatFlowers logo.
+- Do not change the colors, shape, font, or layout of the provided logo.
+- The logo must appear exactly as it does in the second input image, at full opacity, clearly visible and legible.
 - Logo placement: ${creativeBrief.logoPlacement}
+- Failure to use the exact provided logo is unacceptable.
 
 BACKGROUND & ENVIRONMENT:
 ${creativeBrief.backgroundDirection}

@@ -12,6 +12,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import fetch from "node-fetch";
+import sharp from "sharp";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -170,17 +171,12 @@ function buildCodexPrompt(
 CRITICAL PRODUCT ACCURACY REQUIREMENT:
 ${creativeBrief.productTreatment}
 
-CRITICAL LOGO REQUIREMENT - MUST INCLUDE AND MUST NOT MODIFY:
-The second image is the official GreatFlowers logo SVG. It must be placed in the final creative as an exact, unmodified copy.
-STRICT RULES:
-- You must use the second input image as the logo. Place it directly into the final composition.
-- Do not draw, paint, render, generate, spell, or recreate the GreatFlowers logo yourself.
-- Do not write the text "GreatFlowers", "Great Flowers", or any brand name or logo text anywhere in the image.
-- Do not create any flower icon, leaf icon, or brand mark that resembles the GreatFlowers logo.
-- Do not change the colors, shape, font, or layout of the provided logo.
-- The logo must appear exactly as it does in the second input image, at full opacity, clearly visible and legible.
-- Logo placement: ${creativeBrief.logoPlacement}
-- Failure to use the exact provided logo is unacceptable.
+LOGO SAFE AREA:
+Leave clean negative space at:
+${creativeBrief.logoPlacement}
+
+Do not generate, spell, draw, or recreate GreatFlowers branding.
+The official GreatFlowers logo will be added programmatically after generation.
 
 BACKGROUND & ENVIRONMENT:
 ${creativeBrief.backgroundDirection}
@@ -194,7 +190,6 @@ ${variant.visualDirection}
 TEXT OVERLAY (verbatim):
 Headline: "${variant.headline}"
 Subheadline: "${variant.subheadline}"
-CTA: "${variant.cta}"
 
 IMPORTANT IMAGE CONTENT RULES:
 - Do not render buttons, CTA buttons, links, website URLs, or clickable-looking UI elements inside the image.
@@ -210,11 +205,10 @@ CREATIVE GOAL:
 ${creativeBrief.creativeGoal}
 
 CONSTRAINTS:
-- MUST include the GreatFlowers logo from the second input image
+- Do NOT include any logo, brand mark, or brand text in the image
 - Preserve the actual bouquet, flower colors, arrangement, and vase faithfully
 - Do not redesign or replace the product
 - Use exact text as provided (verbatim)
-- Keep the GreatFlowers logo unchanged and clearly visible
 - Create a clean, professional social media image
 - No watermarks
 - Output format: PNG
@@ -228,7 +222,6 @@ Use image generation. Do not create SVG, HTML, or CSS.`;
 async function executeCodex(
   prompt: string,
   productImagePath: string,
-  logoPath: string,
   outputFilename: string
 ): Promise<string> {
   // Take a snapshot of all Codex images BEFORE starting this generation
@@ -245,8 +238,6 @@ async function executeCodex(
       "exec",
       "-i",
       productImagePath,
-      "-i",
-      logoPath,
       "--ephemeral",
       "--cd",
       OUTPUT_DIR,
@@ -401,6 +392,122 @@ async function executeCodex(
   });
 }
 
+type LogoPosition =
+  | "top-left"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-right";
+
+function resolveLogoPosition(
+  logoPlacement: string | undefined
+): LogoPosition {
+  const placement = (logoPlacement || "")
+    .toLowerCase();
+
+  const isTop = placement.includes("top");
+  const isBottom = placement.includes("bottom");
+  const isLeft = placement.includes("left");
+  const isRight = placement.includes("right");
+
+  if (isTop && isLeft) return "top-left";
+  if (isTop && isRight) return "top-right";
+  if (isBottom && isLeft) return "bottom-left";
+  if (isBottom && isRight) return "bottom-right";
+
+  // Sensible default: bottom-right
+  return "bottom-right";
+}
+
+async function addOfficialLogo(
+  generatedImagePath: string,
+  logoPath: string,
+  logoPlacement: string | undefined,
+  outputPath: string
+): Promise<string> {
+  const baseImage = sharp(generatedImagePath);
+  const baseMetadata = await baseImage.metadata();
+
+  const imageWidth = baseMetadata.width || 1024;
+  const imageHeight = baseMetadata.height || 1024;
+
+  // Consistent logo size: ~16% of image width, aspect ratio preserved
+  const logoWidth = Math.max(
+    120,
+    Math.round(imageWidth * 0.16)
+  );
+
+  const logoBuffer = await sharp(logoPath, {
+    density: 300,
+  })
+    .resize({ width: logoWidth })
+    .png()
+    .toBuffer();
+
+  const logoMetadata = await sharp(
+    logoBuffer
+  ).metadata();
+
+  const logoHeight = logoMetadata.height || logoWidth;
+
+  // Comfortable margin from edges: ~4% of image size
+  const margin = Math.max(
+    24,
+    Math.round(imageWidth * 0.04)
+  );
+
+  const position = resolveLogoPosition(logoPlacement);
+
+  let left = margin;
+  let top = margin;
+
+  switch (position) {
+    case "top-left":
+      left = margin;
+      top = margin;
+      break;
+    case "top-right":
+      left = imageWidth - logoWidth - margin;
+      top = margin;
+      break;
+    case "bottom-left":
+      left = margin;
+      top = imageHeight - logoHeight - margin;
+      break;
+    case "bottom-right":
+    default:
+      left = imageWidth - logoWidth - margin;
+      top = imageHeight - logoHeight - margin;
+      break;
+  }
+
+  // Clamp to image bounds
+  left = Math.max(
+    0,
+    Math.min(left, imageWidth - logoWidth)
+  );
+  top = Math.max(
+    0,
+    Math.min(top, imageHeight - logoHeight)
+  );
+
+  await baseImage
+    .composite([
+      {
+        input: logoBuffer,
+        left,
+        top,
+      },
+    ])
+    .png()
+    .toFile(outputPath);
+
+  console.log(
+    `🏷️  Official logo overlaid at ${position} (left=${left}, top=${top}, width=${logoWidth})`
+  );
+
+  return outputPath;
+}
+
 export async function generateCreativeVariant(
   variant: CreativeVariant,
   productImageUrl: string,
@@ -433,24 +540,42 @@ export async function generateCreativeVariant(
       creativeBrief
     );
 
-    const localPath = await executeCodex(
+    // Step 1: Codex generates the creative (no logo)
+    const generatedPath = await executeCodex(
       prompt,
       productImagePath,
-      logoPath,
       outputFilename
     );
 
-    // Upload to S3
+    // Step 2: Programmatically overlay the official GreatFlowers logo
+    const finalPath = join(OUTPUT_DIR, outputFilename);
+    await addOfficialLogo(
+      generatedPath,
+      logoPath,
+      creativeBrief.logoPlacement,
+      finalPath
+    );
+
+    // Step 3: Upload the final composed image to S3
     console.log(`📤 Uploading ${variant.type} to S3...`);
-    const s3Url = await uploadToS3(localPath, outputFilename);
+    const s3Url = await uploadToS3(finalPath, outputFilename);
     console.log(`✅ Uploaded to: ${s3Url}`);
 
-    // Clean up local file
-    try {
-      await unlink(localPath);
-      console.log(`🗑️  Cleaned up local file: ${localPath}`);
-    } catch (cleanupError) {
-      console.warn(`⚠️  Could not delete local file: ${localPath}`);
+    // Clean up all temporary/intermediate files
+    const tempFiles = [
+      generatedPath,
+      finalPath,
+      productImagePath,
+      logoPath,
+    ];
+
+    for (const tempFile of tempFiles) {
+      try {
+        await unlink(tempFile);
+        console.log(`🗑️  Cleaned up: ${tempFile}`);
+      } catch {
+        console.warn(`⚠️  Could not delete: ${tempFile}`);
+      }
     }
 
     return {
@@ -488,7 +613,7 @@ export async function generateAllCreatives(
   onProgress?: (result: CreativeResult, index: number, total: number) => void
 ): Promise<CreativeResult[]> {
   console.log(
-    "\n🎨 Starting AI creative generation (3 variants)..."
+    `\n🎨 Starting AI creative generation (${creativeBrief.variants.length} variants)...`
   );
   console.log(
     `📸 Product image: ${productImageUrl}`
@@ -536,7 +661,7 @@ export async function generateAllCreatives(
   ).length;
 
   console.log(
-    `\n🎨 Creative generation complete: ${successCount}/3 succeeded\n`
+    `\n🎨 Creative generation complete: ${successCount}/${results.length} succeeded\n`
   );
 
   return results;

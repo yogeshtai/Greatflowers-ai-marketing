@@ -69,6 +69,22 @@ async function resolveImageUrl(
   );
 }
 
+export function formatHashtags(
+  hashtags: string[] | undefined
+): string {
+  if (!hashtags || hashtags.length === 0) {
+    return "";
+  }
+
+  return hashtags
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+    .map((tag) =>
+      tag.startsWith("#") ? tag : `#${tag}`
+    )
+    .join(" ");
+}
+
 function ensureMetaConfig() {
   if (!pageId || !accessToken) {
     throw new Error(
@@ -354,7 +370,7 @@ export async function publishInstagram(
 
   const caption = [
     instagram.caption,
-    instagram.hashtags?.join(" ") || "",
+    formatHashtags(instagram.hashtags),
   ]
     .filter(Boolean)
     .join("\n\n");

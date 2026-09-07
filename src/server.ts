@@ -14,6 +14,7 @@ import {
 import {
   publishFacebook,
   publishInstagram,
+  formatHashtags,
 } from "./meta.publisher.js";
 import {
   getCampaigns,
@@ -1033,7 +1034,7 @@ app.get(
           ? {
               caption: [
                 instagram.caption,
-                instagram.hashtags.join(" "),
+                formatHashtags(instagram.hashtags),
                 campaign.selectedProduct?.url || "",
               ]
                 .filter(Boolean)

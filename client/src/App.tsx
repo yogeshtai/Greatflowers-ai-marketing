@@ -1591,7 +1591,9 @@ function App() {
                 <div className="tags">
                   {strategy.platformContent.instagram.hashtags.map(
                     (tag) => (
-                      <span key={tag}>{tag}</span>
+                      <span key={tag}>
+                        {tag.startsWith("#") ? tag : `#${tag}`}
+                      </span>
                     )
                   )}
                 </div>
@@ -1599,7 +1601,9 @@ function App() {
                 <CopyButton
                   text={`${strategy.platformContent.instagram.caption}
 
-${strategy.platformContent.instagram.hashtags.join(" ")}`}
+${strategy.platformContent.instagram.hashtags
+  .map((tag) => (tag.startsWith("#") ? tag : `#${tag}`))
+  .join(" ")}`}
                   label="Copy Instagram Content"
                 />
               </Card>

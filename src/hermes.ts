@@ -359,6 +359,19 @@ Never use Markdown link syntax anywhere in the JSON.
 
 Only include platformContent entries for the platforms requested by the campaign.
 
+INSTAGRAM HASHTAG RULES:
+
+The instagram.hashtags array MUST contain at least 15 relevant hashtags.
+
+Hashtag requirements:
+- Return at least 15 hashtags (15-25 is ideal)
+- Do NOT include the "#" symbol in the strings (the backend adds it)
+- Each hashtag must be a single word or compound word with no spaces
+- Mix broad reach tags (e.g. "Flowers", "FlowerDelivery") with niche tags (e.g. "PreservedRoses", "WeddingGift")
+- Always include "GreatFlowers" as one of the hashtags
+- Include occasion, product-type, and audience-relevant tags
+- No duplicate hashtags
+
 Never place unsupported business claims inside the JSON.
 
 The creativeBrief is REQUIRED for all new strategies.
@@ -446,6 +459,44 @@ function normalizeUrl(value?: string): string | undefined {
   return value.trim();
 }
 
+function normalizeHashtags(
+  hashtags: unknown
+): string[] {
+  if (!Array.isArray(hashtags)) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+
+  for (const raw of hashtags) {
+    if (typeof raw !== "string") {
+      continue;
+    }
+
+    // Strip leading "#", trim, and remove internal spaces
+    const tag = raw
+      .trim()
+      .replace(/^#+/, "")
+      .replace(/\s+/g, "");
+
+    if (!tag) {
+      continue;
+    }
+
+    const key = tag.toLowerCase();
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    normalized.push(tag);
+  }
+
+  return normalized;
+}
+
 function normalizeStrategyUrls(data: any) {
   if (data?.cta?.destinationUrl) {
     data.cta.destinationUrl = normalizeUrl(
@@ -457,6 +508,13 @@ function normalizeStrategyUrls(data: any) {
     data.platformContent.pinterest.destinationUrl =
       normalizeUrl(
         data.platformContent.pinterest.destinationUrl
+      );
+  }
+
+  if (data?.platformContent?.instagram?.hashtags) {
+    data.platformContent.instagram.hashtags =
+      normalizeHashtags(
+        data.platformContent.instagram.hashtags
       );
   }
 

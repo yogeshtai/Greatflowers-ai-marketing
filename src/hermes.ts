@@ -167,14 +167,22 @@ Use exactly this structure:
         "headline": "string",
         "subheadline": "string",
         "cta": "string",
-        "visualDirection": "string"
+        "visualDirection": "string",
+        "colorPalette": "string",
+        "compositionStyle": "string",
+        "lightingStyle": "string",
+        "sceneType": "string"
       },
       {
         "type": "product-focused",
         "headline": "string",
         "subheadline": "string",
         "cta": "string",
-        "visualDirection": "string"
+        "visualDirection": "string",
+        "colorPalette": "string",
+        "compositionStyle": "string",
+        "lightingStyle": "string",
+        "sceneType": "string"
       }
     ]
   }
@@ -311,6 +319,64 @@ Each variant should have:
 - different visualDirection
 
 Do not duplicate the exact same headline across all variants.
+
+CRITICAL VISUAL DIVERSITY REQUIREMENT:
+
+The 2 variants MUST have distinctly different visual styles to avoid repetitive-looking creatives.
+
+Each variant must specify these 4 visual style fields:
+
+colorPalette:
+Specific color direction for the scene and props (NOT the product flowers).
+
+Examples:
+- "warm autumn tones with rust, amber, and cream"
+- "cool minimalist whites and soft grays"
+- "vibrant jewel tones with emerald and sapphire accents"
+- "soft pastels with blush pink and lavender"
+- "rich earth tones with terracotta and sage"
+- "monochromatic neutrals with beige and taupe"
+
+compositionStyle:
+The visual layout and framing approach.
+
+Examples:
+- "flat-lay overhead shot with symmetrical arrangement"
+- "lifestyle scene with natural perspective"
+- "editorial close-up with shallow depth of field"
+- "environmental portrait showing context"
+- "hero product centered with negative space"
+- "asymmetric composition with rule of thirds"
+
+lightingStyle:
+The quality and direction of light in the scene.
+
+Examples:
+- "golden hour warmth with soft side lighting"
+- "bright studio lighting with clean highlights"
+- "moody dramatic shadows with directional light"
+- "soft diffused natural window light"
+- "backlit glow with rim lighting"
+- "even ambient light with no harsh shadows"
+
+sceneType:
+The physical environment and setting.
+
+Examples:
+- "cozy kitchen counter with morning coffee setup"
+- "elegant bedroom nightstand with silk linens"
+- "rustic outdoor garden table with natural elements"
+- "modern minimalist desk with clean lines"
+- "romantic dining table with candlelight"
+- "bright sunlit windowsill with botanical props"
+
+VISUAL DIVERSITY ENFORCEMENT:
+
+The 2 variants MUST use different values for at least 3 out of 4 style fields.
+
+Do NOT generate two variants with the same colorPalette, compositionStyle, AND lightingStyle.
+
+Aim for maximum visual contrast between the two creatives.
 
 SAME-DAY DELIVERY RULE:
 

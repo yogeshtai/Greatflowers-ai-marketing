@@ -88,6 +88,10 @@ export interface CreativeVariant {
   subheadline: string;
   cta: string;
   visualDirection: string;
+  colorPalette: string;
+  compositionStyle: string;
+  lightingStyle: string;
+  sceneType: string;
 }
 
 export interface CreativeBrief {
@@ -186,6 +190,18 @@ ${creativeBrief.mood}
 
 VISUAL DIRECTION FOR THIS VARIANT:
 ${variant.visualDirection}
+
+COLOR PALETTE:
+${variant.colorPalette}
+
+COMPOSITION STYLE:
+${variant.compositionStyle}
+
+LIGHTING STYLE:
+${variant.lightingStyle}
+
+SCENE TYPE:
+${variant.sceneType}
 
 TEXT OVERLAY (verbatim):
 Headline: "${variant.headline}"

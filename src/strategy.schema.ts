@@ -6,6 +6,10 @@ const creativeVariantSchema = z.object({
   subheadline: z.string(),
   cta: z.string().min(1),
   visualDirection: z.string().min(1),
+  colorPalette: z.string().min(1),
+  compositionStyle: z.string().min(1),
+  lightingStyle: z.string().min(1),
+  sceneType: z.string().min(1),
 });
 
 const creativeBriefSchema = z.object({

@@ -287,12 +287,18 @@ Examples:
 
 textPlacement:
 
-Simple composition instruction.
+Text positioning instruction that ensures readability and avoids logo overlap.
+
+CRITICAL: Text must NOT overlap the logo safe area specified in logoPlacement.
 
 Example:
-"Place the headline in the upper portion of the frame with comfortable negative space.
-Place the short supporting line below the headline if space permits.
-Do not render the CTA anywhere inside the image."
+"Place the headline in the upper-left portion of the frame, well away from the top-right logo area, with comfortable negative space. Use dark text color for high contrast against the light background. Place the short supporting line below the headline if space permits. Do not render the CTA anywhere inside the image."
+
+Guidelines:
+- Always specify text position that avoids the logo area
+- Specify text color for contrast (dark on light, light on dark)
+- Mention if text needs shadows or overlays for readability
+- Keep text in zones with clean backgrounds
 
 creativeGoal:
 

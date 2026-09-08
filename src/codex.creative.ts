@@ -175,12 +175,13 @@ function buildCodexPrompt(
 CRITICAL PRODUCT ACCURACY REQUIREMENT:
 ${creativeBrief.productTreatment}
 
-LOGO SAFE AREA:
-Leave clean negative space at:
+LOGO SAFE AREA (CRITICAL):
+Reserve a clear zone at:
 ${creativeBrief.logoPlacement}
 
+This area MUST remain completely empty - no text, no graphics, no decorative elements.
+The official GreatFlowers logo will be overlaid here after generation.
 Do not generate, spell, draw, or recreate GreatFlowers branding.
-The official GreatFlowers logo will be added programmatically after generation.
 
 BACKGROUND & ENVIRONMENT:
 ${creativeBrief.backgroundDirection}
@@ -216,6 +217,14 @@ IMPORTANT IMAGE CONTENT RULES:
 
 TEXT PLACEMENT:
 ${creativeBrief.textPlacement}
+
+CRITICAL TEXT RULES:
+- Text MUST NOT overlap or touch the logo safe area at ${creativeBrief.logoPlacement}
+- Keep all text away from the logo zone with generous spacing
+- Text must have high contrast against its background for readability
+- Use text color that stands out clearly (dark text on light backgrounds, light text on dark backgrounds)
+- Add subtle text shadows or background overlays if needed for legibility
+- Ensure headline and subheadline are easily readable at social media sizes
 
 CREATIVE GOAL:
 ${creativeBrief.creativeGoal}

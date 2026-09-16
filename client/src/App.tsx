@@ -130,11 +130,26 @@ type Strategy = {
 };
 
 type CreativeVariant = {
-  type: "emotional" | "product-focused";
+  creativeType:
+    | "product"
+    | "lifestyle"
+    | "occasion"
+    | "location"
+    | "feature"
+    | "informational"
+    | "brand-awareness";
+  concept: string;
   headline: string;
   subheadline: string;
   cta: string;
   visualDirection: string;
+  productRole: "hero" | "supporting" | "optional" | "none";
+  locationContext?: string;
+  occasionContext?: string;
+  colorPalette: string;
+  compositionStyle: string;
+  lightingStyle: string;
+  sceneType: string;
 };
 
 type Creative = {
@@ -145,6 +160,11 @@ type Creative = {
   cta: string;
   success: boolean;
   error?: string;
+  // New strategic metadata from Hermes
+  concept?: string;
+  productRole?: "hero" | "supporting" | "optional" | "none";
+  locationContext?: string;
+  occasionContext?: string;
 };
 
 type CampaignStatus = "draft" | "approved" | "rejected";
@@ -1269,7 +1289,7 @@ function App() {
                     Generate Creatives
                   </button>
                   <p className="creatives-hint">
-                    Generate 2 AI creative variants (Emotional, Product-Focused)
+                    Generate 3 AI creative variants with strategic concepts
                   </p>
                 </div>
               )}
@@ -1279,7 +1299,7 @@ function App() {
                   <p className="loading-message">
                     🎨 AI creatives are being generated. This may take several minutes.
                     <br />
-                    <strong>{creatives.length} of 2 completed</strong>
+                    <strong>{creatives.length} of 3 completed</strong>
                   </p>
                   
                   {creatives.length > 0 && (
@@ -1331,13 +1351,36 @@ function App() {
                             </div>
                             <div className="creative-details">
                               <span className="creative-type-badge">
-                                {creative.type}
+                                {creative.type.toUpperCase().replace(/-/g, ' ')}
                               </span>
                               <h3 className="creative-headline">{creative.headline}</h3>
                               {creative.subheadline && (
                                 <p className="creative-subheadline">{creative.subheadline}</p>
                               )}
-                              <p className="creative-cta">CTA: {creative.cta}</p>
+                              
+                              {/* Strategic metadata */}
+                              {creative.productRole && (
+                                <p className="creative-meta">
+                                  <strong>Product Role:</strong> {creative.productRole.charAt(0).toUpperCase() + creative.productRole.slice(1)}
+                                </p>
+                              )}
+                              {creative.occasionContext && (
+                                <p className="creative-meta">
+                                  <strong>Occasion:</strong> {creative.occasionContext}
+                                </p>
+                              )}
+                              {creative.locationContext && (
+                                <p className="creative-meta">
+                                  <strong>Location:</strong> {creative.locationContext}
+                                </p>
+                              )}
+                              {creative.concept && (
+                                <div className="creative-concept">
+                                  <strong>AI Concept</strong>
+                                  <p>{creative.concept}</p>
+                                </div>
+                              )}
+                              
                               {!creative.success && creative.error && (
                                 <>
                                   <p className="creative-error-note">⚠ {creative.error}</p>
@@ -1363,34 +1406,27 @@ function App() {
 
                   {/* Show placeholders for remaining variants */}
                   <div className="creatives-placeholders" style={{ marginTop: creatives.length > 0 ? '24px' : '0' }}>
-                    {!creatives.some(c => c.type === 'emotional') && (
-                      <div className={`creative-placeholder ${creatives.length === 0 ? 'generating' : 'waiting'}`}>
-                        {creatives.length === 0 ? (
-                          <div className="placeholder-spinner"></div>
-                        ) : (
-                          <div className="placeholder-waiting">⏳</div>
-                        )}
-                        <p>
-                          {creatives.length === 0 
-                            ? 'Generating Emotional Creative...' 
-                            : 'Emotional Creative - Waiting'}
-                        </p>
-                      </div>
-                    )}
-                    {!creatives.some(c => c.type === 'product-focused') && (
-                      <div className={`creative-placeholder ${creatives.length === 1 ? 'generating' : 'waiting'}`}>
-                        {creatives.length === 1 ? (
-                          <div className="placeholder-spinner"></div>
-                        ) : (
-                          <div className="placeholder-waiting">⏳</div>
-                        )}
-                        <p>
-                          {creatives.length === 1 
-                            ? 'Generating Product-Focused Creative...' 
-                            : 'Product-Focused Creative - Waiting'}
-                        </p>
-                      </div>
-                    )}
+                    {Array.from({ length: 3 - creatives.length }).map((_, index) => {
+                      const placeholderIndex = creatives.length + index;
+                      const isGenerating = placeholderIndex === creatives.length;
+                      return (
+                        <div 
+                          key={`placeholder-${placeholderIndex}`}
+                          className={`creative-placeholder ${isGenerating ? 'generating' : 'waiting'}`}
+                        >
+                          {isGenerating ? (
+                            <div className="placeholder-spinner"></div>
+                          ) : (
+                            <div className="placeholder-waiting">⏳</div>
+                          )}
+                          <p>
+                            {isGenerating 
+                              ? `Generating Creative ${placeholderIndex + 1}...` 
+                              : `Creative ${placeholderIndex + 1} - Waiting`}
+                          </p>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}

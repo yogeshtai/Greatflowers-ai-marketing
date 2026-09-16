@@ -1278,6 +1278,43 @@ a {
   display: inline-block;
 }
 
+.creative-meta {
+  margin: 8px 0 0 0;
+  font-size: 13px;
+  color: #495057;
+  line-height: 1.5;
+}
+
+.creative-meta strong {
+  color: #2c3e50;
+  font-weight: 600;
+}
+
+.creative-concept {
+  margin: 12px 0 0 0;
+  padding: 12px;
+  background: #f8f9fa;
+  border-left: 3px solid #667eea;
+  border-radius: 4px;
+}
+
+.creative-concept strong {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #667eea;
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
+.creative-concept p {
+  margin: 0;
+  font-size: 13px;
+  color: #495057;
+  line-height: 1.5;
+}
+
 .creative-error-note {
   margin: 12px 0 0 0;
   font-size: 12px;

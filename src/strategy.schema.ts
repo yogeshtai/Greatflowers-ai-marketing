@@ -1,11 +1,23 @@
 import { z } from "zod";
 
 const creativeVariantSchema = z.object({
-  type: z.enum(["emotional", "product-focused"]),
+  creativeType: z.enum([
+    "product",
+    "lifestyle",
+    "occasion",
+    "location",
+    "feature",
+    "informational",
+    "brand-awareness",
+  ]),
+  concept: z.string().min(1),
   headline: z.string().min(1),
   subheadline: z.string(),
   cta: z.string().min(1),
   visualDirection: z.string().min(1),
+  productRole: z.enum(["hero", "supporting", "optional", "none"]),
+  locationContext: z.string().optional(),
+  occasionContext: z.string().optional(),
   colorPalette: z.string().min(1),
   compositionStyle: z.string().min(1),
   lightingStyle: z.string().min(1),
@@ -22,17 +34,13 @@ const creativeBriefSchema = z.object({
   logoPlacement: z.string().min(1),
   textPlacement: z.string().min(1),
   creativeGoal: z.string().min(1),
-  variants: z.array(creativeVariantSchema).length(2).refine(
+  variants: z.array(creativeVariantSchema).length(3).refine(
     (variants) => {
-      const types = variants.map((v) => v.type);
-      return (
-        types.includes("emotional") &&
-        types.includes("product-focused") &&
-        new Set(types).size === 2
-      );
+      const types = variants.map((v) => v.creativeType);
+      return new Set(types).size >= 2;
     },
     {
-      message: "Must have exactly one of each variant type: emotional, product-focused",
+      message: "Must have at least 2 different creative types among the 3 variants",
     }
   ),
 });

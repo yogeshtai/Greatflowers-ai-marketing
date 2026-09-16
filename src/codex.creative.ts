@@ -83,11 +83,22 @@ const s3 = new S3Client({
 });
 
 export interface CreativeVariant {
-  type: "emotional" | "product-focused";
+  creativeType:
+    | "product"
+    | "lifestyle"
+    | "occasion"
+    | "location"
+    | "feature"
+    | "informational"
+    | "brand-awareness";
+  concept: string;
   headline: string;
   subheadline: string;
   cta: string;
   visualDirection: string;
+  productRole: "hero" | "supporting" | "optional" | "none";
+  locationContext?: string;
+  occasionContext?: string;
   colorPalette: string;
   compositionStyle: string;
   lightingStyle: string;
@@ -170,10 +181,71 @@ function buildCodexPrompt(
   variant: CreativeVariant,
   creativeBrief: CreativeBrief
 ): string {
-  return `Use the supplied flower product image as reference. Create a new 1:1 premium social media campaign creative for GreatFlowers.
+  // Build product role instructions
+  let productInstructions = "";
+  
+  switch (variant.productRole) {
+    case "hero":
+      productInstructions = `PRODUCT ROLE: HERO
 
-CRITICAL PRODUCT ACCURACY REQUIREMENT:
+The supplied GreatFlowers product image is the main visual subject.
+
 ${creativeBrief.productTreatment}
+
+Preserve the supplied bouquet/product identity as closely as possible.
+The product should be the clear focal point of the creative.`;
+      break;
+      
+    case "supporting":
+      productInstructions = `PRODUCT ROLE: SUPPORTING
+
+The supplied GreatFlowers product participates naturally in the overall scene.
+
+The scene, emotion, or story can be the main focus.
+Do NOT force a centered catalog-style product composition.
+The product should feel integrated into the lifestyle/emotional context.
+
+You may use the product image as reference, but adapt it naturally to fit the scene.`;
+      break;
+      
+    case "optional":
+      productInstructions = `PRODUCT ROLE: OPTIONAL
+
+You may include the supplied GreatFlowers product if it improves the concept.
+Do NOT force it to dominate the creative.
+
+The strategic concept and visual direction are more important than featuring the product.`;
+      break;
+      
+    case "none":
+      productInstructions = `PRODUCT ROLE: NONE
+
+Do NOT force the catalog product into this creative.
+Generate the concept from the strategic brief and visual direction.
+
+This is a ${variant.creativeType} creative focused on: ${variant.concept}`;
+      break;
+  }
+
+  // Build context-specific instructions
+  let contextInstructions = "";
+  
+  if (variant.occasionContext) {
+    contextInstructions += `\nOCCASION CONTEXT:\n${variant.occasionContext}\n\nVisually communicate this occasion and its emotional context.`;
+  }
+  
+  if (variant.locationContext) {
+    contextInstructions += `\nLOCATION CONTEXT:\n${variant.locationContext}\n\nIncorporate this verified location/service area naturally if relevant to the visual.`;
+  }
+
+  return `Create a 1:1 premium social media campaign creative for GreatFlowers.
+
+CREATIVE TYPE: ${variant.creativeType}
+
+STRATEGIC CONCEPT:
+${variant.concept}
+
+${productInstructions}${contextInstructions}
 
 LOGO SAFE AREA (CRITICAL):
 Reserve a clear zone at:
@@ -231,8 +303,6 @@ ${creativeBrief.creativeGoal}
 
 CONSTRAINTS:
 - Do NOT include any logo, brand mark, or brand text in the image
-- Preserve the actual bouquet, flower colors, arrangement, and vase faithfully
-- Do not redesign or replace the product
 - Use exact text as provided (verbatim)
 - Create a clean, professional social media image
 - No watermarks
@@ -558,7 +628,7 @@ export async function generateCreativeVariant(
       `logo-${uuid}.svg`
     );
 
-    const outputFilename = `${variant.type}-${timestamp}-${uuid}.png`;
+    const outputFilename = `${variant.creativeType}-${timestamp}-${uuid}.png`;
 
     const prompt = buildCodexPrompt(
       variant,
@@ -582,7 +652,7 @@ export async function generateCreativeVariant(
     );
 
     // Step 3: Upload the final composed image to S3
-    console.log(`📤 Uploading ${variant.type} to S3...`);
+    console.log(`📤 Uploading ${variant.creativeType} to S3...`);
     const s3Url = await uploadToS3(finalPath, outputFilename);
     console.log(`✅ Uploaded to: ${s3Url}`);
 
@@ -604,7 +674,7 @@ export async function generateCreativeVariant(
     }
 
     return {
-      type: variant.type,
+      type: variant.creativeType,
       localPath: s3Url, // Now contains S3 URL instead of local path
       headline: variant.headline,
       subheadline: variant.subheadline,
@@ -613,12 +683,12 @@ export async function generateCreativeVariant(
     };
   } catch (error) {
     console.error(
-      `❌ Failed to generate ${variant.type} variant:`,
+      `❌ Failed to generate ${variant.creativeType} variant:`,
       error
     );
 
     return {
-      type: variant.type,
+      type: variant.creativeType,
       localPath: "",
       headline: variant.headline,
       subheadline: variant.subheadline,
@@ -654,7 +724,7 @@ export async function generateAllCreatives(
     const variant = creativeBrief.variants[i]!;
 
     console.log(
-      `\n🔄 Generating ${variant.type} variant...`
+      `\n🔄 Generating ${variant.creativeType} variant...`
     );
 
     const result = await generateCreativeVariant(
@@ -667,11 +737,11 @@ export async function generateAllCreatives(
 
     if (result.success) {
       console.log(
-        `✅ ${variant.type}: ${result.localPath}`
+        `✅ ${variant.creativeType}: ${result.localPath}`
       );
     } else {
       console.log(
-        `❌ ${variant.type}: ${result.error}`
+        `❌ ${variant.creativeType}: ${result.error}`
       );
     }
 

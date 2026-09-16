@@ -163,22 +163,45 @@ Use exactly this structure:
     "creativeGoal": "string",
     "variants": [
       {
-        "type": "emotional",
+        "creativeType": "product | lifestyle | occasion | location | feature | informational | brand-awareness",
+        "concept": "string",
         "headline": "string",
         "subheadline": "string",
         "cta": "string",
         "visualDirection": "string",
+        "productRole": "hero | supporting | optional | none",
+        "locationContext": "string (optional)",
+        "occasionContext": "string (optional)",
         "colorPalette": "string",
         "compositionStyle": "string",
         "lightingStyle": "string",
         "sceneType": "string"
       },
       {
-        "type": "product-focused",
+        "creativeType": "product | lifestyle | occasion | location | feature | informational | brand-awareness",
+        "concept": "string",
         "headline": "string",
         "subheadline": "string",
         "cta": "string",
         "visualDirection": "string",
+        "productRole": "hero | supporting | optional | none",
+        "locationContext": "string (optional)",
+        "occasionContext": "string (optional)",
+        "colorPalette": "string",
+        "compositionStyle": "string",
+        "lightingStyle": "string",
+        "sceneType": "string"
+      },
+      {
+        "creativeType": "product | lifestyle | occasion | location | feature | informational | brand-awareness",
+        "concept": "string",
+        "headline": "string",
+        "subheadline": "string",
+        "cta": "string",
+        "visualDirection": "string",
+        "productRole": "hero | supporting | optional | none",
+        "locationContext": "string (optional)",
+        "occasionContext": "string (optional)",
         "colorPalette": "string",
         "compositionStyle": "string",
         "lightingStyle": "string",
@@ -309,26 +332,74 @@ Example:
 
 variants:
 
-You MUST return exactly 2 creative variants.
+You MUST return exactly 3 creative variants.
 
-Each variant must have a different type:
+STRATEGIC CREATIVE CONCEPT SELECTION:
 
-1. type: "emotional"
-Focus on recipient emotion / occasion / customer need.
+Do NOT hard-code creative types (e.g. always product + lifestyle + location).
 
-2. type: "product-focused"
-Focus more directly on the selected product and its verified catalog characteristics.
+Instead, strategically choose the 3 best creative concepts from the available evidence and campaign objective.
+
+The 3 concepts should be meaningfully different marketing approaches, not just visual variations of the same advertisement.
+
+Available creative types:
+
+1. creativeType: "product"
+   Product-focused creative showcasing the specific GreatFlowers product.
+   productRole: typically "hero"
+   Use when: Product is central to the campaign goal.
+
+2. creativeType: "lifestyle"
+   Emotional/lifestyle creative showing gifting moments, relationships, or life contexts.
+   productRole: "hero", "supporting", or "optional"
+   Use when: Emotional connection or gifting context is the primary angle.
+
+3. creativeType: "occasion"
+   Occasion-focused creative tied to specific events (Mother's Day, Valentine's, birthdays, sympathy, etc.).
+   productRole: "hero" or "supporting"
+   occasionContext: REQUIRED - specify the occasion
+   Use when: Campaign is tied to a specific occasion or calendar event.
+
+4. creativeType: "location"
+   Location-focused creative highlighting delivery areas, local presence, or geographic relevance.
+   productRole: "supporting", "optional", or "none"
+   locationContext: REQUIRED - specify the location/area (ONLY if verified in Additional Context)
+   Use when: Location/delivery is a key differentiator AND verified data supports it.
+   CRITICAL: Do NOT invent locations. Only use verified delivery areas from Additional Context.
+
+5. creativeType: "feature"
+   Feature-focused creative promoting specific GreatFlowers services (e.g. Build Your Bouquet, same-day delivery, subscription).
+   productRole: "supporting", "optional", or "none"
+   Use when: A specific verified feature is the campaign focus.
+   CRITICAL: Only promote features explicitly mentioned in Additional Context or verified GreatFlowers data.
+
+6. creativeType: "informational"
+   Educational/content creative providing value (flower care tips, occasion guides, calendar content).
+   productRole: "optional" or "none"
+   Use when: Building brand authority or providing helpful content is the goal.
+
+7. creativeType: "brand-awareness"
+   Brand-focused creative highlighting GreatFlowers' values, quality, or service promise.
+   productRole: "optional" or "none"
+   Use when: Building brand recognition or trust is the primary objective.
+
+CREATIVE CONCEPT DIVERSITY:
+
+The 3 variants should use at least 2 different creativeType values.
+
+Prefer 3 different types when strategically appropriate.
 
 Each variant should have:
+- different concept (strategic approach)
 - different headline
-- different approach
+- different productRole (when appropriate)
 - different visualDirection
 
-Do not duplicate the exact same headline across all variants.
+Do not duplicate the exact same headline or concept across variants.
 
 CRITICAL VISUAL DIVERSITY REQUIREMENT:
 
-The 2 variants MUST have distinctly different visual styles to avoid repetitive-looking creatives.
+The 3 variants MUST have distinctly different visual styles to avoid repetitive-looking creatives.
 
 Each variant must specify these 4 visual style fields:
 
@@ -378,11 +449,39 @@ Examples:
 
 VISUAL DIVERSITY ENFORCEMENT:
 
-The 2 variants MUST use different values for at least 3 out of 4 style fields.
+The 3 variants MUST use different values for at least 3 out of 4 style fields.
 
-Do NOT generate two variants with the same colorPalette, compositionStyle, AND lightingStyle.
+Do NOT generate variants with the same colorPalette, compositionStyle, AND lightingStyle.
 
-Aim for maximum visual contrast between the two creatives.
+Aim for maximum visual contrast between the three creatives.
+
+concept field:
+
+A brief strategic description of what this specific creative is trying to achieve.
+
+Examples:
+- "Showcase the premium quality and vibrant colors of this specific bouquet"
+- "Capture the emotional moment of surprising someone with flowers"
+- "Highlight same-day delivery convenience for last-minute gifting"
+- "Position flowers as the perfect Mother's Day gift"
+
+productRole field:
+
+Describes how the actual GreatFlowers product participates in this creative:
+
+- "hero": Product is the main visual focus
+- "supporting": Product is visible but not the primary focus
+- "optional": Product may or may not appear
+- "none": Creative does not feature the product
+
+Do NOT force a product into every creative when it doesn't fit the concept.
+
+locationContext and occasionContext:
+
+Only populate these when relevant to the creativeType.
+
+locationContext: Required for "location" type. Specify the geographic area (ONLY if verified).
+occasionContext: Required for "occasion" type. Specify the event/occasion.
 
 SAME-DAY DELIVERY RULE:
 

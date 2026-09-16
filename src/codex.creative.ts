@@ -603,6 +603,87 @@ async function addOfficialLogo(
   return outputPath;
 }
 
+async function addCTAButton(
+  imagePath: string,
+  ctaUrl: string,
+  outputPath: string
+): Promise<string> {
+  const baseImage = sharp(imagePath);
+  const baseMetadata = await baseImage.metadata();
+
+  const imageWidth = baseMetadata.width || 1024;
+  const imageHeight = baseMetadata.height || 1024;
+
+  // CTA button dimensions
+  const buttonWidth = Math.round(imageWidth * 0.5); // 50% of image width
+  const buttonHeight = Math.round(imageHeight * 0.08); // 8% of image height
+  const fontSize = Math.round(buttonHeight * 0.45); // Font size relative to button height
+  const borderRadius = Math.round(buttonHeight * 0.5); // Rounded corners
+
+  // Position at bottom center
+  const margin = Math.max(24, Math.round(imageWidth * 0.04));
+  const left = Math.round((imageWidth - buttonWidth) / 2);
+  const top = imageHeight - buttonHeight - margin;
+
+  // Create SVG for CTA button
+  const buttonSvg = `
+    <svg width="${buttonWidth}" height="${buttonHeight}">
+      <defs>
+        <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="3"/>
+          <feOffset dx="0" dy="2" result="offsetblur"/>
+          <feComponentTransfer>
+            <feFuncA type="linear" slope="0.3"/>
+          </feComponentTransfer>
+          <feMerge>
+            <feMergeNode/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+      </defs>
+      <rect 
+        x="0" 
+        y="0" 
+        width="${buttonWidth}" 
+        height="${buttonHeight}" 
+        rx="${borderRadius}" 
+        ry="${borderRadius}" 
+        fill="#4A148C" 
+        filter="url(#shadow)"
+      />
+      <text 
+        x="50%" 
+        y="50%" 
+        dominant-baseline="middle" 
+        text-anchor="middle" 
+        fill="white" 
+        font-family="Arial, sans-serif" 
+        font-size="${fontSize}" 
+        font-weight="700"
+      >${ctaUrl}</text>
+    </svg>
+  `;
+
+  const buttonBuffer = Buffer.from(buttonSvg);
+
+  await baseImage
+    .composite([
+      {
+        input: buttonBuffer,
+        left,
+        top,
+      },
+    ])
+    .png()
+    .toFile(outputPath);
+
+  console.log(
+    `🔗 CTA button overlaid: "${ctaUrl}" at bottom center (${buttonWidth}x${buttonHeight})`
+  );
+
+  return outputPath;
+}
+
 export async function generateCreativeVariant(
   variant: CreativeVariant,
   productImageUrl: string,
@@ -643,15 +724,27 @@ export async function generateCreativeVariant(
     );
 
     // Step 2: Programmatically overlay the official GreatFlowers logo
-    const finalPath = join(OUTPUT_DIR, outputFilename);
+    console.log(`🎨 Adding GreatFlowers logo to ${variant.creativeType}...`);
+    const logoOutputPath = join(OUTPUT_DIR, `logo-${outputFilename}`);
     await addOfficialLogo(
       generatedPath,
       logoPath,
       creativeBrief.logoPlacement,
+      logoOutputPath
+    );
+    console.log(`✅ Logo added to ${variant.creativeType}`);
+
+    // Step 3: Add CTA button overlay
+    console.log(`🔗 Adding CTA button to ${variant.creativeType}...`);
+    const finalPath = join(OUTPUT_DIR, outputFilename);
+    await addCTAButton(
+      logoOutputPath,
+      "www.greatflowers.net",
       finalPath
     );
+    console.log(`✅ CTA button added to ${variant.creativeType}`);
 
-    // Step 3: Upload the final composed image to S3
+    // Step 4: Upload the final composed image to S3
     console.log(`📤 Uploading ${variant.creativeType} to S3...`);
     const s3Url = await uploadToS3(finalPath, outputFilename);
     console.log(`✅ Uploaded to: ${s3Url}`);
@@ -659,6 +752,7 @@ export async function generateCreativeVariant(
     // Clean up all temporary/intermediate files
     const tempFiles = [
       generatedPath,
+      logoOutputPath,
       finalPath,
       productImagePath,
       logoPath,

@@ -537,16 +537,21 @@ export async function generateStoryCreatives(
   storyPlan: StoryCreativePlan,
   creativeBrief: CreativeBrief,
   productImageUrl: string | null,
-  onProgress?: (message: string) => void
+  onProgress?: (message: string) => void,
+  onSlideComplete?: (slide: GeneratedSlide, index: number, total: number) => void
 ): Promise<StoryCreativeResult> {
   console.log(`\n🎬 Starting Story Creative Generation`);
   console.log(`Story Concept: ${storyPlan.carouselConcept}`);
   console.log(`Slides: ${storyPlan.slides.length}\n`);
 
   const generatedSlides: GeneratedSlide[] = [];
+  const sortedSlides = [...storyPlan.slides].sort((a, b) => a.order - b.order);
+  const total = sortedSlides.length;
 
   // Generate slides sequentially to maintain continuity
-  for (const slide of storyPlan.slides.sort((a, b) => a.order - b.order)) {
+  for (let i = 0; i < sortedSlides.length; i++) {
+    const slide = sortedSlides[i]!;
+
     const result = await generateStorySlide(
       slide,
       creativeBrief,
@@ -562,6 +567,10 @@ export async function generateStoryCreatives(
     if (!result.success) {
       console.error(`❌ Slide ${slide.order} failed: ${result.error}`);
     }
+
+    // Emit true per-slide progress immediately, without waiting for
+    // remaining slides to finish.
+    onSlideComplete?.(result, i + 1, total);
   }
 
   const allSuccess = generatedSlides.every((s) => s.success);

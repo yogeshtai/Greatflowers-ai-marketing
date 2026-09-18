@@ -25,6 +25,32 @@ const accessToken =
 function resolveSelectedCreatives(
   campaign: SavedCampaign
 ): Array<{ imageUrl: string; type: string }> {
+  // Priority 0: Story Carousel (Stage 3) - takes precedence when selected.
+  // Reuses the existing multi-image Instagram/Facebook publishers by
+  // resolving to the same { imageUrl, type } shape, in slide order.
+  if (
+    campaign.selectedStoryCarousel &&
+    campaign.storyCreatives &&
+    campaign.storyCreatives.length > 0
+  ) {
+    const allSucceeded = campaign.storyCreatives.every(
+      (slide) => slide.success && slide.imageUrl
+    );
+
+    if (allSucceeded) {
+      return [...campaign.storyCreatives]
+        .sort((a, b) => a.order - b.order)
+        .map((slide) => ({
+          imageUrl: slide.imageUrl,
+          type: slide.creativeType,
+        }));
+    }
+
+    console.error(
+      "[Story Carousel] Selected but not all slides succeeded. Falling back to normal selection."
+    );
+  }
+
   // Priority 1: selectedCreatives (new multi-select format)
   if (campaign.selectedCreatives && campaign.selectedCreatives.length > 0) {
     // Sort by order without mutating original array

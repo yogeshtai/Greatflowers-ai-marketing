@@ -24,13 +24,21 @@ export async function generateStrategy(
   return response.data;
 }
 
+export interface StoryData {
+  storyConcept?: string;
+  storyVisualContinuity?: unknown;
+  storyCreatives?: unknown;
+  selectedStoryCarousel?: boolean;
+}
+
 export async function saveCampaign(
   input: CampaignInput,
   strategy: unknown,
   selectedProduct?: unknown,
   creatives?: unknown,
   selectedCreative?: unknown,
-  selectedCreatives?: unknown
+  selectedCreatives?: unknown,
+  storyData?: StoryData
 ) {
   const response = await axios.post(
     `${API_URL}/api/campaigns`,
@@ -41,6 +49,7 @@ export async function saveCampaign(
       creatives,
       selectedCreative,
       selectedCreatives,
+      ...(storyData || {}),
     }
   );
 
@@ -54,7 +63,8 @@ export async function updateCampaign(
   selectedProduct?: unknown,
   creatives?: unknown,
   selectedCreative?: unknown,
-  selectedCreatives?: unknown
+  selectedCreatives?: unknown,
+  storyData?: StoryData
 ) {
   const response = await axios.put(
     `${API_URL}/api/campaigns/${id}`,
@@ -65,6 +75,7 @@ export async function updateCampaign(
       creatives,
       selectedCreative,
       selectedCreatives,
+      ...(storyData || {}),
     }
   );
 

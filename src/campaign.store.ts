@@ -81,6 +81,35 @@ export interface SavedCampaign {
     isFallback: boolean;
     order: number;
   }>;
+
+  // Story Creatives (Stage 3): separate workflow from normal creatives.
+  storyConcept?: string;
+
+  storyVisualContinuity?: {
+    characterContinuity?: string;
+    environmentContinuity?: string;
+    colorContinuity?: string;
+    stylingContinuity?: string;
+  };
+
+  storyCreatives?: Array<{
+    order: number;
+    storyRole: string;
+    storyBeat: string;
+    imageUrl: string;
+    headline: string;
+    subheadline: string;
+    cta: string;
+    creativeType: string;
+    sceneStrategy: string;
+    productRole: string;
+    success: boolean;
+    error?: string;
+  }>;
+
+  // When true, the 4 storyCreatives (in order) are the selected publishing
+  // unit instead of selectedCreatives/selectedCreative.
+  selectedStoryCarousel?: boolean;
 }
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -159,7 +188,31 @@ export async function saveCampaign(
     cta: string;
     isFallback: boolean;
     order: number;
-  }>
+  }>,
+  storyData?: {
+    storyConcept?: string;
+    storyVisualContinuity?: {
+      characterContinuity?: string;
+      environmentContinuity?: string;
+      colorContinuity?: string;
+      stylingContinuity?: string;
+    };
+    storyCreatives?: Array<{
+      order: number;
+      storyRole: string;
+      storyBeat: string;
+      imageUrl: string;
+      headline: string;
+      subheadline: string;
+      cta: string;
+      creativeType: string;
+      sceneStrategy: string;
+      productRole: string;
+      success: boolean;
+      error?: string;
+    }>;
+    selectedStoryCarousel?: boolean;
+  }
 ) {
   const campaigns = await readCampaigns();
 
@@ -185,6 +238,22 @@ export async function saveCampaign(
 
     ...(selectedCreatives && selectedCreatives.length > 0
       ? { selectedCreatives }
+      : {}),
+
+    ...(storyData?.storyConcept
+      ? { storyConcept: storyData.storyConcept }
+      : {}),
+
+    ...(storyData?.storyVisualContinuity
+      ? { storyVisualContinuity: storyData.storyVisualContinuity }
+      : {}),
+
+    ...(storyData?.storyCreatives && storyData.storyCreatives.length > 0
+      ? { storyCreatives: storyData.storyCreatives }
+      : {}),
+
+    ...(storyData?.selectedStoryCarousel !== undefined
+      ? { selectedStoryCarousel: storyData.selectedStoryCarousel }
       : {}),
 
     status: "draft",

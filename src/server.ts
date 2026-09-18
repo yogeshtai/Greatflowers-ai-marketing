@@ -128,6 +128,10 @@ app.post("/api/campaigns", async (req, res) => {
       creatives,
       selectedCreative,
       selectedCreatives,
+      storyConcept,
+      storyVisualContinuity,
+      storyCreatives,
+      selectedStoryCarousel,
     } = req.body;
 
     if (!input || !strategy) {
@@ -143,7 +147,13 @@ app.post("/api/campaigns", async (req, res) => {
       selectedProduct,
       creatives,
       selectedCreative,
-      selectedCreatives
+      selectedCreatives,
+      {
+        storyConcept,
+        storyVisualContinuity,
+        storyCreatives,
+        selectedStoryCarousel,
+      }
     );
 
     return res.status(201).json({
@@ -214,6 +224,10 @@ app.put(
         creatives,
         selectedCreative,
         selectedCreatives,
+        storyConcept,
+        storyVisualContinuity,
+        storyCreatives,
+        selectedStoryCarousel,
       } = req.body;
 
       const campaign = await updateCampaign(id, {
@@ -228,6 +242,18 @@ app.put(
           : {}),
         ...(selectedCreatives
           ? { selectedCreatives }
+          : {}),
+        ...(storyConcept !== undefined
+          ? { storyConcept }
+          : {}),
+        ...(storyVisualContinuity !== undefined
+          ? { storyVisualContinuity }
+          : {}),
+        ...(storyCreatives !== undefined
+          ? { storyCreatives }
+          : {}),
+        ...(selectedStoryCarousel !== undefined
+          ? { selectedStoryCarousel }
           : {}),
       });
 
@@ -884,20 +910,21 @@ app.post(
               message,
             })}\n\n`
           );
+        },
+        (slide, index, total) => {
+          // Send each slide result the moment it completes, without
+          // waiting for the remaining slides.
+          res.write(
+            `data: ${JSON.stringify({
+              type: "progress",
+              slide,
+              index,
+              order: slide.order,
+              total,
+            })}\n\n`
+          );
         }
       );
-
-      // Send each slide result progressively
-      for (const slide of result.slides) {
-        res.write(
-          `data: ${JSON.stringify({
-            type: "progress",
-            slide,
-            order: slide.order,
-            total: result.slides.length,
-          })}\n\n`
-        );
-      }
 
       // Send completion event
       res.write(

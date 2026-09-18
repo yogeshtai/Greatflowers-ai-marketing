@@ -116,6 +116,7 @@ type Strategy = {
   needsVerification: string[];
   
   creativeBrief?: {
+    creativeMode?: "independent" | "story-carousel";
     headline: string;
     subheadline: string;
     cta: string;
@@ -125,11 +126,19 @@ type Strategy = {
     logoPlacement: string;
     textPlacement: string;
     creativeGoal: string;
+    carouselConcept?: string;
+    visualContinuity?: {
+      characterContinuity?: string;
+      environmentContinuity?: string;
+      colorContinuity?: string;
+      stylingContinuity?: string;
+    };
     variants: CreativeVariant[];
   };
 };
 
 type CreativeVariant = {
+  order?: number;
   creativeType:
     | "product"
     | "lifestyle"
@@ -160,6 +169,23 @@ type CreativeVariant = {
   compositionStyle: string;
   lightingStyle: string;
   sceneType: string;
+  storyRole?: string;
+  storyBeat?: string;
+};
+
+type StorySlideResult = {
+  order: number;
+  storyRole: string;
+  storyBeat: string;
+  imageUrl: string;
+  headline: string;
+  subheadline: string;
+  cta: string;
+  creativeType: string;
+  sceneStrategy: string;
+  productRole: string;
+  success: boolean;
+  error?: string;
 };
 
 type Creative = {
@@ -235,6 +261,16 @@ type SavedCampaign = {
     isFallback: boolean;
     order: number;
   }>;
+
+  storyConcept?: string;
+  storyVisualContinuity?: {
+    characterContinuity?: string;
+    environmentContinuity?: string;
+    colorContinuity?: string;
+    stylingContinuity?: string;
+  };
+  storyCreatives?: StorySlideResult[];
+  selectedStoryCarousel?: boolean;
 };
 
 const availablePlatforms = [
@@ -370,7 +406,14 @@ function App() {
     order: number;
   }>>([]);
   const [generationAbortController, setGenerationAbortController] = useState<AbortController | null>(null);
-  
+
+  // Story Creatives state (Stage 3) - separate workflow/state from normal creatives
+  const [storySlides, setStorySlides] = useState<StorySlideResult[]>([]);
+  const [storyLoading, setStoryLoading] = useState(false);
+  const [storyError, setStoryError] = useState("");
+  const [storyAbortController, setStoryAbortController] = useState<AbortController | null>(null);
+  const [selectedStoryCarousel, setSelectedStoryCarousel] = useState(false);
+
   // Check if already authenticated on mount
   useEffect(() => {
     const auth = sessionStorage.getItem("gf_auth");
@@ -617,6 +660,16 @@ function App() {
       setSelectedCreatives([]);
     }
 
+    // Load Story Creatives (Stage 3) - old campaigns simply won't have these fields
+    if (campaign.storyCreatives && campaign.storyCreatives.length > 0) {
+      setStorySlides([...campaign.storyCreatives].sort((a, b) => a.order - b.order));
+      setStoryError("");
+    } else {
+      setStorySlides([]);
+      setStoryError("");
+    }
+    setSelectedStoryCarousel(!!campaign.selectedStoryCarousel);
+
     window.scrollTo({
       top: 0,
       behavior: "smooth",
@@ -666,6 +719,13 @@ function App() {
 
       let response;
 
+      const storyData = {
+        storyConcept: strategy.creativeBrief?.carouselConcept,
+        storyVisualContinuity: strategy.creativeBrief?.visualContinuity,
+        storyCreatives: storySlides.length > 0 ? storySlides : undefined,
+        selectedStoryCarousel,
+      };
+
       if (savedCampaignId) {
         response = await updateCampaign(
           savedCampaignId,
@@ -674,7 +734,8 @@ function App() {
           recommendedProduct,
           creatives.length > 0 ? creatives : undefined,
           undefined, // old selectedCreative (deprecated)
-          selectedCreatives.length > 0 ? selectedCreatives : undefined
+          selectedCreatives.length > 0 ? selectedCreatives : undefined,
+          storyData
         );
       } else {
         response = await saveCampaign(
@@ -683,7 +744,8 @@ function App() {
           recommendedProduct,
           creatives.length > 0 ? creatives : undefined,
           undefined, // old selectedCreative (deprecated)
-          selectedCreatives.length > 0 ? selectedCreatives : undefined
+          selectedCreatives.length > 0 ? selectedCreatives : undefined,
+          storyData
         );
 
         setSavedCampaignId(response.campaign.id);
@@ -756,6 +818,11 @@ function App() {
       setCreativesError("");
       setCreativeFallbackImage(null);
       setSelectedCreatives([]);
+
+      // Clear previous Story Creatives when new recommendation is generated
+      setStorySlides([]);
+      setStoryError("");
+      setSelectedStoryCarousel(false);
     } catch (error) {
       console.error(
         "Recommendation failed:",
@@ -775,6 +842,11 @@ function App() {
     if (!creative.success && !creative.localPath && !creativeFallbackImage) {
       return;
     }
+
+    // Selecting a normal creative clears the Story Carousel selection,
+    // since publishing is either the normal creatives OR the Story
+    // Carousel, never both at once.
+    setSelectedStoryCarousel(false);
 
     // Check if localPath is already a full S3 URL or a local path
     const isS3Url = creative.localPath?.startsWith('http');
@@ -969,6 +1041,159 @@ function App() {
       setCreativesLoading(false);
       setGenerationAbortController(null);
     }
+  };
+
+  const handleGenerateStoryCreatives = async () => {
+    if (!strategy?.creativeBrief || !recommendedProduct?.image) {
+      setStoryError("Missing creative brief or product image");
+      return;
+    }
+
+    if (strategy.creativeBrief.creativeMode !== "story-carousel") {
+      setStoryError("This campaign's creative plan is not a story carousel.");
+      return;
+    }
+
+    // Validate that the product hasn't been manually changed
+    if (form.product !== recommendedProduct.name) {
+      setStoryError(
+        `Product mismatch: You selected "${form.product}" but the recommendation is for "${recommendedProduct.name}". ` +
+        `Please generate a new recommendation for "${form.product}" first.`
+      );
+      return;
+    }
+
+    // Build the StoryCreativePlan directly from the Hermes-generated
+    // creativeBrief (already planned in Stage 1). No planning logic is
+    // duplicated here - we only pass it through to the backend.
+    const storyPlan = {
+      carouselConcept: strategy.creativeBrief.carouselConcept,
+      visualContinuity: strategy.creativeBrief.visualContinuity,
+      slides: strategy.creativeBrief.variants,
+    };
+
+    try {
+      setStoryLoading(true);
+      setStoryError("");
+      setStorySlides(
+        storyPlan.slides.map((slide) => ({
+          order: slide.order || 0,
+          storyRole: slide.storyRole || "",
+          storyBeat: slide.storyBeat || "",
+          imageUrl: "",
+          headline: slide.headline,
+          subheadline: slide.subheadline,
+          cta: slide.cta,
+          creativeType: slide.creativeType,
+          sceneStrategy: slide.sceneStrategy,
+          productRole: slide.productRole,
+          success: false,
+        }))
+      );
+      setSelectedStoryCarousel(false);
+
+      const abortController = new AbortController();
+      setStoryAbortController(abortController);
+
+      const response = await fetch(`${API_BASE}/api/creatives/generate/story/stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productImageUrl: recommendedProduct.image,
+          creativeBrief: strategy.creativeBrief,
+          storyPlan,
+        }),
+        signal: abortController.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to start story creative generation');
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) {
+        throw new Error('No response stream');
+      }
+
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = JSON.parse(line.slice(6));
+
+            if (data.type === 'progress') {
+              // Update the specific slide the moment it completes
+              setStorySlides(prev => {
+                const updated = [...prev];
+                const index = updated.findIndex(s => s.order === data.slide.order);
+
+                if (index >= 0) {
+                  updated[index] = data.slide;
+                } else {
+                  updated.push(data.slide);
+                }
+
+                return updated.sort((a, b) => a.order - b.order);
+              });
+            } else if (data.type === 'complete') {
+              if (!data.success && data.error) {
+                setStoryError(data.error);
+              }
+            } else if (data.type === 'error') {
+              setStoryError(data.error || 'Story creative generation failed');
+            }
+          }
+        }
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log("Story creative generation stopped by user");
+      } else {
+        console.error("Story creative generation failed:", error);
+        setStoryError("Failed to generate story creatives");
+      }
+    } finally {
+      setStoryLoading(false);
+      setStoryAbortController(null);
+    }
+  };
+
+  const handleStopStoryGeneration = () => {
+    if (storyAbortController) {
+      storyAbortController.abort();
+      setStoryLoading(false);
+      setStoryAbortController(null);
+    }
+  };
+
+  const handleSelectStoryCarousel = () => {
+    // Only allow selecting a completed story (all 4 slides succeeded)
+    const allSucceeded = storySlides.length === 4 && storySlides.every(s => s.success);
+
+    if (!allSucceeded) {
+      return;
+    }
+
+    // Selecting the Story Carousel clears normal creative selection,
+    // since publishing is either the normal creatives OR the Story
+    // Carousel, never both at once.
+    setSelectedCreatives([]);
+    setSelectedStoryCarousel(prev => !prev);
   };
 
   const handleScheduleSubmit = async () => {
@@ -1601,6 +1826,142 @@ function App() {
                     </div>
                   </div>
                 </div>
+              )}
+            </section>
+          )}
+
+          {strategy?.creativeBrief?.creativeMode === "story-carousel" && recommendedProduct && (
+            <section className="campaign-creatives-section story-creatives-section">
+              <div className="creatives-header">
+                <h2>📖 Story Creative</h2>
+                <p>A connected 4-slide visual story for this campaign</p>
+              </div>
+
+              {storySlides.length === 0 && !storyLoading && (
+                <div className="creatives-generate-prompt">
+                  <button
+                    onClick={handleGenerateStoryCreatives}
+                    className="btn-generate-creatives"
+                    disabled={storyLoading}
+                  >
+                    Generate Story Creatives
+                  </button>
+                  <p className="creatives-hint">
+                    Generate 4 connected slides that tell one coherent story
+                  </p>
+                  {storyError && (
+                    <p className="creative-error-note">⚠ {storyError}</p>
+                  )}
+                </div>
+              )}
+
+              {(storySlides.length > 0 || storyLoading) && (
+                <>
+                  {strategy.creativeBrief.carouselConcept && (
+                    <div className="story-concept-box">
+                      <h3>"{strategy.creativeBrief.carouselConcept}"</h3>
+                    </div>
+                  )}
+
+                  {storyLoading && (
+                    <div className="creatives-loading">
+                      <p className="loading-message">
+                        🎬 Generating story slides in order. This may take several minutes.
+                        <br />
+                        <strong>{storySlides.filter(s => s.success).length} of 4 completed</strong>
+                      </p>
+                      <button
+                        onClick={handleStopStoryGeneration}
+                        className="btn-stop-generation"
+                      >
+                        ⏹ Stop Generation
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="story-slides-grid">
+                    {storySlides.map((slide, index) => {
+                      const priorSlidesSucceeded = storySlides
+                        .slice(0, index)
+                        .every(s => s.success);
+                      const isGeneratingThis =
+                        storyLoading &&
+                        !slide.success &&
+                        !slide.error &&
+                        priorSlidesSucceeded;
+
+                      return (
+                        <div
+                          key={`story-slide-${slide.order}`}
+                          className={`creative-card story-slide-card ${selectedStoryCarousel ? 'selected' : ''}`}
+                        >
+                          <div className="story-slide-label">Slide {slide.order}</div>
+                          <div className="creative-image-container">
+                            {slide.success && slide.imageUrl ? (
+                              <img
+                                src={slide.imageUrl}
+                                alt={slide.headline}
+                                className="creative-image"
+                              />
+                            ) : slide.error ? (
+                              <div className="story-slide-status story-slide-error">
+                                ⚠ Failed
+                              </div>
+                            ) : isGeneratingThis ? (
+                              <div className="placeholder-spinner"></div>
+                            ) : (
+                              <div className="placeholder-waiting">⏳</div>
+                            )}
+                          </div>
+                          <div className="creative-details">
+                            {slide.storyRole && (
+                              <span className="creative-type-badge">
+                                {slide.storyRole}
+                              </span>
+                            )}
+                            <h3 className="creative-headline">{slide.headline}</h3>
+                            {slide.storyBeat && (
+                              <p className="creative-subheadline">{slide.storyBeat}</p>
+                            )}
+                            {slide.error && (
+                              <p className="creative-error-note">⚠ {slide.error}</p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {!storyLoading && storySlides.length === 4 && storySlides.every(s => s.success) && (
+                    <div className="creative-selection-summary">
+                      <button
+                        className={`btn-generate-creatives ${selectedStoryCarousel ? 'story-selected' : ''}`}
+                        onClick={handleSelectStoryCarousel}
+                      >
+                        {selectedStoryCarousel ? '✓ Story Carousel Selected' : 'Select Story Carousel'}
+                      </button>
+                      {selectedStoryCarousel && (
+                        <p className="selection-fallback-note">
+                          This story will publish as one 4-image Instagram carousel / Facebook post.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {!storyLoading && storySlides.length > 0 && storySlides.some(s => !s.success) && (
+                    <div className="creatives-fallback">
+                      <div className="fallback-message">
+                        <p>⚠ Some slides failed. A story can only be selected once all 4 slides succeed.</p>
+                        <button
+                          className="retry-button"
+                          onClick={handleGenerateStoryCreatives}
+                        >
+                          🔄 Retry Story Generation
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </section>
           )}

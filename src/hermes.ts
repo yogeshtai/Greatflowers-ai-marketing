@@ -164,6 +164,7 @@ Use exactly this structure:
     "variants": [
       {
         "creativeType": "product | lifestyle | occasion | location | feature | informational | brand-awareness",
+        "sceneStrategy": "PRODUCT_STUDIO | HUMAN_GIFTING_MOMENT | HUMAN_LIFESTYLE | OCCASION_SCENE | EDITORIAL_CONTENT | INFORMATIONAL_GRAPHIC | LOCATION_STORY | FEATURE_DEMO | BRAND_STORY",
         "concept": "string",
         "headline": "string",
         "subheadline": "string",
@@ -179,6 +180,7 @@ Use exactly this structure:
       },
       {
         "creativeType": "product | lifestyle | occasion | location | feature | informational | brand-awareness",
+        "sceneStrategy": "PRODUCT_STUDIO | HUMAN_GIFTING_MOMENT | HUMAN_LIFESTYLE | OCCASION_SCENE | EDITORIAL_CONTENT | INFORMATIONAL_GRAPHIC | LOCATION_STORY | FEATURE_DEMO | BRAND_STORY",
         "concept": "string",
         "headline": "string",
         "subheadline": "string",
@@ -194,6 +196,7 @@ Use exactly this structure:
       },
       {
         "creativeType": "product | lifestyle | occasion | location | feature | informational | brand-awareness",
+        "sceneStrategy": "PRODUCT_STUDIO | HUMAN_GIFTING_MOMENT | HUMAN_LIFESTYLE | OCCASION_SCENE | EDITORIAL_CONTENT | INFORMATIONAL_GRAPHIC | LOCATION_STORY | FEATURE_DEMO | BRAND_STORY",
         "concept": "string",
         "headline": "string",
         "subheadline": "string",
@@ -383,6 +386,59 @@ Available creative types:
    productRole: "optional" or "none"
    Use when: Building brand recognition or trust is the primary objective.
 
+sceneStrategy (REQUIRED for each variant):
+
+This field controls the VISUAL COMPOSITION STRATEGY for image generation.
+
+Choose the sceneStrategy that best matches the creativeType and concept:
+
+1. PRODUCT_STUDIO
+   Commercial product photography. Product is the main visual subject.
+   Use with: creativeType "product" + productRole "hero"
+
+2. HUMAN_GIFTING_MOMENT
+   Person giving, receiving, or interacting with flowers. Emotional moment is the hero.
+   Use with: creativeType "lifestyle" + productRole "supporting"
+
+3. HUMAN_LIFESTYLE
+   Human lifestyle scene where flowers participate naturally.
+   Use with: creativeType "lifestyle" + productRole "supporting" or "optional"
+
+4. OCCASION_SCENE
+   Scene that visually communicates the occasion. Occasion/environment dominates.
+   Use with: creativeType "occasion" + productRole "supporting" or "optional"
+
+5. EDITORIAL_CONTENT
+   Editorial/social content composition (occasion guides, flower stories, seasonal content, care tips).
+   Use with: creativeType "informational" + productRole "optional" or "none"
+   CRITICAL: Product should NOT dominate. This is NOT a product advertisement.
+
+6. INFORMATIONAL_GRAPHIC
+   Structured useful-content design. Product should not dominate the canvas.
+   Use with: creativeType "informational" + productRole "optional" or "none"
+
+7. LOCATION_STORY
+   Location/environment/story leads the composition.
+   Use with: creativeType "location" + productRole "supporting" or "optional"
+
+8. FEATURE_DEMO
+   Visually demonstrate the verified feature/service.
+   Use with: creativeType "feature" + productRole varies
+
+9. BRAND_STORY
+   Broader brand/service composition. Do not make one product the hero.
+   Use with: creativeType "brand-awareness" + productRole "optional" or "none"
+
+CRITICAL SCENE STRATEGY DIVERSITY:
+
+The 3 variants MUST use meaningfully different sceneStrategy values.
+
+Do NOT assign strategies by card position. Choose based on the strategic concept.
+
+Different variants should produce visually distinct kinds of marketing content:
+- Example: PRODUCT_STUDIO + HUMAN_GIFTING_MOMENT + EDITORIAL_CONTENT
+- NOT: PRODUCT_STUDIO + PRODUCT_STUDIO + PRODUCT_STUDIO with different headlines
+
 CREATIVE CONCEPT DIVERSITY:
 
 The 3 variants should use at least 2 different creativeType values.
@@ -391,11 +447,12 @@ Prefer 3 different types when strategically appropriate.
 
 Each variant should have:
 - different concept (strategic approach)
+- different sceneStrategy (visual composition strategy)
 - different headline
 - different productRole (when appropriate)
 - different visualDirection
 
-Do not duplicate the exact same headline or concept across variants.
+Do not duplicate the exact same headline, concept, or sceneStrategy across variants.
 
 CRITICAL VISUAL DIVERSITY REQUIREMENT:
 

@@ -138,6 +138,16 @@ type CreativeVariant = {
     | "feature"
     | "informational"
     | "brand-awareness";
+  sceneStrategy:
+    | "PRODUCT_STUDIO"
+    | "HUMAN_GIFTING_MOMENT"
+    | "HUMAN_LIFESTYLE"
+    | "OCCASION_SCENE"
+    | "EDITORIAL_CONTENT"
+    | "INFORMATIONAL_GRAPHIC"
+    | "LOCATION_STORY"
+    | "FEATURE_DEMO"
+    | "BRAND_STORY";
   concept: string;
   headline: string;
   subheadline: string;
@@ -161,6 +171,7 @@ type Creative = {
   success: boolean;
   error?: string;
   // New strategic metadata from Hermes
+  sceneStrategy?: string;
   concept?: string;
   productRole?: "hero" | "supporting" | "optional" | "none";
   locationContext?: string;
@@ -1359,6 +1370,11 @@ function App() {
                               )}
                               
                               {/* Strategic metadata */}
+                              {creative.sceneStrategy && (
+                                <p className="creative-meta">
+                                  <strong>Scene Strategy:</strong> {creative.sceneStrategy.replace(/_/g, ' ')}
+                                </p>
+                              )}
                               {creative.productRole && (
                                 <p className="creative-meta">
                                   <strong>Product Role:</strong> {creative.productRole.charAt(0).toUpperCase() + creative.productRole.slice(1)}

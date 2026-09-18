@@ -815,6 +815,124 @@ app.post(
 );
 
 app.post(
+  "/api/creatives/generate/story/stream",
+  async (req, res) => {
+    const { productImageUrl, creativeBrief, storyPlan } =
+      req.body;
+
+    if (
+      !storyPlan ||
+      typeof storyPlan !== "object" ||
+      !Array.isArray(storyPlan.slides)
+    ) {
+      return res.status(400).json({
+        success: false,
+        error:
+          "storyPlan with slides array is required",
+      });
+    }
+
+    if (
+      !creativeBrief ||
+      typeof creativeBrief !== "object"
+    ) {
+      return res.status(400).json({
+        success: false,
+        error:
+          "creativeBrief is required and must be an object",
+      });
+    }
+
+    // Set up SSE headers
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    console.log(
+      "\n🎬 Story Creative Generation Stream Request"
+    );
+    console.log(
+      `Story Concept: ${storyPlan.carouselConcept}`
+    );
+    console.log(
+      `Slides: ${storyPlan.slides.length}`
+    );
+
+    try {
+      const { generateStoryCreatives } = await import(
+        "./codex.story.js"
+      );
+
+      // Send initial event
+      res.write(
+        `data: ${JSON.stringify({
+          type: "start",
+          storyConcept: storyPlan.carouselConcept,
+          total: storyPlan.slides.length,
+        })}\n\n`
+      );
+
+      const result = await generateStoryCreatives(
+        storyPlan,
+        creativeBrief,
+        productImageUrl || null,
+        (message) => {
+          // Send progress log events
+          res.write(
+            `data: ${JSON.stringify({
+              type: "log",
+              message,
+            })}\n\n`
+          );
+        }
+      );
+
+      // Send each slide result progressively
+      for (const slide of result.slides) {
+        res.write(
+          `data: ${JSON.stringify({
+            type: "progress",
+            slide,
+            order: slide.order,
+            total: result.slides.length,
+          })}\n\n`
+        );
+      }
+
+      // Send completion event
+      res.write(
+        `data: ${JSON.stringify({
+          type: "complete",
+          success: result.success,
+          storyConcept: result.storyConcept,
+          error: result.error,
+        })}\n\n`
+      );
+
+      res.end();
+    } catch (error) {
+      console.error(
+        "❌ Story creative generation stream failed:",
+        error
+      );
+
+      res.write(
+        `data: ${JSON.stringify({
+          type: "error",
+          error: "Story creative generation unavailable",
+          details:
+            error instanceof Error
+              ? error.message
+              : String(error),
+        })}\n\n`
+      );
+
+      res.end();
+    }
+  }
+);
+
+app.post(
   "/api/creatives/generate/variant",
   async (req, res) => {
     const { productImageUrl, creativeBrief, variantType } =

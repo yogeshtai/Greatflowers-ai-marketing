@@ -152,6 +152,7 @@ Use exactly this structure:
   ],
 
   "creativeBrief": {
+    "creativeMode": "independent | story-carousel",
     "headline": "string",
     "subheadline": "string",
     "cta": "string",
@@ -161,8 +162,16 @@ Use exactly this structure:
     "logoPlacement": "string",
     "textPlacement": "string",
     "creativeGoal": "string",
+    "carouselConcept": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+    "visualContinuity": {
+      "characterContinuity": "string (optional)",
+      "environmentContinuity": "string (optional)",
+      "colorContinuity": "string (optional)",
+      "stylingContinuity": "string (optional)"
+    },
     "variants": [
       {
+        "order": 1,
         "creativeType": "product | lifestyle | occasion | location | feature | informational | brand-awareness",
         "sceneStrategy": "PRODUCT_STUDIO | HUMAN_GIFTING_MOMENT | HUMAN_LIFESTYLE | OCCASION_SCENE | EDITORIAL_CONTENT | INFORMATIONAL_GRAPHIC | LOCATION_STORY | FEATURE_DEMO | BRAND_STORY",
         "concept": "string",
@@ -176,9 +185,12 @@ Use exactly this structure:
         "colorPalette": "string",
         "compositionStyle": "string",
         "lightingStyle": "string",
-        "sceneType": "string"
+        "sceneType": "string",
+        "storyRole": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "storyBeat": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)"
       },
       {
+        "order": 2,
         "creativeType": "product | lifestyle | occasion | location | feature | informational | brand-awareness",
         "sceneStrategy": "PRODUCT_STUDIO | HUMAN_GIFTING_MOMENT | HUMAN_LIFESTYLE | OCCASION_SCENE | EDITORIAL_CONTENT | INFORMATIONAL_GRAPHIC | LOCATION_STORY | FEATURE_DEMO | BRAND_STORY",
         "concept": "string",
@@ -192,9 +204,12 @@ Use exactly this structure:
         "colorPalette": "string",
         "compositionStyle": "string",
         "lightingStyle": "string",
-        "sceneType": "string"
+        "sceneType": "string",
+        "storyRole": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "storyBeat": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)"
       },
       {
+        "order": 3,
         "creativeType": "product | lifestyle | occasion | location | feature | informational | brand-awareness",
         "sceneStrategy": "PRODUCT_STUDIO | HUMAN_GIFTING_MOMENT | HUMAN_LIFESTYLE | OCCASION_SCENE | EDITORIAL_CONTENT | INFORMATIONAL_GRAPHIC | LOCATION_STORY | FEATURE_DEMO | BRAND_STORY",
         "concept": "string",
@@ -208,13 +223,73 @@ Use exactly this structure:
         "colorPalette": "string",
         "compositionStyle": "string",
         "lightingStyle": "string",
-        "sceneType": "string"
+        "sceneType": "string",
+        "storyRole": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "storyBeat": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)"
+      },
+      {
+        "order": 4,
+        "creativeType": "product | lifestyle | occasion | location | feature | informational | brand-awareness",
+        "sceneStrategy": "PRODUCT_STUDIO | HUMAN_GIFTING_MOMENT | HUMAN_LIFESTYLE | OCCASION_SCENE | EDITORIAL_CONTENT | INFORMATIONAL_GRAPHIC | LOCATION_STORY | FEATURE_DEMO | BRAND_STORY",
+        "concept": "string",
+        "headline": "string",
+        "subheadline": "string",
+        "cta": "string",
+        "visualDirection": "string",
+        "productRole": "hero | supporting | optional | none",
+        "locationContext": "string (optional)",
+        "occasionContext": "string (optional)",
+        "colorPalette": "string",
+        "compositionStyle": "string",
+        "lightingStyle": "string",
+        "sceneType": "string",
+        "storyRole": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "storyBeat": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)"
       }
     ]
   }
 }
 
 CREATIVE BRIEF RULES:
+
+creativeMode (REQUIRED):
+
+You MUST choose between two creative modes for this campaign:
+
+1. "independent"
+   - Generate 4 different standalone marketing creatives
+   - Each image works independently as its own advertisement
+   - Use when: The campaign benefits from multiple distinct marketing angles
+   - Example: Product showcase + lifestyle moment + occasion scene + informational graphic
+
+2. "story-carousel"
+   - Generate 4 connected slides that together tell ONE coherent marketing story
+   - Each slide advances the narrative
+   - Use when: The campaign benefits from a sequential story that unfolds across multiple images
+   - Example: A birthday gifting journey, a sympathy support story, an anniversary celebration arc
+
+CRITICAL MODE SELECTION RULES:
+
+Do NOT force every campaign into story-carousel mode.
+
+Choose based on:
+- Campaign objective (does it benefit from a narrative arc?)
+- Occasion (some occasions naturally tell stories, others don't)
+- Product type (some products work better in stories, others as standalone showcases)
+- Target customer intent (are they looking for a story or quick product info?)
+- Marketing angle (does the angle require narrative development?)
+
+Story-carousel is appropriate when:
+- The campaign has a clear emotional journey
+- The occasion involves a sequence of moments (gifting process, celebration timeline, support journey)
+- The marketing angle benefits from building anticipation or emotional development
+- The customer intent involves understanding a process or experience
+
+Independent is appropriate when:
+- The campaign needs to test multiple distinct value propositions
+- Different customer segments need different messaging
+- The product/occasion doesn't naturally form a narrative
+- Maximum creative diversity is more valuable than story continuity
 
 The creativeBrief is for a future AI visual-generation system that will create social media campaign images.
 
@@ -333,17 +408,108 @@ Short statement explaining what this creative should achieve.
 Example:
 "Create a respectful sympathy ad that communicates thoughtfulness while keeping the real product as the visual focus."
 
+carouselConcept (REQUIRED if creativeMode is "story-carousel", otherwise omit):
+
+A single sentence explaining the overall marketing story that connects all 4 slides.
+
+Example:
+"A birthday gifting journey showing someone discovering the perfect way to celebrate a loved one through thoughtful flowers."
+
+This is the narrative spine. All 4 slides must advance this story.
+
+visualContinuity (REQUIRED if creativeMode is "story-carousel", otherwise omit):
+
+Describe what should remain visually consistent across the 4 slides to create story cohesion.
+
+characterContinuity:
+Should the same person/people appear across slides? Describe who and how.
+
+Example:
+"Use the same couple throughout - a woman in her 30s selecting and giving flowers, and her partner receiving them."
+
+Or if no character continuity is needed:
+"No character continuity required."
+
+environmentContinuity:
+Should the setting remain consistent? Describe the environment.
+
+Example:
+"Warm home interior throughout - living room and dining area of the same house."
+
+colorContinuity:
+What color palette should unify the slides?
+
+Example:
+"Warm cream, soft pink, and natural wood tones throughout all slides."
+
+stylingContinuity:
+What visual style should remain consistent?
+
+Example:
+"Premium editorial photography with consistent soft natural lighting and clean typography."
+
 variants:
 
-You MUST return exactly 3 creative variants.
+You MUST return exactly 4 creative variants (slides).
+
+Each variant must have order: 1, 2, 3, or 4.
 
 STRATEGIC CREATIVE CONCEPT SELECTION:
 
-Do NOT hard-code creative types (e.g. always product + lifestyle + location).
+FOR INDEPENDENT MODE:
 
-Instead, strategically choose the 3 best creative concepts from the available evidence and campaign objective.
+Do NOT hard-code creative types (e.g. always product + lifestyle + location + occasion).
 
-The 3 concepts should be meaningfully different marketing approaches, not just visual variations of the same advertisement.
+Instead, strategically choose the 4 best creative concepts from the available evidence and campaign objective.
+
+The 4 concepts should be meaningfully different marketing approaches, not just visual variations of the same advertisement.
+
+FOR STORY-CAROUSEL MODE:
+
+Each of the 4 slides must include:
+
+storyRole (REQUIRED):
+The narrative function of this slide in the overall story.
+
+Do NOT hard-code roles like "setup → consideration → gesture → payoff".
+
+Design the appropriate narrative structure for THIS specific campaign.
+
+Examples of possible story roles (adapt to your story):
+- "emotional trigger"
+- "problem awareness"
+- "solution discovery"
+- "meaningful action"
+- "emotional payoff"
+- "product reveal"
+- "moment of connection"
+- "celebration peak"
+
+storyBeat (REQUIRED):
+What specifically happens in this slide? What changes from the previous slide?
+
+Example:
+"The recipient opens the door to find the flower delivery waiting, their expression shifting from ordinary to surprised delight."
+
+CRITICAL STORY CONNECTION RULE:
+
+Every slide must answer: "What changed from the previous slide?"
+
+Four slides must NOT simply show the same message differently.
+
+BAD story progression:
+Slide 1 → bouquet on table
+Slide 2 → bouquet in different room
+Slide 3 → bouquet near person
+Slide 4 → bouquet on another table
+
+GOOD story progression:
+Slide 1 → establishes the emotional situation or need
+Slide 2 → develops the moment or consideration
+Slide 3 → introduces the meaningful action or solution
+Slide 4 → delivers the emotional or product payoff
+
+The story must have PROGRESSION, not repetition.
 
 Available creative types:
 
@@ -431,19 +597,35 @@ Choose the sceneStrategy that best matches the creativeType and concept:
 
 CRITICAL SCENE STRATEGY DIVERSITY:
 
-The 3 variants MUST use meaningfully different sceneStrategy values.
+FOR INDEPENDENT MODE:
+
+The 4 variants MUST use meaningfully different sceneStrategy values.
 
 Do NOT assign strategies by card position. Choose based on the strategic concept.
 
 Different variants should produce visually distinct kinds of marketing content:
-- Example: PRODUCT_STUDIO + HUMAN_GIFTING_MOMENT + EDITORIAL_CONTENT
-- NOT: PRODUCT_STUDIO + PRODUCT_STUDIO + PRODUCT_STUDIO with different headlines
+- Example: PRODUCT_STUDIO + HUMAN_GIFTING_MOMENT + EDITORIAL_CONTENT + OCCASION_SCENE
+- NOT: PRODUCT_STUDIO + PRODUCT_STUDIO + PRODUCT_STUDIO + PRODUCT_STUDIO with different headlines
+
+FOR STORY-CAROUSEL MODE:
+
+The 4 slides may use similar sceneStrategy values IF the story requires it for continuity.
+
+However, each slide must still have visual progression through the storyBeat.
 
 CREATIVE CONCEPT DIVERSITY:
 
-The 3 variants should use at least 2 different creativeType values.
+FOR INDEPENDENT MODE:
 
-Prefer 3 different types when strategically appropriate.
+The 4 variants should use at least 3 different creativeType values.
+
+Prefer 4 different types when strategically appropriate.
+
+FOR STORY-CAROUSEL MODE:
+
+The 4 slides may use the same or similar creativeType values if the story requires it.
+
+Focus on narrative progression rather than type diversity.
 
 Each variant should have:
 - different concept (strategic approach)
@@ -456,7 +638,13 @@ Do not duplicate the exact same headline, concept, or sceneStrategy across varia
 
 CRITICAL VISUAL DIVERSITY REQUIREMENT:
 
-The 3 variants MUST have distinctly different visual styles to avoid repetitive-looking creatives.
+FOR INDEPENDENT MODE:
+
+The 4 variants MUST have distinctly different visual styles to avoid repetitive-looking creatives.
+
+FOR STORY-CAROUSEL MODE:
+
+The 4 slides should maintain visual continuity as specified in visualContinuity, while still showing clear progression through the story.
 
 Each variant must specify these 4 visual style fields:
 
@@ -506,11 +694,19 @@ Examples:
 
 VISUAL DIVERSITY ENFORCEMENT:
 
-The 3 variants MUST use different values for at least 3 out of 4 style fields.
+FOR INDEPENDENT MODE:
+
+The 4 variants MUST use different values for at least 3 out of 4 style fields.
 
 Do NOT generate variants with the same colorPalette, compositionStyle, AND lightingStyle.
 
-Aim for maximum visual contrast between the three creatives.
+Aim for maximum visual contrast between the four creatives.
+
+FOR STORY-CAROUSEL MODE:
+
+Visual style fields should support the visualContinuity plan while allowing for progression.
+
+Some fields may remain consistent across slides if specified in visualContinuity.
 
 concept field:
 

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 const creativeVariantSchema = z.object({
+  order: z.number().int().min(1).max(4),
   creativeType: z.enum([
     "product",
     "lifestyle",
@@ -33,9 +34,12 @@ const creativeVariantSchema = z.object({
   compositionStyle: z.string().min(1),
   lightingStyle: z.string().min(1),
   sceneType: z.string().min(1),
+  storyRole: z.string().optional(),
+  storyBeat: z.string().optional(),
 });
 
 const creativeBriefSchema = z.object({
+  creativeMode: z.enum(["independent", "story-carousel"]),
   headline: z.string().min(1),
   subheadline: z.string(),
   cta: z.string().min(1),
@@ -45,13 +49,20 @@ const creativeBriefSchema = z.object({
   logoPlacement: z.string().min(1),
   textPlacement: z.string().min(1),
   creativeGoal: z.string().min(1),
-  variants: z.array(creativeVariantSchema).length(3).refine(
+  carouselConcept: z.string().optional(),
+  visualContinuity: z.object({
+    characterContinuity: z.string().optional(),
+    environmentContinuity: z.string().optional(),
+    colorContinuity: z.string().optional(),
+    stylingContinuity: z.string().optional(),
+  }).optional(),
+  variants: z.array(creativeVariantSchema).min(3).max(4).refine(
     (variants) => {
       const types = variants.map((v) => v.creativeType);
       return new Set(types).size >= 2;
     },
     {
-      message: "Must have at least 2 different creative types among the 3 variants",
+      message: "Must have at least 2 different creative types among the variants",
     }
   ),
 });

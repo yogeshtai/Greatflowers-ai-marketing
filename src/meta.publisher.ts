@@ -4,6 +4,7 @@ import type {
 import {
   prepareInstagramImage,
   prepareFacebookImage,
+  prepareFacebookCarouselImage,
 } from "./meta.image.js";
 
 const GRAPH_VERSION =
@@ -481,6 +482,132 @@ async function publishInstagramCarousel(
   };
 }
 
+async function uploadFacebookUnpublishedPhoto(
+  pageId: string,
+  imageUrl: string
+): Promise<string> {
+  console.log(`[Facebook Multi-Image] Uploading unpublished photo: ${imageUrl}`);
+
+  const result = await graphPost(
+    `${pageId}/photos`,
+    {
+      url: imageUrl,
+      published: "false",
+    }
+  );
+
+  if (!result.id) {
+    throw new Error("Facebook unpublished photo was not uploaded.");
+  }
+
+  console.log(`[Facebook Multi-Image] Photo uploaded: ${result.id}`);
+  return result.id;
+}
+
+async function publishFacebookMultiImage(
+  campaign: SavedCampaign,
+  selectedCreatives: Array<{ imageUrl: string; type: string }>
+): Promise<{
+  platform: string;
+  published: boolean;
+  postId: string;
+  imageUrls: string[];
+}> {
+  if (!pageId) {
+    throw new Error("META_PAGE_ID is missing.");
+  }
+
+  const facebook = campaign.strategy.platformContent.facebook;
+
+  if (!facebook) {
+    throw new Error("Campaign does not contain Facebook content.");
+  }
+
+  console.log(
+    `[Facebook Multi-Image] Publishing ${selectedCreatives.length} images in order`
+  );
+
+  // Step 1: Prepare all images (preserve square composition)
+  const preparedImages: Array<{ url: string; type: string }> = [];
+
+  for (const creative of selectedCreatives) {
+    try {
+      const preparedUrl = await prepareFacebookCarouselImage(creative.imageUrl);
+      preparedImages.push({ url: preparedUrl, type: creative.type });
+      console.log(
+        `[Facebook Multi-Image] Prepared ${creative.type}: ${preparedUrl}`
+      );
+    } catch (error) {
+      console.error(
+        `[Facebook Multi-Image] Failed to prepare ${creative.type}:`,
+        error
+      );
+      throw new Error(
+        `Failed to prepare Facebook multi-image for ${creative.type}: ${error}`
+      );
+    }
+  }
+
+  // Step 2: Upload all photos as unpublished
+  const photoIds: string[] = [];
+
+  for (const image of preparedImages) {
+    try {
+      const photoId = await uploadFacebookUnpublishedPhoto(
+        pageId,
+        image.url
+      );
+      photoIds.push(photoId);
+    } catch (error) {
+      console.error(
+        `[Facebook Multi-Image] Failed to upload ${image.type}:`,
+        error
+      );
+      throw new Error(
+        `Failed to upload Facebook photo for ${image.type}: ${error}`
+      );
+    }
+  }
+
+  // Step 3: Create one multi-image post with all photos
+  const productUrl = campaign.selectedProduct?.url || "";
+
+  const message = [
+    facebook.post,
+    productUrl,
+    facebook.cta || "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  const attachedMedia = photoIds.map((id) => ({
+    media_fbid: id,
+  }));
+
+  console.log(
+    `[Facebook Multi-Image] Creating post with ${photoIds.length} photos`
+  );
+
+  const result = await graphPost(
+    `${pageId}/feed`,
+    {
+      message,
+      attached_media: JSON.stringify(attachedMedia),
+    }
+  );
+
+  console.log(
+    `[Facebook Multi-Image] Successfully published multi-image post with ${selectedCreatives.length} images`
+  );
+
+  return {
+    platform: "facebook",
+    published: true,
+    postId: result.id,
+    imageUrls: preparedImages.map((img) => img.url),
+  };
+}
+
 export async function publishFacebook(
   campaign: SavedCampaign
 ) {
@@ -507,6 +634,21 @@ export async function publishFacebook(
     );
   }
 
+  // Resolve selected creatives with priority logic
+  const selectedCreatives = resolveSelectedCreatives(campaign);
+
+  // Route based on number of selected creatives
+  if (selectedCreatives.length >= 2) {
+    // Multi-image: Use Facebook multi-image publishing
+    console.log(
+      `[Facebook] Publishing multi-image post with ${selectedCreatives.length} images`
+    );
+    return await publishFacebookMultiImage(campaign, selectedCreatives);
+  }
+
+  // Single image or fallback: Use existing single-image flow
+  console.log("[Facebook] Publishing single image");
+
   const productUrl = campaign.selectedProduct?.url || "";
 
   const message = [
@@ -520,7 +662,7 @@ export async function publishFacebook(
   // Use selected creative image if available, fall back to product image
   const imageUrl = await resolveImageUrl(
     prepareFacebookImage,
-    campaign.selectedCreative?.imageUrl,
+    selectedCreatives[0]?.imageUrl,
     productImage
   );
 

@@ -97,3 +97,42 @@ export async function prepareFacebookImage(
 
   return `https://${BUCKET}.s3.${REGION}.amazonaws.com/${key}`;
 }
+
+export async function prepareFacebookCarouselImage(
+  imageUrl: string
+): Promise<string> {
+  const response = await fetch(imageUrl);
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to download carousel image: ${response.status}`
+    );
+  }
+
+  const inputBuffer = Buffer.from(
+    await response.arrayBuffer()
+  );
+
+  // For Facebook multi-image posts, preserve the square 1:1 composition
+  // that the AI creative was generated with. Do not resize to 1200x630.
+  // Just convert to JPEG for Meta compatibility.
+  const jpegBuffer = await sharp(inputBuffer)
+    .jpeg({
+      quality: 90,
+    })
+    .toBuffer();
+
+  const filename = `${crypto.randomUUID()}.jpg`;
+  const key = `${PREFIX}/${filename}`;
+
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      Body: jpegBuffer,
+      ContentType: "image/jpeg",
+    })
+  );
+
+  return `https://${BUCKET}.s3.${REGION}.amazonaws.com/${key}`;
+}

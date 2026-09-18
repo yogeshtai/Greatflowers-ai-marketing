@@ -4,6 +4,8 @@ import {
   mkdir,
   readFile,
   unlink,
+  readdir,
+  stat,
 } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -14,6 +16,39 @@ import sharp from "sharp";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+const CODEX_GENERATED_IMAGES_DIR =
+  "/home/ubuntu/.codex/generated_images";
+
+const OUTPUT_DIR = join(process.cwd(), "test-creatives");
+
+async function getCodexGeneratedImages(): Promise<string[]> {
+  const images: string[] = [];
+
+  if (!existsSync(CODEX_GENERATED_IMAGES_DIR)) {
+    return images;
+  }
+
+  const sessionFolders = await readdir(CODEX_GENERATED_IMAGES_DIR);
+
+  for (const sessionFolder of sessionFolders) {
+    const sessionPath = join(CODEX_GENERATED_IMAGES_DIR, sessionFolder);
+
+    try {
+      const files = await readdir(sessionPath);
+
+      for (const file of files) {
+        if (file.toLowerCase().endsWith(".png")) {
+          images.push(join(sessionPath, file));
+        }
+      }
+    } catch {
+      // Ignore folders/files that cannot be read
+    }
+  }
+
+  return images;
+}
 
 const REGION = process.env.AWS_REGION!;
 const BUCKET = process.env.AWS_S3_BUCKET!;
@@ -381,6 +416,104 @@ The GreatFlowers logo will be composited separately. Do not attempt to recreate 
 Generate a premium 1:1 (1024x1024) social media creative that tells this specific moment in the story while maintaining visual continuity with the overall narrative.`;
 }
 
+async function executeCodex(
+  prompt: string,
+  referenceImagePaths: string[],
+  outputFilename: string
+): Promise<string> {
+  // Take a snapshot of all Codex images BEFORE starting this generation
+  const beforeImages = new Set(
+    await getCodexGeneratedImages()
+  );
+
+  return new Promise((resolve, reject) => {
+    const args = [
+      "exec",
+      ...referenceImagePaths.flatMap((p) => ["-i", p]),
+      "--ephemeral",
+      "--cd",
+      OUTPUT_DIR,
+      `${prompt}\n\nFilename: ${outputFilename}`,
+    ];
+
+    const codexBinary = resolveCodexBinary();
+    const codex = spawn(codexBinary, args, {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    codex.stdout?.on("data", (data) => {
+      stdout += data.toString();
+    });
+
+    codex.stderr?.on("data", (data) => {
+      stderr += data.toString();
+    });
+
+    codex.on("close", async (code) => {
+      try {
+        if (code !== 0) {
+          reject(
+            new Error(
+              `Codex failed with exit code ${code}: ${stderr}`
+            )
+          );
+          return;
+        }
+
+        // Find images created by this Codex execution
+        const afterImages = await getCodexGeneratedImages();
+        const newImages = afterImages.filter(
+          (imagePath) => !beforeImages.has(imagePath)
+        );
+
+        if (newImages.length === 0) {
+          reject(
+            new Error(
+              "Codex completed but no new generated image was found"
+            )
+          );
+          return;
+        }
+
+        // If more than one image exists, select the newest one
+        const imagesWithStats = await Promise.all(
+          newImages.map(async (imagePath) => {
+            const fileStats = await stat(imagePath);
+            return { path: imagePath, modifiedAt: fileStats.mtimeMs };
+          })
+        );
+
+        imagesWithStats.sort((a, b) => b.modifiedAt - a.modifiedAt);
+
+        const newestImage = imagesWithStats[0];
+        if (!newestImage) {
+          reject(
+            new Error(
+              "Codex completed but no generated image metadata was available"
+            )
+          );
+          return;
+        }
+
+        resolve(newestImage.path);
+      } catch (error) {
+        reject(
+          error instanceof Error ? error : new Error(String(error))
+        );
+      }
+    });
+
+    codex.on("error", (error) => {
+      reject(
+        new Error(`Failed to spawn codex: ${error.message}`)
+      );
+    });
+  });
+}
+
 async function generateStorySlide(
   slide: StorySlide,
   creativeBrief: CreativeBrief,
@@ -393,7 +526,6 @@ async function generateStorySlide(
   await mkdir(tempDir, { recursive: true });
 
   const sessionId = randomUUID();
-  const outputPath = join(tempDir, `story-slide-${slide.order}-${sessionId}.png`);
 
   try {
     onProgress?.(`[Slide ${slide.order}] Generating ${slide.storyRole}...`);
@@ -419,62 +551,37 @@ async function generateStorySlide(
       }
     }
 
-    // Build codex command
-    const codexBinary = resolveCodexBinary();
-    const args = ["generate", "--prompt", prompt, "--output", outputPath];
-
-    // Add reference images
-    for (const refImage of referenceImages) {
-      args.push("--image", refImage);
-    }
-
     onProgress?.(`[Slide ${slide.order}] Executing Codex...`);
 
-    await new Promise<void>((resolve, reject) => {
-      const codex = spawn(codexBinary, args);
+    await mkdir(OUTPUT_DIR, { recursive: true });
 
-      let stdout = "";
-      let stderr = "";
+    const outputFilename = `story-slide-${slide.order}-${sessionId}.png`;
 
-      codex.stdout?.on("data", (data) => {
-        stdout += data.toString();
-      });
-
-      codex.stderr?.on("data", (data) => {
-        stderr += data.toString();
-      });
-
-      codex.on("close", (code) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          reject(new Error(`Codex failed with code ${code}: ${stderr}`));
-        }
-      });
-
-      codex.on("error", (error) => {
-        reject(error);
-      });
-    });
-
-    if (!existsSync(outputPath)) {
-      throw new Error("Codex did not generate output image");
-    }
+    // Codex generates the slide image; returns path of the generated file
+    const generatedPath = await executeCodex(
+      prompt,
+      referenceImages,
+      outputFilename
+    );
 
     onProgress?.(`[Slide ${slide.order}] Compositing logo...`);
 
-    // Composite GreatFlowers logo
+    // Composite GreatFlowers logo (modifies the file in place)
     await compositeLogoOnImage(
-      outputPath,
+      generatedPath,
       "https://greatflowers.net/assets/svg/greatflowers-logo.svg"
     );
 
     onProgress?.(`[Slide ${slide.order}] Uploading to S3...`);
 
-    const imageUrl = await uploadToS3(outputPath);
+    const imageUrl = await uploadToS3(generatedPath);
 
     // Cleanup temp files
-    await unlink(outputPath);
+    try {
+      await unlink(generatedPath);
+    } catch {
+      // Ignore cleanup errors
+    }
     for (const refImage of referenceImages) {
       try {
         await unlink(refImage);

@@ -1547,15 +1547,27 @@ function App() {
 
               {!creativesLoading && creatives.length === 0 && !creativesError && (
                 <div className="creatives-generate-prompt">
-                  <button
-                    onClick={handleGenerateCreatives}
-                    className="btn-generate-creatives"
-                    disabled={creativesLoading}
-                  >
-                    Generate Creatives
-                  </button>
+                  <div className="creatives-generate-actions">
+                    <button
+                      onClick={handleGenerateCreatives}
+                      className="btn-generate-creatives"
+                      disabled={creativesLoading}
+                    >
+                      Generate Creatives
+                    </button>
+                    <button
+                      onClick={() => {
+                        document
+                          .getElementById("story-creatives-section")
+                          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      }}
+                      className="btn-generate-creatives btn-generate-story-creatives"
+                    >
+                      Generate Story Creatives
+                    </button>
+                  </div>
                   <p className="creatives-hint">
-                    Generate 3 AI creative variants with strategic concepts
+                    Generate 3 AI creative variants with strategic concepts, or scroll down for a connected 4-slide Story Creative
                   </p>
                 </div>
               )}
@@ -1830,14 +1842,25 @@ function App() {
             </section>
           )}
 
-          {strategy?.creativeBrief?.creativeMode === "story-carousel" && recommendedProduct && (
-            <section className="campaign-creatives-section story-creatives-section">
+          {strategy?.creativeBrief && recommendedProduct && (
+            <section id="story-creatives-section" className="campaign-creatives-section story-creatives-section">
               <div className="creatives-header">
                 <h2>📖 Story Creative</h2>
                 <p>A connected 4-slide visual story for this campaign</p>
               </div>
 
-              {storySlides.length === 0 && !storyLoading && (
+              {strategy.creativeBrief.creativeMode !== "story-carousel" && storySlides.length === 0 && (
+                <div className="creatives-generate-prompt">
+                  <p className="creative-error-note">
+                    ⚠ For this campaign, the AI strategist (Hermes) determined that independent
+                    creatives work better than a connected story, so no Story Creative Plan was
+                    generated. Generate a new recommendation/strategy for a campaign where a
+                    narrative arc fits better to unlock Story Creatives.
+                  </p>
+                </div>
+              )}
+
+              {strategy.creativeBrief.creativeMode === "story-carousel" && storySlides.length === 0 && !storyLoading && (
                 <div className="creatives-generate-prompt">
                   <button
                     onClick={handleGenerateStoryCreatives}

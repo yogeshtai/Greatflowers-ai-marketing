@@ -1513,6 +1513,21 @@ a {
   background: #22c55e;
 }
 
+.creatives-generate-actions {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.btn-generate-story-creatives {
+  background: #8b5cf6;
+}
+
+.btn-generate-story-creatives:hover:not(:disabled) {
+  background: #7c3aed;
+}
+
 @media (max-width: 900px) {
   .story-slides-grid {
     grid-template-columns: repeat(2, 1fr);

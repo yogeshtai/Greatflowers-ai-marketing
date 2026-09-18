@@ -181,49 +181,117 @@ function buildCodexPrompt(
   variant: CreativeVariant,
   creativeBrief: CreativeBrief
 ): string {
+  // Build creativeType-specific scene instructions
+  let sceneInstructions = "";
+  
+  switch (variant.creativeType) {
+    case "product":
+      sceneInstructions = `SCENE TYPE: PRODUCT PHOTOGRAPHY
+
+Create a commercial product photography composition.
+The supplied GreatFlowers product should be the main visual subject.
+${creativeBrief.productTreatment}
+Use professional product photography techniques.
+The product can occupy significant visual space and be the clear hero.`;
+      break;
+      
+    case "lifestyle":
+      sceneInstructions = `SCENE TYPE: LIFESTYLE PHOTOGRAPHY
+
+CRITICAL: Create a genuine human lifestyle scene.
+Include one or more people naturally interacting with flowers or participating in the emotional/gifting moment.
+The PERSON and EMOTIONAL MOMENT should be the visual story.
+Flowers/product are supporting elements in the human scene.
+
+DO NOT use centered product composition.
+DO NOT simply place the product in a room.
+BUILD THE HUMAN SCENE FIRST, then integrate flowers naturally.
+
+This should resemble real social media lifestyle marketing, NOT catalog photography.`;
+      break;
+      
+    case "occasion":
+      sceneInstructions = `SCENE TYPE: OCCASION-FOCUSED
+
+Build a scene that visually communicates the occasion: ${variant.occasionContext || variant.concept}
+
+The occasion/story/environment should DOMINATE the composition.
+Product should support the scene, not occupy the same dominant position as a product creative.
+Human presence may be included when appropriate to the occasion.
+
+For sensitive occasions (sympathy, condolence), keep scenes respectful and tasteful.`;
+      break;
+      
+    case "location":
+      sceneInstructions = `SCENE TYPE: LOCATION-ORIENTED
+
+Create a visually distinct location-oriented composition.
+${variant.locationContext ? `Location context: ${variant.locationContext}` : ''}
+
+The location/service area should be a key visual element.
+Do NOT invent service or location claims not provided.`;
+      break;
+      
+    case "feature":
+      sceneInstructions = `SCENE TYPE: FEATURE DEMONSTRATION
+
+Visually demonstrate the specific feature or service benefit.
+The composition should clearly communicate the feature value.
+Product reference is only used when relevant to demonstrating that feature.`;
+      break;
+      
+    case "informational":
+      sceneInstructions = `SCENE TYPE: INFORMATIONAL/EDITORIAL
+
+Use a content/editorial/informational layout.
+This should look structurally DIFFERENT from a product advertisement.
+Think educational, helpful, or informative visual style.
+Product can be optional or minimal according to the concept.`;
+      break;
+      
+    case "brand-awareness":
+      sceneInstructions = `SCENE TYPE: BRAND AWARENESS
+
+Build a broader GreatFlowers brand/service composition.
+Do NOT automatically make one catalog product the hero.
+Focus on brand values, service quality, or emotional connection.`;
+      break;
+  }
+  
   // Build product role instructions
   let productInstructions = "";
   
   switch (variant.productRole) {
     case "hero":
-      productInstructions = `PRODUCT ROLE: HERO
-
-The supplied GreatFlowers product image is the main visual subject.
-
-${creativeBrief.productTreatment}
-
-Preserve the supplied bouquet/product identity as closely as possible.
-The product should be the clear focal point of the creative.`;
+      productInstructions = `
+PRODUCT ROLE: HERO
+The supplied product image is the main visual subject.
+Preserve the bouquet/product identity as closely as possible.
+Commercial product photography composition is appropriate.`;
       break;
       
     case "supporting":
-      productInstructions = `PRODUCT ROLE: SUPPORTING
-
-The supplied GreatFlowers product participates naturally in the overall scene.
-
-The scene, emotion, or story can be the main focus.
-Do NOT force a centered catalog-style product composition.
-The product should feel integrated into the lifestyle/emotional context.
-
-You may use the product image as reference, but adapt it naturally to fit the scene.`;
+      productInstructions = `
+PRODUCT ROLE: SUPPORTING
+The supplied product participates naturally in the scene but is NOT the main subject.
+DO NOT recreate the reference product at the same size and position as a hero/product variant.
+BUILD THE SCENE FIRST, then integrate flowers naturally into it.
+The scene/emotion/story is the main focus.`;
       break;
       
     case "optional":
-      productInstructions = `PRODUCT ROLE: OPTIONAL
-
-You may include the supplied GreatFlowers product if it improves the concept.
-Do NOT force it to dominate the creative.
-
-The strategic concept and visual direction are more important than featuring the product.`;
+      productInstructions = `
+PRODUCT ROLE: OPTIONAL
+You may include the product if it improves the concept.
+Do NOT force it to dominate.
+The strategic concept is more important than featuring the product.`;
       break;
       
     case "none":
-      productInstructions = `PRODUCT ROLE: NONE
-
-Do NOT force the catalog product into this creative.
-Generate the concept from the strategic brief and visual direction.
-
-This is a ${variant.creativeType} creative focused on: ${variant.concept}`;
+      productInstructions = `
+PRODUCT ROLE: NONE
+Do NOT include the supplied catalog product merely because a reference image is available.
+Generate from the strategic concept and visual direction.`;
       break;
   }
 
@@ -231,20 +299,26 @@ This is a ${variant.creativeType} creative focused on: ${variant.concept}`;
   let contextInstructions = "";
   
   if (variant.occasionContext) {
-    contextInstructions += `\nOCCASION CONTEXT:\n${variant.occasionContext}\n\nVisually communicate this occasion and its emotional context.`;
+    contextInstructions += `\n\nOCCASION CONTEXT:\n${variant.occasionContext}\nVisually communicate this occasion and its emotional context.`;
   }
   
   if (variant.locationContext) {
-    contextInstructions += `\nLOCATION CONTEXT:\n${variant.locationContext}\n\nIncorporate this verified location/service area naturally if relevant to the visual.`;
+    contextInstructions += `\n\nLOCATION CONTEXT:\n${variant.locationContext}\nIncorporate this verified location/service area naturally.`;
   }
 
   return `Create a 1:1 premium social media campaign creative for GreatFlowers.
 
-CREATIVE TYPE: ${variant.creativeType}
+⚠️ CRITICAL DIVERSITY REQUIREMENT ⚠️
+This creative must be VISUALLY and COMPOSITIONALLY DISTINCT from other campaign variants.
+Changing only headline, copy, background, crop, or lighting is NOT sufficient.
+The composition, scene structure, and visual approach must be materially different.
+
+CREATIVE TYPE: ${variant.creativeType.toUpperCase()}
 
 STRATEGIC CONCEPT:
 ${variant.concept}
 
+${sceneInstructions}
 ${productInstructions}${contextInstructions}
 
 LOGO SAFE AREA (CRITICAL):

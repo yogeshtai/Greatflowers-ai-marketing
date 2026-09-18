@@ -127,6 +127,7 @@ app.post("/api/campaigns", async (req, res) => {
       selectedProduct,
       creatives,
       selectedCreative,
+      selectedCreatives,
     } = req.body;
 
     if (!input || !strategy) {
@@ -141,7 +142,8 @@ app.post("/api/campaigns", async (req, res) => {
       strategy,
       selectedProduct,
       creatives,
-      selectedCreative
+      selectedCreative,
+      selectedCreatives
     );
 
     return res.status(201).json({
@@ -211,6 +213,7 @@ app.put(
         selectedProduct,
         creatives,
         selectedCreative,
+        selectedCreatives,
       } = req.body;
 
       const campaign = await updateCampaign(id, {
@@ -222,6 +225,9 @@ app.put(
         ...(creatives ? { creatives } : {}),
         ...(selectedCreative
           ? { selectedCreative }
+          : {}),
+        ...(selectedCreatives
+          ? { selectedCreatives }
           : {}),
       });
 

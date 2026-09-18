@@ -72,6 +72,15 @@ export interface SavedCampaign {
     cta: string;
     isFallback: boolean;
   };
+  selectedCreatives?: Array<{
+    type: string;
+    imageUrl: string;
+    headline: string;
+    subheadline: string;
+    cta: string;
+    isFallback: boolean;
+    order: number;
+  }>;
 }
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -141,7 +150,16 @@ export async function saveCampaign(
     subheadline: string;
     cta: string;
     isFallback: boolean;
-  }
+  },
+  selectedCreatives?: Array<{
+    type: string;
+    imageUrl: string;
+    headline: string;
+    subheadline: string;
+    cta: string;
+    isFallback: boolean;
+    order: number;
+  }>
 ) {
   const campaigns = await readCampaigns();
 
@@ -163,6 +181,10 @@ export async function saveCampaign(
 
     ...(selectedCreative
       ? { selectedCreative }
+      : {}),
+
+    ...(selectedCreatives && selectedCreatives.length > 0
+      ? { selectedCreatives }
       : {}),
 
     status: "draft",

@@ -29,7 +29,8 @@ export async function saveCampaign(
   strategy: unknown,
   selectedProduct?: unknown,
   creatives?: unknown,
-  selectedCreative?: unknown
+  selectedCreative?: unknown,
+  selectedCreatives?: unknown
 ) {
   const response = await axios.post(
     `${API_URL}/api/campaigns`,
@@ -39,6 +40,7 @@ export async function saveCampaign(
       selectedProduct,
       creatives,
       selectedCreative,
+      selectedCreatives,
     }
   );
 
@@ -51,7 +53,8 @@ export async function updateCampaign(
   strategy: unknown,
   selectedProduct?: unknown,
   creatives?: unknown,
-  selectedCreative?: unknown
+  selectedCreative?: unknown,
+  selectedCreatives?: unknown
 ) {
   const response = await axios.put(
     `${API_URL}/api/campaigns/${id}`,
@@ -61,6 +64,7 @@ export async function updateCampaign(
       selectedProduct,
       creatives,
       selectedCreative,
+      selectedCreatives,
     }
   );
 

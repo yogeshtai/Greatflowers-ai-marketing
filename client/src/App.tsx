@@ -226,6 +226,15 @@ type SavedCampaign = {
     cta: string;
     isFallback: boolean;
   };
+  selectedCreatives?: Array<{
+    type: string;
+    imageUrl: string;
+    headline: string;
+    subheadline: string;
+    cta: string;
+    isFallback: boolean;
+    order: number;
+  }>;
 };
 
 const availablePlatforms = [
@@ -351,14 +360,15 @@ function App() {
   const [creativesLoading, setCreativesLoading] = useState(false);
   const [creativesError, setCreativesError] = useState("");
   const [creativeFallbackImage, setCreativeFallbackImage] = useState<string | null>(null);
-  const [selectedCreative, setSelectedCreative] = useState<{
+  const [selectedCreatives, setSelectedCreatives] = useState<Array<{
     type: string;
     imageUrl: string;
     headline: string;
     subheadline: string;
     cta: string;
     isFallback: boolean;
-  } | null>(null);
+    order: number;
+  }>>([]);
   const [generationAbortController, setGenerationAbortController] = useState<AbortController | null>(null);
   
   // Check if already authenticated on mount
@@ -596,11 +606,15 @@ function App() {
       setRecommendedProduct(campaign.selectedProduct);
     }
 
-    // Load selectedCreative if it exists
-    if (campaign.selectedCreative) {
-      setSelectedCreative(campaign.selectedCreative);
+    // Load selectedCreatives with backward compatibility
+    if (campaign.selectedCreatives && campaign.selectedCreatives.length > 0) {
+      // New format: use selectedCreatives array
+      setSelectedCreatives(campaign.selectedCreatives.sort((a, b) => a.order - b.order));
+    } else if (campaign.selectedCreative) {
+      // Old format: convert single selectedCreative to array
+      setSelectedCreatives([{ ...campaign.selectedCreative, order: 1 }]);
     } else {
-      setSelectedCreative(null);
+      setSelectedCreatives([]);
     }
 
     window.scrollTo({
@@ -659,7 +673,8 @@ function App() {
           strategy,
           recommendedProduct,
           creatives.length > 0 ? creatives : undefined,
-          selectedCreative || undefined
+          undefined, // old selectedCreative (deprecated)
+          selectedCreatives.length > 0 ? selectedCreatives : undefined
         );
       } else {
         response = await saveCampaign(
@@ -667,7 +682,8 @@ function App() {
           strategy,
           recommendedProduct,
           creatives.length > 0 ? creatives : undefined,
-          selectedCreative || undefined
+          undefined, // old selectedCreative (deprecated)
+          selectedCreatives.length > 0 ? selectedCreatives : undefined
         );
 
         setSavedCampaignId(response.campaign.id);
@@ -739,7 +755,7 @@ function App() {
       setCreatives([]);
       setCreativesError("");
       setCreativeFallbackImage(null);
-      setSelectedCreative(null);
+      setSelectedCreatives([]);
     } catch (error) {
       console.error(
         "Recommendation failed:",
@@ -768,13 +784,27 @@ function App() {
           : `${API_BASE}/${creative.localPath.replace(/^.*test-creatives\//, 'test-creatives/')}`)
       : (creativeFallbackImage || recommendedProduct?.image || '');
 
-    setSelectedCreative({
-      type: creative.type,
-      imageUrl,
-      headline: creative.headline,
-      subheadline: creative.subheadline,
-      cta: creative.cta,
-      isFallback: !creative.success || !creative.localPath,
+    setSelectedCreatives(prev => {
+      const existing = prev.find(c => c.type === creative.type);
+      
+      if (existing) {
+        // Deselect: remove and reorder remaining
+        return prev
+          .filter(c => c.type !== creative.type)
+          .map((c, index) => ({ ...c, order: index + 1 }));
+      } else {
+        // Select: add with next order number
+        const nextOrder = prev.length + 1;
+        return [...prev, {
+          type: creative.type,
+          imageUrl,
+          headline: creative.headline,
+          subheadline: creative.subheadline,
+          cta: creative.cta,
+          isFallback: !creative.success || !creative.localPath,
+          order: nextOrder,
+        }];
+      }
     });
   };
 
@@ -847,7 +877,7 @@ function App() {
       setCreativesLoading(true);
       setCreativesError("");
       setCreatives([]);
-      setSelectedCreative(null);
+      setSelectedCreatives([]);
 
       // Create abort controller for this generation
       const abortController = new AbortController();
@@ -1326,7 +1356,8 @@ function App() {
                   {creatives.length > 0 && (
                     <div className="creatives-grid">
                       {creatives.map((creative, index) => {
-                        const isSelected = selectedCreative?.type === creative.type;
+                        const selectedItem = selectedCreatives.find(c => c.type === creative.type);
+                        const isSelected = !!selectedItem;
                         return (
                           <div 
                             key={`creative-${index}`} 
@@ -1354,9 +1385,9 @@ function App() {
                                   </div>
                                 </>
                               )}
-                              {isSelected && (
+                              {isSelected && selectedItem && (
                                 <div className="selected-badge">
-                                  ✓ Selected
+                                  {selectedItem.order} ✓
                                 </div>
                               )}
                             </div>
@@ -1451,7 +1482,8 @@ function App() {
                 <>
                   <div className="creatives-grid">
                     {creatives.map((creative, index) => {
-                      const isSelected = selectedCreative?.type === creative.type;
+                      const selectedItem = selectedCreatives.find(c => c.type === creative.type);
+                      const isSelected = !!selectedItem;
                       return (
                         <div 
                           key={`creative-${index}`} 
@@ -1479,9 +1511,9 @@ function App() {
                                 </div>
                               </>
                             )}
-                            {isSelected && (
+                            {isSelected && selectedItem && (
                               <div className="selected-badge">
-                                ✓ Selected
+                                {selectedItem.order} ✓
                               </div>
                             )}
                           </div>
@@ -1517,17 +1549,21 @@ function App() {
                   </div>
                   
                   {/* Selection Summary */}
-                  {selectedCreative && (
+                  {selectedCreatives.length > 0 && (
                     <div className="creative-selection-summary">
-                      <h3>Selected Creative</h3>
-                      <div className="selection-info">
-                        <p className="selection-type"><strong>{selectedCreative.type}</strong></p>
-                        <p className="selection-headline">{selectedCreative.headline}</p>
-                        <p className="selection-cta">CTA: {selectedCreative.cta}</p>
-                        {selectedCreative.isFallback && (
-                          <p className="selection-fallback-note">⚠ Using original product image</p>
-                        )}
-                      </div>
+                      <h3>Selected Creative{selectedCreatives.length > 1 ? 's' : ''} ({selectedCreatives.length})</h3>
+                      {selectedCreatives.sort((a, b) => a.order - b.order).map((selected) => (
+                        <div key={selected.type} className="selection-info">
+                          <p className="selection-type">
+                            <strong>{selected.order}. {selected.type.toUpperCase().replace(/-/g, ' ')}</strong>
+                          </p>
+                          <p className="selection-headline">{selected.headline}</p>
+                          <p className="selection-cta">CTA: {selected.cta}</p>
+                          {selected.isFallback && (
+                            <p className="selection-fallback-note">⚠ Using original product image</p>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </>

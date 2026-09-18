@@ -21,6 +21,29 @@ const pageId =
 const accessToken =
   process.env.META_PAGE_ACCESS_TOKEN;
 
+function resolveSelectedCreatives(
+  campaign: SavedCampaign
+): Array<{ imageUrl: string; type: string }> {
+  // Priority 1: selectedCreatives (new multi-select format)
+  if (campaign.selectedCreatives && campaign.selectedCreatives.length > 0) {
+    // Sort by order without mutating original array
+    return [...campaign.selectedCreatives]
+      .sort((a, b) => a.order - b.order)
+      .map(c => ({ imageUrl: c.imageUrl, type: c.type }));
+  }
+
+  // Priority 2: selectedCreative (legacy single-select format)
+  if (campaign.selectedCreative) {
+    return [{
+      imageUrl: campaign.selectedCreative.imageUrl,
+      type: campaign.selectedCreative.type
+    }];
+  }
+
+  // Priority 3: No selection - return empty array (will use product fallback)
+  return [];
+}
+
 async function resolveImageUrl(
   prepareImage: (url: string) => Promise<string>,
   selectedCreativeUrl: string | undefined,
@@ -230,6 +253,54 @@ async function waitForInstagramContainer(
   );
 }
 
+async function createInstagramCarouselChildContainer(
+  instagramId: string,
+  imageUrl: string
+): Promise<string> {
+  console.log(`[Instagram Carousel] Creating child container for: ${imageUrl}`);
+
+  const result = await graphPost(
+    `${instagramId}/media`,
+    {
+      image_url: imageUrl,
+      is_carousel_item: "true",
+    }
+  );
+
+  if (!result.id) {
+    throw new Error("Instagram carousel child container was not created.");
+  }
+
+  console.log(`[Instagram Carousel] Child container created: ${result.id}`);
+  return result.id;
+}
+
+async function createInstagramCarouselParentContainer(
+  instagramId: string,
+  childContainerIds: string[],
+  caption: string
+): Promise<string> {
+  console.log(
+    `[Instagram Carousel] Creating parent container with ${childContainerIds.length} children`
+  );
+
+  const result = await graphPost(
+    `${instagramId}/media`,
+    {
+      media_type: "CAROUSEL",
+      children: childContainerIds.join(","),
+      caption,
+    }
+  );
+
+  if (!result.id) {
+    throw new Error("Instagram carousel parent container was not created.");
+  }
+
+  console.log(`[Instagram Carousel] Parent container created: ${result.id}`);
+  return result.id;
+}
+
 async function publishInstagramContainer(
   instagramId: string,
   containerId: string
@@ -269,6 +340,145 @@ async function publishInstagramContainer(
   }
 
   throw lastError;
+}
+
+async function publishInstagramCarousel(
+  campaign: SavedCampaign,
+  selectedCreatives: Array<{ imageUrl: string; type: string }>
+): Promise<{
+  platform: string;
+  published: boolean;
+  mediaId: string;
+  imageUrls: string[];
+}> {
+  if (!instagramId) {
+    throw new Error("META_INSTAGRAM_ACCOUNT_ID is missing.");
+  }
+
+  const instagram = campaign.strategy.platformContent.instagram;
+
+  if (!instagram) {
+    throw new Error("Campaign does not contain Instagram content.");
+  }
+
+  console.log(
+    `[Instagram Carousel] Publishing ${selectedCreatives.length} images in order`
+  );
+
+  // Step 1: Prepare all images
+  const preparedImages: Array<{ url: string; type: string }> = [];
+
+  for (const creative of selectedCreatives) {
+    try {
+      const preparedUrl = await prepareInstagramImage(creative.imageUrl);
+      preparedImages.push({ url: preparedUrl, type: creative.type });
+      console.log(
+        `[Instagram Carousel] Prepared ${creative.type}: ${preparedUrl}`
+      );
+    } catch (error) {
+      console.error(
+        `[Instagram Carousel] Failed to prepare ${creative.type}:`,
+        error
+      );
+      throw new Error(
+        `Failed to prepare carousel image for ${creative.type}: ${error}`
+      );
+    }
+  }
+
+  // Step 2: Create child containers for each image
+  const childContainerIds: string[] = [];
+
+  for (const image of preparedImages) {
+    try {
+      const childId = await createInstagramCarouselChildContainer(
+        instagramId,
+        image.url
+      );
+      childContainerIds.push(childId);
+    } catch (error) {
+      console.error(
+        `[Instagram Carousel] Failed to create child container for ${image.type}:`,
+        error
+      );
+      throw new Error(
+        `Failed to create carousel child container for ${image.type}: ${error}`
+      );
+    }
+  }
+
+  // Step 3: Wait for all child containers to be ready
+  console.log(
+    `[Instagram Carousel] Waiting for ${childContainerIds.length} child containers to be ready`
+  );
+
+  for (let i = 0; i < childContainerIds.length; i++) {
+    const childId = childContainerIds[i];
+    const imageType = preparedImages[i]?.type || `image ${i + 1}`;
+
+    try {
+      if (!childId) {
+        throw new Error(`Child container ID ${i + 1} is missing`);
+      }
+      await waitForInstagramContainer(childId);
+      console.log(
+        `[Instagram Carousel] Child container ${i + 1}/${childContainerIds.length} (${imageType}) is ready`
+      );
+    } catch (error) {
+      console.error(
+        `[Instagram Carousel] Child container ${childId} (${imageType}) failed:`,
+        error
+      );
+      throw new Error(
+        `Carousel child container ${childId} (${imageType}) failed: ${error}`
+      );
+    }
+  }
+
+  // Step 4: Create parent carousel container
+  const caption = [instagram.caption, formatHashtags(instagram.hashtags)]
+    .filter(Boolean)
+    .join("\n\n");
+
+  const carouselContainerId = await createInstagramCarouselParentContainer(
+    instagramId,
+    childContainerIds,
+    caption
+  );
+
+  // Step 5: Wait for parent carousel container to be ready
+  console.log(
+    `[Instagram Carousel] Waiting for parent carousel container to be ready`
+  );
+
+  try {
+    await waitForInstagramContainer(carouselContainerId);
+  } catch (error) {
+    console.error(
+      `[Instagram Carousel] Parent carousel container failed:`,
+      error
+    );
+    throw new Error(`Carousel parent container failed: ${error}`);
+  }
+
+  // Step 6: Publish the carousel
+  console.log(`[Instagram Carousel] Publishing carousel`);
+
+  const result = await publishInstagramContainer(
+    instagramId,
+    carouselContainerId
+  );
+
+  console.log(
+    `[Instagram Carousel] Successfully published carousel with ${selectedCreatives.length} images`
+  );
+
+  return {
+    platform: "instagram",
+    published: true,
+    mediaId: result.id,
+    imageUrls: preparedImages.map((img) => img.url),
+  };
 }
 
 export async function publishFacebook(
@@ -361,10 +571,25 @@ export async function publishInstagram(
     );
   }
 
+  // Resolve selected creatives with priority logic
+  const selectedCreatives = resolveSelectedCreatives(campaign);
+
+  // Route based on number of selected creatives
+  if (selectedCreatives.length >= 2) {
+    // Multi-image: Use carousel publishing
+    console.log(
+      `[Instagram] Publishing carousel with ${selectedCreatives.length} images`
+    );
+    return await publishInstagramCarousel(campaign, selectedCreatives);
+  }
+
+  // Single image or fallback: Use existing single-image flow
+  console.log("[Instagram] Publishing single image");
+
   // Use selected creative image if available, fall back to product image
   const imageUrl = await resolveImageUrl(
     prepareInstagramImage,
-    campaign.selectedCreative?.imageUrl,
+    selectedCreatives[0]?.imageUrl,
     productImage
   );
 

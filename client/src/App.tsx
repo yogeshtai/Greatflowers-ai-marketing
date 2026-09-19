@@ -4,6 +4,7 @@ import {
   saveCampaign,
   updateCampaign,
   getCampaigns,
+  deleteCampaign,
   updateCampaignStatus,
   recommendCampaign,
   regenerateCreativeVariant,
@@ -243,7 +244,7 @@ type SavedCampaign = {
   createdAt: string;
   updatedAt: string;
 
-  publishStatus?: "draft" | "scheduled" | "published" | "failed";
+  publishStatus?: "draft" | "not_scheduled" | "scheduled" | "publishing" | "published" | "failed" | "cancelled";
   scheduledAt?: string;
   scheduledPlatforms?: string[];
   scheduledTimezone?: string;
@@ -367,6 +368,8 @@ function App() {
   const [showPassword, setShowPassword] = useState(false);
   
   // Campaign management state
+  const [deletingCampaignId, setDeletingCampaignId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState("");
   const [campaigns, setCampaigns] = useState<SavedCampaign[]>([]);
   const [saving, setSaving] = useState(false);
   const [savedCampaignId, setSavedCampaignId] = useState<string | null>(null);
@@ -630,6 +633,33 @@ function App() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDeleteCampaign = async (campaign: SavedCampaign) => {
+    if (!window.confirm(`Delete "${campaign.input.product}"? This permanently removes its saved strategy, story plan, linked generated images and schedule. Shared/catalog images and already-published social posts are preserved.`)) return;
+    setDeletingCampaignId(campaign.id);
+    setDeleteError("");
+    try {
+      await deleteCampaign(campaign.id);
+      setCampaigns(current => current.filter(item => item.id !== campaign.id));
+      if (scheduleCampaign?.id === campaign.id) setScheduleCampaign(null);
+      if (savedCampaignId === campaign.id) {
+        generationAbortController?.abort();
+        storyAbortController?.abort();
+        setSavedCampaignId(null);
+        setStrategy(null);
+        setRecommendedProduct(null);
+        setRecommendationEvidence(null);
+        setCreatives([]);
+        setSelectedCreatives([]);
+        setStoryPlan(null);
+        setStorySlides([]);
+        setSelectedStoryCarousel(false);
+      }
+    } catch (error) {
+      const failure = error as { response?: { data?: { error?: string } } };
+      setDeleteError(failure.response?.data?.error || "Could not delete campaign. Please try again.");
+    } finally { setDeletingCampaignId(null); }
   };
 
   const handleOpenCampaign = (
@@ -2277,6 +2307,7 @@ ${strategy.platformContent.youtubeShorts.cta}`}
           </button>
         </div>
 
+        {deleteError && <p role="alert" className="creative-error-note">{deleteError}</p>}
         {campaigns.length === 0 ? (
           <div className="empty-state">
             <h3>No saved campaigns yet</h3>
@@ -2381,6 +2412,11 @@ ${strategy.platformContent.youtubeShorts.cta}`}
                 </div>
 
                 <div className="campaign-actions">
+                  <button className="secondary-button campaign-delete-button"
+                    disabled={deletingCampaignId !== null || campaign.publishStatus === "publishing"}
+                    onClick={() => void handleDeleteCampaign(campaign)}>
+                    {deletingCampaignId === campaign.id ? "Deleting…" : "Delete"}
+                  </button>
                   {campaign.status === "approved" && (
                     <button
                       className="secondary-button"

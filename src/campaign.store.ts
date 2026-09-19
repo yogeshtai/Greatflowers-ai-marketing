@@ -1,5 +1,6 @@
+import { campaignAssetUrls, deleteCampaignAssets } from "./campaign.assets.js";
 import type { StoryCreativePlan } from "./strategy.schema.js";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 
@@ -13,6 +14,7 @@ export type CampaignStatus =
 
 export interface SavedCampaign {
   id: string;
+  assetUrls?: string[];
 
   input: CampaignInput;
 
@@ -128,11 +130,12 @@ async function ensureDatabase() {
 
   try {
     await readFile(DATA_FILE, "utf8");
-  } catch {
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     await writeFile(
       DATA_FILE,
-      JSON.stringify([], null, 2)
-    );
+      JSON.stringify([], null, 2), { flag: "wx" }
+    ).catch(error => { if (error.code !== "EEXIST") throw error; });
   }
 }
 
@@ -147,13 +150,18 @@ async function readCampaigns(): Promise<SavedCampaign[]> {
   return JSON.parse(content);
 }
 
-async function writeCampaigns(
-  campaigns: SavedCampaign[]
-) {
-  await writeFile(
-    DATA_FILE,
-    JSON.stringify(campaigns, null, 2)
-  );
+// Serialize read-modify-write operations, including deletion and scheduler claims.
+let pendingWrite: Promise<unknown> = Promise.resolve();
+function withCampaignLock<T>(operation: () => Promise<T>): Promise<T> {
+  const result = pendingWrite.then(operation);
+  pendingWrite = result.catch(() => undefined);
+  return result;
+}
+
+async function writeCampaigns(campaigns: SavedCampaign[]) {
+  const temporary = `${DATA_FILE}.${randomUUID()}.tmp`;
+  await writeFile(temporary, JSON.stringify(campaigns, null, 2));
+  await rename(temporary, DATA_FILE);
 }
 
 export async function saveCampaign(
@@ -217,60 +225,62 @@ export async function saveCampaign(
     selectedStoryCarousel?: boolean;
   }
 ) {
-  const campaigns = await readCampaigns();
+  return withCampaignLock(async () => {
+    const campaigns = await readCampaigns();
 
-  const now = new Date().toISOString();
+    const now = new Date().toISOString();
 
-  const campaign: SavedCampaign = {
-    id: randomUUID(),
+    const campaign: SavedCampaign = {
+      id: randomUUID(),
 
-    input,
-    strategy,
+      input,
+      strategy,
 
-    ...(selectedProduct
-      ? { selectedProduct }
-      : {}),
+      ...(selectedProduct
+        ? { selectedProduct }
+        : {}),
 
-    ...(creatives && creatives.length > 0
-      ? { creatives }
-      : {}),
+      ...(creatives && creatives.length > 0
+        ? { creatives }
+        : {}),
 
-    ...(selectedCreative
-      ? { selectedCreative }
-      : {}),
+      ...(selectedCreative
+        ? { selectedCreative }
+        : {}),
 
-    ...(selectedCreatives && selectedCreatives.length > 0
-      ? { selectedCreatives }
-      : {}),
+      ...(selectedCreatives && selectedCreatives.length > 0
+        ? { selectedCreatives }
+        : {}),
 
-    ...(storyData?.storyPlan ? { storyPlan: storyData.storyPlan } : {}),
-    ...(storyData?.storyConcept
-      ? { storyConcept: storyData.storyConcept }
-      : {}),
+      ...(storyData?.storyPlan ? { storyPlan: storyData.storyPlan } : {}),
+      ...(storyData?.storyConcept
+        ? { storyConcept: storyData.storyConcept }
+        : {}),
 
-    ...(storyData?.storyVisualContinuity
-      ? { storyVisualContinuity: storyData.storyVisualContinuity }
-      : {}),
+      ...(storyData?.storyVisualContinuity
+        ? { storyVisualContinuity: storyData.storyVisualContinuity }
+        : {}),
 
-    ...(storyData?.storyCreatives && storyData.storyCreatives.length > 0
-      ? { storyCreatives: storyData.storyCreatives }
-      : {}),
+      ...(storyData?.storyCreatives && storyData.storyCreatives.length > 0
+        ? { storyCreatives: storyData.storyCreatives }
+        : {}),
 
-    ...(storyData?.selectedStoryCarousel !== undefined
-      ? { selectedStoryCarousel: storyData.selectedStoryCarousel }
-      : {}),
+      ...(storyData?.selectedStoryCarousel !== undefined
+        ? { selectedStoryCarousel: storyData.selectedStoryCarousel }
+        : {}),
 
-    status: "draft",
+      status: "draft",
 
-    createdAt: now,
-    updatedAt: now,
-  };
+      createdAt: now,
+      updatedAt: now,
+    };
 
-  campaigns.unshift(campaign);
+    campaigns.unshift(campaign);
 
-  await writeCampaigns(campaigns);
+    await writeCampaigns(campaigns);
 
-  return campaign;
+    return campaign;
+  });
 }
 
 export async function getCampaigns() {
@@ -293,59 +303,92 @@ export async function updateCampaignStatus(
   id: string,
   status: CampaignStatus
 ) {
-  const campaigns = await readCampaigns();
+  return withCampaignLock(async () => {
+    const campaigns = await readCampaigns();
 
-  const campaign = campaigns.find(
-    (item) => item.id === id
-  );
+    const campaign = campaigns.find(
+      (item) => item.id === id
+    );
 
-  if (!campaign) {
-    return null;
-  }
+    if (!campaign) {
+      return null;
+    }
 
-  campaign.status = status;
-  campaign.updatedAt = new Date().toISOString();
+    campaign.status = status;
+    campaign.updatedAt = new Date().toISOString();
 
-  await writeCampaigns(campaigns);
+    await writeCampaigns(campaigns);
 
-  return campaign;
+    return campaign;
+  });
 }
 
 export async function updateCampaign(
   id: string,
   updates: Partial<SavedCampaign>
 ) {
-  const campaigns =
-    await readCampaigns();
+  return withCampaignLock(async () => {
+    const campaigns =
+      await readCampaigns();
 
-  const index =
-    campaigns.findIndex(
-      (campaign) =>
-        campaign.id === id
-    );
+    const index =
+      campaigns.findIndex(
+        (campaign) =>
+          campaign.id === id
+      );
 
-  if (index === -1) {
-    return null;
-  }
+    if (index === -1) {
+      return null;
+    }
 
-  const currentCampaign =
-    campaigns[index];
+    const currentCampaign =
+      campaigns[index];
 
-  if (!currentCampaign) {
-    return null;
-  }
+    if (!currentCampaign) {
+      return null;
+    }
 
-  const updatedCampaign: SavedCampaign = {
-    ...currentCampaign,
-    ...updates,
-    updatedAt:
-      new Date().toISOString(),
-  };
+    if (updates.publishStatus === "publishing" && currentCampaign.publishStatus !== "scheduled") return null;
 
-  campaigns[index] =
-    updatedCampaign;
+    const updatedCampaign: SavedCampaign = {
+      ...currentCampaign,
+      ...updates,
+      updatedAt:
+        new Date().toISOString(),
+    };
 
-  await writeCampaigns(campaigns);
+    updatedCampaign.assetUrls = [...new Set([...campaignAssetUrls(currentCampaign), ...campaignAssetUrls(updatedCampaign)])];
 
-  return updatedCampaign;
+    campaigns[index] =
+      updatedCampaign;
+
+    await writeCampaigns(campaigns);
+
+    return updatedCampaign;
+  });
+}
+
+export async function deleteCampaign(id: string) {
+  return withCampaignLock(async () => {
+    const campaigns = await readCampaigns();
+    const campaign = campaigns.find(c => c.id === id);
+    if (!campaign) return false;
+    if (campaign.publishStatus === "publishing") throw new Error("Campaign is publishing. Try deleting it after publishing finishes.");
+    // Persist cancellation before cleanup. If S3 fails, retain the record for retry.
+    campaign.publishStatus = "cancelled";
+    delete campaign.scheduledAt;
+    campaign.scheduleRecurrence = "none";
+    await writeCampaigns(campaigns);
+    await deleteCampaignAssets(campaign, campaigns.filter(c => c.id !== id));
+    await writeCampaigns(campaigns.filter(c => c.id !== id));
+    return true;
+  });
+}
+
+export async function withCampaignPublishing<T>(id: string, publish: (campaign: SavedCampaign) => Promise<T>) {
+  return withCampaignLock(async () => {
+    const campaign = (await readCampaigns()).find(c => c.id === id);
+    if (!campaign) throw new Error("Campaign not found");
+    return publish(campaign);
+  });
 }

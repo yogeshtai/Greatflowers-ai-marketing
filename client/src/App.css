@@ -1539,3 +1539,5 @@ a {
     grid-template-columns: 1fr;
   }
 }
+.campaign-delete-button { color: #b42318; border-color: #f0b4ae; }
+.campaign-delete-button:hover:not(:disabled) { background: #fff1f0; }

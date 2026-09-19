@@ -144,3 +144,7 @@ export async function regenerateCreativeVariant(
 
   return response.data;
 }
+export async function deleteCampaign(id: string) {
+  const response = await axios.delete(`${API_URL}/api/campaigns/${id}`);
+  return response.data;
+}

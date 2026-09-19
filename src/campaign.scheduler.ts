@@ -75,13 +75,15 @@ async function processScheduledCampaigns() {
           `Publishing scheduled campaign: ${campaign.id}`
         );
 
-        await updateCampaign(
+        const claimed = await updateCampaign(
           campaign.id,
           {
             publishStatus:
               "publishing",
           }
         );
+
+        if (!claimed || claimed.publishStatus !== "publishing") continue;
 
         const platforms =
           campaign.scheduledPlatforms ??

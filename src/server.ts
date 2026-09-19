@@ -19,6 +19,8 @@ import {
 } from "./meta.publisher.js";
 import {
   getCampaigns,
+  deleteCampaign,
+  withCampaignPublishing,
   getCampaignById,
   saveCampaign,
   updateCampaignStatus,
@@ -173,6 +175,19 @@ app.post("/api/campaigns", async (req, res) => {
       success: false,
       error: "Failed to save campaign",
     });
+  }
+});
+
+app.delete("/api/campaigns/:id", async (req, res) => {
+  try {
+    const deleted = await deleteCampaign(req.params.id);
+    if (!deleted) return res.status(404).json({ success: false, error: "Campaign not found" });
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("Campaign deletion failed:", error);
+    const publishing = error instanceof Error && error.message.startsWith("Campaign is publishing");
+    return res.status(publishing ? 409 : 500).json({ success: false,
+      error: publishing ? error.message : "Could not finish deleting campaign assets. The campaign remains saved for retry; its schedule is cancelled." });
   }
 });
 
@@ -1256,7 +1271,7 @@ app.post(
       }
 
       const result =
-        await publishFacebook(campaign);
+        await withCampaignPublishing(campaign.id, publishFacebook);
 
       return res.json({
         success: true,
@@ -1304,7 +1319,7 @@ app.post(
       }
 
       const result =
-        await publishInstagram(campaign);
+        await withCampaignPublishing(campaign.id, publishInstagram);
 
       return res.json({
         success: true,

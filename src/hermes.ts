@@ -28,7 +28,7 @@ website, ecommerce/browser screenshots, sales language, Buy/Shop/Send-this-bouqu
 or premature visual solution cues. Headlines/subheadlines must read as storytelling.
 At revealSlide naturally introduce flowers, the selected product, GreatFlowers, or a verified
 feature. Later slides show consequences and emotional payoff, not repeated product ads.
-The final slide may use approved branding, product and CTA with an emotional resolution.
+The final slide MUST use brandRole "reveal" and cta "Shop flowers — https://greatflowers.net", with an emotional resolution. Reserve its bottom 18% for the deterministic official GreatFlowers logo and website CTA footer; do not ask AI to recreate the logo.
 For EVERY slide add brandRole ("none", "subtle", "reveal"), sceneChange (what is visually
 new versus the previous shot; for slide 1 define the opening), and cameraDirection
 (the framing/composition for this beat). Hermes decides these roles per slide.

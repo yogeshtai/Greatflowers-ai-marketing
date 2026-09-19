@@ -11,7 +11,7 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
-import fetch from "node-fetch";
+import { storyCreativePlanSchema, type StoryCreativePlan, type StoryCreativeSlide as StorySlide } from "./strategy.schema.js";
 import sharp from "sharp";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
@@ -62,39 +62,6 @@ const s3 = new S3Client({
   },
 });
 
-interface StorySlide {
-  order: number;
-  storyRole: string;
-  storyBeat: string;
-  creativeType: string;
-  sceneStrategy: string;
-  concept: string;
-  headline: string;
-  subheadline: string;
-  cta: string;
-  visualDirection: string;
-  productRole: "hero" | "supporting" | "optional" | "none";
-  locationContext?: string;
-  occasionContext?: string;
-  colorPalette: string;
-  compositionStyle: string;
-  lightingStyle: string;
-  sceneType: string;
-}
-
-interface VisualContinuity {
-  characterContinuity?: string;
-  environmentContinuity?: string;
-  colorContinuity?: string;
-  stylingContinuity?: string;
-}
-
-interface StoryCreativePlan {
-  carouselConcept: string;
-  visualContinuity?: VisualContinuity;
-  slides: StorySlide[];
-}
-
 interface CreativeBrief {
   headline: string;
   subheadline: string;
@@ -117,6 +84,9 @@ interface GeneratedSlide {
   creativeType: string;
   sceneStrategy: string;
   productRole: string;
+  brandRole: string;
+  sceneChange: string;
+  cameraDirection: string;
   success: boolean;
   error?: string;
   continuityNotes?: string;
@@ -175,7 +145,8 @@ async function uploadToS3(localPath: string): Promise<string> {
 
 async function compositeLogoOnImage(
   imagePath: string,
-  logoUrl: string
+  logoUrl: string,
+  subtle = false
 ): Promise<void> {
   const logoResponse = await fetch(logoUrl);
   if (!logoResponse.ok) {
@@ -190,7 +161,7 @@ async function compositeLogoOnImage(
   const imageWidth = metadata.width || 1024;
   const imageHeight = metadata.height || 1024;
 
-  const logoSize = Math.floor(imageWidth * 0.15);
+  const logoSize = Math.floor(imageWidth * (subtle ? 0.08 : 0.15));
 
   const resizedLogo = await sharp(logoBuffer)
     .resize(logoSize, logoSize, {
@@ -222,15 +193,16 @@ async function compositeLogoOnImage(
   await unlink(imagePath + ".composite.png");
 }
 
-function buildStorySlidePrompt(
+export function buildStorySlidePrompt(
   slide: StorySlide,
   creativeBrief: CreativeBrief,
   storyPlan: StoryCreativePlan,
   previousSlides: GeneratedSlide[]
 ): string {
+  const preReveal = slide.order < storyPlan.revealSlide;
   let continuityInstructions = "";
 
-  if (storyPlan.visualContinuity && previousSlides.length > 0) {
+  if (storyPlan.visualContinuity) {
     continuityInstructions = `\n⚠️ VISUAL CONTINUITY REQUIREMENTS ⚠️\n\n`;
     continuityInstructions += `This is slide ${slide.order} of a 4-slide visual story.\n\n`;
     continuityInstructions += `Story Concept: ${storyPlan.carouselConcept}\n\n`;
@@ -345,12 +317,16 @@ Focus on the overall story and moment.`;
 
     case "none":
       productInstructions = `\nPRODUCT ROLE: NONE
-Do not force the catalog product into this image.
+Do NOT include the selected catalog product in this image.
 This slide focuses on the emotional context or situation.
 Flowers may appear generically if the story requires, but not the specific catalog product.`;
       break;
   }
 
+  if (preReveal) {
+    sceneStrategyInstructions = "STORY SCENE: Show only the human situation and this new story beat. No flowers, product, shopping screen or commercial solution cues.";
+    productInstructions = "PRODUCT ROLE: NONE. No product reference is supplied. Do not introduce the product or flowers.";
+  }
   let contextInstructions = "";
 
   if (slide.occasionContext) {
@@ -361,7 +337,7 @@ Flowers may appear generically if the story requires, but not the specific catal
     contextInstructions += `\nLOCATION CONTEXT: ${slide.locationContext}`;
   }
 
-  return `Create a 1:1 premium social media campaign creative for GreatFlowers.
+  return `Create a 1:1 cinematic visual story scene.
 
 ${continuityInstructions}
 ⚠️ STORY PROGRESSION REQUIREMENT ⚠️
@@ -370,6 +346,15 @@ This is Slide ${slide.order} of 4 in a connected visual story.
 
 Story Role: ${slide.storyRole}
 Story Beat: ${slide.storyBeat}
+Reveal Slide: ${storyPlan.revealSlide}
+Scene Change: ${slide.sceneChange}
+Camera Direction: ${slide.cameraDirection}
+Previous moment: ${previousSlides.at(-1)?.storyBeat || "Opening shot"}
+Preserve story/character/style continuity, but DO NOT reproduce the previous slide's composition.
+This is a new shot and a new story moment.
+Use previous images ONLY for continuity of character/style/environment where requested.
+Do NOT copy their composition, pose, product placement, camera angle, scene arrangement, text or branding.
+${preReveal ? "PRE-REVEAL: Pure storytelling. No flowers, selected product, product names, GreatFlowers, logos, website, CTA, sales language or ecommerce/browser screenshots." : "Introduce the solution as the answer to the setup; after reveal emphasize its emotional consequence."}
 
 This slide must visibly advance the narrative from previous slides.
 Each slide should show a DIFFERENT moment, action, or development in the story.
@@ -397,7 +382,7 @@ MOOD & ATMOSPHERE:
 ${creativeBrief.mood}
 
 BACKGROUND & ENVIRONMENT:
-${creativeBrief.backgroundDirection}
+${preReveal ? slide.visualDirection : creativeBrief.backgroundDirection}
 
 TEXT OVERLAY:
 
@@ -406,12 +391,13 @@ ${slide.subheadline ? `Subheadline: "${slide.subheadline}"` : ""}
 
 ${creativeBrief.textPlacement}
 
-Do NOT render the CTA ("${slide.cta}") as a button inside the image.
-The CTA will be added as caption/metadata.
-
-LOGO:
-${creativeBrief.logoPlacement}
-The GreatFlowers logo will be composited separately. Do not attempt to recreate it.
+BRAND ROLE: ${slide.brandRole}
+${slide.brandRole === "none"
+  ? "No logo, website, brand name, CTA or button-like branding. Do not reserve a logo area."
+  : slide.brandRole === "subtle"
+    ? "Minimal logo only, composited separately. No website, CTA or button."
+    : "Approved branding may appear. Logo is composited separately. CTA remains caption/metadata, not an image button."}
+Never recreate a logo with AI.
 
 Generate a premium 1:1 (1024x1024) social media creative that tells this specific moment in the story while maintaining visual continuity with the overall narrative.`;
 }
@@ -514,6 +500,18 @@ async function executeCodex(
   });
 }
 
+// Keep catalog/brand cues out of references as well as out of the prompt.
+export function storyReferencePolicy(slide: StorySlide, previousSlides: GeneratedSlide[]) {
+  return {
+    useProduct: slide.productRole !== "none",
+    compositeLogo: slide.brandRole !== "none",
+    previousSlide: [...previousSlides].reverse().find(previous =>
+      previous.success && previous.imageUrl &&
+      (slide.productRole !== "none" || previous.productRole === "none") &&
+      (slide.brandRole !== "none" || previous.brandRole === "none")),
+  };
+}
+
 async function generateStorySlide(
   slide: StorySlide,
   creativeBrief: CreativeBrief,
@@ -533,9 +531,10 @@ async function generateStorySlide(
     const prompt = buildStorySlidePrompt(slide, creativeBrief, storyPlan, previousSlides);
 
     const referenceImages: string[] = [];
+    const referencePolicy = storyReferencePolicy(slide, previousSlides);
 
     // Download product image if needed
-    if (slide.productRole !== "none" && productImageUrl) {
+    if (referencePolicy.useProduct && productImageUrl) {
       const productPath = join(tempDir, `product-${sessionId}.png`);
       await downloadAsset(productImageUrl, productPath);
       referenceImages.push(productPath);
@@ -543,7 +542,7 @@ async function generateStorySlide(
 
     // Use previous slide as visual reference if continuity is needed
     if (previousSlides.length > 0 && storyPlan.visualContinuity) {
-      const mostRecentSlide = previousSlides[previousSlides.length - 1];
+      const mostRecentSlide = referencePolicy.previousSlide;
       if (mostRecentSlide && mostRecentSlide.success && mostRecentSlide.imageUrl) {
         const prevSlidePath = join(tempDir, `prev-slide-${sessionId}.png`);
         await downloadAsset(mostRecentSlide.imageUrl, prevSlidePath);
@@ -564,13 +563,11 @@ async function generateStorySlide(
       outputFilename
     );
 
-    onProgress?.(`[Slide ${slide.order}] Compositing logo...`);
-
-    // Composite GreatFlowers logo (modifies the file in place)
-    await compositeLogoOnImage(
-      generatedPath,
-      "https://greatflowers.net/assets/svg/greatflowers-logo.svg"
-    );
+    if (referencePolicy.compositeLogo) {
+      onProgress?.(`[Slide ${slide.order}] Compositing logo...`);
+      await compositeLogoOnImage(generatedPath,
+        "https://greatflowers.net/assets/svg/greatflowers-logo.svg", slide.brandRole === "subtle");
+    }
 
     onProgress?.(`[Slide ${slide.order}] Uploading to S3...`);
 
@@ -617,6 +614,9 @@ async function generateStorySlide(
       creativeType: slide.creativeType,
       sceneStrategy: slide.sceneStrategy,
       productRole: slide.productRole,
+      brandRole: slide.brandRole,
+      sceneChange: slide.sceneChange,
+      cameraDirection: slide.cameraDirection,
       success: true,
       continuityNotes,
     };
@@ -634,6 +634,9 @@ async function generateStorySlide(
       creativeType: slide.creativeType,
       sceneStrategy: slide.sceneStrategy,
       productRole: slide.productRole,
+      brandRole: slide.brandRole,
+      sceneChange: slide.sceneChange,
+      cameraDirection: slide.cameraDirection,
       success: false,
       error: error instanceof Error ? error.message : String(error),
     };
@@ -647,6 +650,13 @@ export async function generateStoryCreatives(
   onProgress?: (message: string) => void,
   onSlideComplete?: (slide: GeneratedSlide, index: number, total: number) => void
 ): Promise<StoryCreativeResult> {
+  storyPlan = storyCreativePlanSchema.parse(storyPlan);
+  const report = `revealSlide: ${storyPlan.revealSlide}\n` +
+    [...storyPlan.slides].sort((a, b) => a.order - b.order).map(slide =>
+      `Slide ${slide.order}:\nstoryRole: ${slide.storyRole}\nstoryBeat: ${slide.storyBeat}\nproductRole: ${slide.productRole}\nbrandRole: ${slide.brandRole}\nsceneChange: ${slide.sceneChange}\ncameraDirection: ${slide.cameraDirection}`
+    ).join("\n\n");
+  console.log(report);
+  onProgress?.(report);
   console.log(`\n🎬 Starting Story Creative Generation`);
   console.log(`Story Concept: ${storyPlan.carouselConcept}`);
   console.log(`Slides: ${storyPlan.slides.length}\n`);

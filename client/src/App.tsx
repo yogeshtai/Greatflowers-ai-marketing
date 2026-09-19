@@ -127,6 +127,7 @@ type Strategy = {
     textPlacement: string;
     creativeGoal: string;
     carouselConcept?: string;
+    revealSlide?: 2 | 3 | 4;
     visualContinuity?: {
       characterContinuity?: string;
       environmentContinuity?: string;
@@ -169,6 +170,9 @@ type CreativeVariant = {
   compositionStyle: string;
   lightingStyle: string;
   sceneType: string;
+  brandRole?: "none" | "subtle" | "reveal";
+  sceneChange?: string;
+  cameraDirection?: string;
   storyRole?: string;
   storyBeat?: string;
 };
@@ -1068,6 +1072,7 @@ function App() {
     // duplicated here - we only pass it through to the backend.
     const storyPlan = {
       carouselConcept: strategy.creativeBrief.carouselConcept,
+      revealSlide: strategy.creativeBrief.revealSlide,
       visualContinuity: strategy.creativeBrief.visualContinuity,
       slides: strategy.creativeBrief.variants,
     };
@@ -1848,6 +1853,19 @@ function App() {
                 <h2>📖 Story Creative</h2>
                 <p>A connected 4-slide visual story for this campaign</p>
               </div>
+
+              {strategy.creativeBrief.creativeMode === "story-carousel" && (
+                <details className="story-concept-box" open>
+                  <summary>Story plan · Reveal slide {strategy.creativeBrief.revealSlide ?? "missing — generate a new recommendation"}</summary>
+                  {[...strategy.creativeBrief.variants].sort((a, b) => (a.order || 0) - (b.order || 0)).map(slide => (
+                    <div key={slide.order}>
+                      <p><strong>Slide {slide.order}: {slide.storyRole}</strong> — {slide.storyBeat}</p>
+                      <p>Product: {slide.productRole} · Brand: {slide.brandRole ?? "unspecified"}</p>
+                      <p>{slide.sceneChange} · {slide.cameraDirection}</p>
+                    </div>
+                  ))}
+                </details>
+              )}
 
               {strategy.creativeBrief.creativeMode !== "story-carousel" && storySlides.length === 0 && (
                 <div className="creatives-generate-prompt">

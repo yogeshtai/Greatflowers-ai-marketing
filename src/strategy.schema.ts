@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const creativeVariantSchema = z.object({
+export const creativeVariantSchema = z.object({
   order: z.number().int().min(1).max(4),
   creativeType: z.enum([
     "product",
@@ -34,9 +34,46 @@ const creativeVariantSchema = z.object({
   compositionStyle: z.string().min(1),
   lightingStyle: z.string().min(1),
   sceneType: z.string().min(1),
+  brandRole: z.enum(["none", "subtle", "reveal"]).optional(),
+  sceneChange: z.string().min(1).optional(),
+  cameraDirection: z.string().min(1).optional(),
   storyRole: z.string().optional(),
   storyBeat: z.string().optional(),
 });
+
+export const storyCreativePlanSchema = z.object({
+  carouselConcept: z.string().min(1),
+  revealSlide: z.union([z.literal(2), z.literal(3), z.literal(4)]),
+  visualContinuity: z.object({
+    characterContinuity: z.string().optional(),
+    environmentContinuity: z.string().optional(),
+    colorContinuity: z.string().optional(),
+    stylingContinuity: z.string().optional(),
+  }).optional(),
+  slides: z.array(creativeVariantSchema.extend({
+    cta: z.string(),
+    storyRole: z.string().min(1),
+    storyBeat: z.string().min(1),
+    brandRole: z.enum(["none", "subtle", "reveal"]),
+    sceneChange: z.string().min(1),
+    cameraDirection: z.string().min(1),
+  })).length(4),
+}).superRefine((plan, ctx) => {
+  if (new Set(plan.slides.map(s => s.order)).size !== 4) {
+    ctx.addIssue({ code: "custom", path: ["slides"], message: "Require unique slide orders 1–4" });
+  }
+  plan.slides.forEach((slide, i) => {
+    if (slide.order < plan.revealSlide &&
+        (slide.productRole !== "none" || slide.brandRole !== "none" || slide.cta.trim())) {
+      ctx.addIssue({ code: "custom", path: ["slides", i], message: "Before reveal, productRole and brandRole must be none and CTA empty" });
+    }
+    if (slide.brandRole === "none" && slide.cta.trim()) {
+      ctx.addIssue({ code: "custom", path: ["slides", i, "cta"], message: "Unbranded slides cannot carry a CTA" });
+    }
+  });
+});
+export type StoryCreativePlan = z.infer<typeof storyCreativePlanSchema>;
+export type StoryCreativeSlide = StoryCreativePlan["slides"][number];
 
 const creativeBriefSchema = z.object({
   creativeMode: z.enum(["independent", "story-carousel"]),
@@ -50,13 +87,14 @@ const creativeBriefSchema = z.object({
   textPlacement: z.string().min(1),
   creativeGoal: z.string().min(1),
   carouselConcept: z.string().optional(),
+  revealSlide: z.union([z.literal(2), z.literal(3), z.literal(4)]).optional(),
   visualContinuity: z.object({
     characterContinuity: z.string().optional(),
     environmentContinuity: z.string().optional(),
     colorContinuity: z.string().optional(),
     stylingContinuity: z.string().optional(),
   }).optional(),
-  variants: z.array(creativeVariantSchema).min(3).max(4).refine(
+  variants: z.array(creativeVariantSchema.extend({ cta: z.string() })).min(3).max(4).refine(
     (variants) => {
       const types = variants.map((v) => v.creativeType);
       return new Set(types).size >= 2;
@@ -65,6 +103,17 @@ const creativeBriefSchema = z.object({
       message: "Must have at least 2 different creative types among the variants",
     }
   ),
+}).superRefine((brief, ctx) => {
+  if (brief.creativeMode === "story-carousel") {
+    const result = storyCreativePlanSchema.safeParse({ ...brief, slides: brief.variants });
+    if (!result.success) for (const issue of result.error.issues) {
+      ctx.addIssue({ code: "custom", path: issue.path.map(p => p === "slides" ? "variants" : p), message: issue.message });
+    }
+  } else {
+    brief.variants.forEach((v, i) => {
+      if (!v.cta.length) ctx.addIssue({ code: "custom", path: ["variants", i, "cta"], message: "CTA required" });
+    });
+  }
 });
 
 export const marketingStrategySchema = z.object({

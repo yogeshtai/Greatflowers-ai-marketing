@@ -1,3 +1,4 @@
+import { storyCreativePlanSchema } from "./strategy.schema.js";
 import "dotenv/config";
 import {
   getGreatFlowersProducts,
@@ -846,16 +847,11 @@ app.post(
     const { productImageUrl, creativeBrief, storyPlan } =
       req.body;
 
-    if (
-      !storyPlan ||
-      typeof storyPlan !== "object" ||
-      !Array.isArray(storyPlan.slides)
-    ) {
-      return res.status(400).json({
-        success: false,
-        error:
-          "storyPlan with slides array is required",
-      });
+    const parsedPlan = storyCreativePlanSchema.safeParse(storyPlan);
+    if (!parsedPlan.success) {
+      return res.status(400).json({ success: false,
+        error: "Invalid story plan. Generate a new recommendation with reveal and scene directions.",
+        details: parsedPlan.error.issues });
     }
 
     if (
@@ -899,7 +895,7 @@ app.post(
       );
 
       const result = await generateStoryCreatives(
-        storyPlan,
+        parsedPlan.data,
         creativeBrief,
         productImageUrl || null,
         (message) => {

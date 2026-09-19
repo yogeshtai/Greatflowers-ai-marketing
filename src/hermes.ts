@@ -466,6 +466,30 @@ The 4 concepts should be meaningfully different marketing approaches, not just v
 
 FOR STORY-CAROUSEL MODE:
 
+STORY-FIRST RULES (override generic product/advertising guidance for story slides only):
+Set creativeBrief.revealSlide to 2, 3, or 4: the intentional first commercial solution reveal.
+Choose the timing for this campaign; prefer meaningful buildup (often 3 or 4 for gifting),
+without imposing a fixed sequence of narrative roles. First establish a human situation,
+emotion, desire, need, question, tension or occasion. The solution must answer that setup.
+Before revealSlide, every slide MUST have productRole "none", brandRole "none", cta "".
+No selected product, flowers as a commercial solution, product names, GreatFlowers, logo,
+website, ecommerce/browser screenshots, sales language, Buy/Shop/Send-this-bouquet CTAs,
+or premature visual solution cues. Headlines/subheadlines must read as storytelling.
+At revealSlide naturally introduce flowers, the selected product, GreatFlowers, or a verified
+feature. Later slides show consequences and emotional payoff, not repeated product ads.
+The final slide may use approved branding, product and CTA with an emotional resolution.
+For EVERY slide add brandRole ("none", "subtle", "reveal"), sceneChange (what is visually
+new versus the previous shot; for slide 1 define the opening), and cameraDirection
+(the framing/composition for this beat). Hermes decides these roles per slide.
+Use brandRole "subtle" for a minimal deterministic logo only, "reveal" for normal approved
+branding, and "none" for no logo, website or CTA (cta must be empty).
+Continuity means recognizable characters/style, NOT repeated compositions. Adjacent shots
+must change primary composition, subject placement, camera framing, character action,
+product placement and room/table setup unless sceneChange explains a deliberate narrative reason.
+Four distinct shots must show progression even with all text hidden.
+These additional fields belong in the JSON even though the generic example omits them.
+
+
 Each of the 4 slides must include:
 
 storyRole (REQUIRED):

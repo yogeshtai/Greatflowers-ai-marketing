@@ -1,6 +1,8 @@
 
 import {
   marketingStrategySchema,
+  storyCreativePlanSchema,
+  type StoryCreativePlan,
   type MarketingStrategy,
 } from "./strategy.schema.js";
 
@@ -14,6 +16,29 @@ export interface CampaignInput {
   priority: string;
   additionalContext?: string | undefined;
 }
+
+const STORY_FIRST_RULES = `STORY-FIRST RULES (override generic product/advertising guidance for story slides only):
+Set creativeBrief.revealSlide to 2, 3, or 4: the intentional first commercial solution reveal.
+Choose the timing for this campaign; prefer meaningful buildup (often 3 or 4 for gifting),
+without imposing a fixed sequence of narrative roles. First establish a human situation,
+emotion, desire, need, question, tension or occasion. The solution must answer that setup.
+Before revealSlide, every slide MUST have productRole "none", brandRole "none", cta "".
+No selected product, flowers as a commercial solution, product names, GreatFlowers, logo,
+website, ecommerce/browser screenshots, sales language, Buy/Shop/Send-this-bouquet CTAs,
+or premature visual solution cues. Headlines/subheadlines must read as storytelling.
+At revealSlide naturally introduce flowers, the selected product, GreatFlowers, or a verified
+feature. Later slides show consequences and emotional payoff, not repeated product ads.
+The final slide may use approved branding, product and CTA with an emotional resolution.
+For EVERY slide add brandRole ("none", "subtle", "reveal"), sceneChange (what is visually
+new versus the previous shot; for slide 1 define the opening), and cameraDirection
+(the framing/composition for this beat). Hermes decides these roles per slide.
+Use brandRole "subtle" for a minimal deterministic logo only, "reveal" for normal approved
+branding, and "none" for no logo, website or CTA (cta must be empty).
+Continuity means recognizable characters/style, NOT repeated compositions. Adjacent shots
+must change primary composition, subject placement, camera framing, character action,
+product placement and room/table setup unless sceneChange explains a deliberate narrative reason.
+Four distinct shots must show progression even with all text hidden.
+These additional fields belong in the JSON even though the generic example omits them.`;
 
 function buildPrompt(input: CampaignInput): string {
   return `
@@ -466,29 +491,7 @@ The 4 concepts should be meaningfully different marketing approaches, not just v
 
 FOR STORY-CAROUSEL MODE:
 
-STORY-FIRST RULES (override generic product/advertising guidance for story slides only):
-Set creativeBrief.revealSlide to 2, 3, or 4: the intentional first commercial solution reveal.
-Choose the timing for this campaign; prefer meaningful buildup (often 3 or 4 for gifting),
-without imposing a fixed sequence of narrative roles. First establish a human situation,
-emotion, desire, need, question, tension or occasion. The solution must answer that setup.
-Before revealSlide, every slide MUST have productRole "none", brandRole "none", cta "".
-No selected product, flowers as a commercial solution, product names, GreatFlowers, logo,
-website, ecommerce/browser screenshots, sales language, Buy/Shop/Send-this-bouquet CTAs,
-or premature visual solution cues. Headlines/subheadlines must read as storytelling.
-At revealSlide naturally introduce flowers, the selected product, GreatFlowers, or a verified
-feature. Later slides show consequences and emotional payoff, not repeated product ads.
-The final slide may use approved branding, product and CTA with an emotional resolution.
-For EVERY slide add brandRole ("none", "subtle", "reveal"), sceneChange (what is visually
-new versus the previous shot; for slide 1 define the opening), and cameraDirection
-(the framing/composition for this beat). Hermes decides these roles per slide.
-Use brandRole "subtle" for a minimal deterministic logo only, "reveal" for normal approved
-branding, and "none" for no logo, website or CTA (cta must be empty).
-Continuity means recognizable characters/style, NOT repeated compositions. Adjacent shots
-must change primary composition, subject placement, camera framing, character action,
-product placement and room/table setup unless sceneChange explains a deliberate narrative reason.
-Four distinct shots must show progression even with all text hidden.
-These additional fields belong in the JSON even though the generic example omits them.
-
+${STORY_FIRST_RULES}
 
 Each of the 4 slides must include:
 
@@ -972,6 +975,25 @@ function normalizeStrategyUrls(data: any) {
 export async function generateMarketingStrategy(
   input: CampaignInput
 ): Promise<MarketingStrategy> {
+  const output = await requestHermes(`Use the greatflowers-marketing-strategist skill.\n\n${buildPrompt(input)}`);
+
+  try {
+    const jsonText = extractJSON(output);
+    const parsedJSON = JSON.parse(jsonText);
+
+    const normalizedJSON =
+      normalizeStrategyUrls(parsedJSON);
+
+    return marketingStrategySchema.parse(
+      normalizedJSON
+    );
+  } catch (error) {
+    console.error("Raw Hermes output:", output);
+    throw error;
+  }
+}
+
+async function requestHermes(prompt: string): Promise<string> {
   const apiUrl =
     process.env.HERMES_API_URL ||
     "http://127.0.0.1:8642/v1/chat/completions";
@@ -981,12 +1003,6 @@ export async function generateMarketingStrategy(
   if (!apiKey) {
     throw new Error("HERMES_API_KEY is not configured");
   }
-
-  const prompt = `
-Use the greatflowers-marketing-strategist skill.
-
-${buildPrompt(input)}
-`.trim();
 
   const response = await fetch(apiUrl, {
     method: "POST",
@@ -1022,18 +1038,31 @@ ${buildPrompt(input)}
     throw new Error("Hermes API returned no message content");
   }
 
-  try {
-    const jsonText = extractJSON(output);
-    const parsedJSON = JSON.parse(jsonText);
+  return output;
+}
 
-    const normalizedJSON =
-      normalizeStrategyUrls(parsedJSON);
-
-    return marketingStrategySchema.parse(
-      normalizedJSON
-    );
-  } catch (error) {
-    console.error("Raw Hermes output:", output);
-    throw error;
-  }
+export async function generateStoryCreativePlan(
+  input: CampaignInput,
+  selectedProduct: unknown,
+  strategy: Record<string, unknown>
+): Promise<StoryCreativePlan> {
+  const output = await requestHermes(`
+Use the greatflowers-marketing-strategist skill.
+Create ONLY a dedicated four-slide StoryCreativePlan for the supplied campaign.
+The user explicitly selected Story Creatives. Always produce the connected story,
+regardless of the original creativeMode. Do not regenerate the campaign strategy,
+change the selected product, or create independent advertisements.
+Campaign: ${JSON.stringify(input)}
+Selected catalog product: ${JSON.stringify(selectedProduct)}
+Existing strategy (context only): ${JSON.stringify(strategy)}
+${STORY_FIRST_RULES}
+For this standalone output put revealSlide and carouselConcept at the ROOT and use
+slides (not creativeBrief or variants). Include a visualContinuity plan identifying
+recurring characters and consistent style, while each shot advances the story.
+Use only supplied product facts and verified campaign context. Do not invent prices,
+discounts, delivery guarantees, reviews or service claims. Keep hypotheses out of factual copy.
+Return ONLY JSON conforming to this schema, with no markdown or explanation:
+${JSON.stringify(storyCreativePlanSchema.toJSONSchema())}
+`);
+  return storyCreativePlanSchema.parse(JSON.parse(extractJSON(output)));
 }

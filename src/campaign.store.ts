@@ -1,3 +1,4 @@
+import type { StoryCreativePlan } from "./strategy.schema.js";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -83,6 +84,7 @@ export interface SavedCampaign {
   }>;
 
   // Story Creatives (Stage 3): separate workflow from normal creatives.
+  storyPlan?: StoryCreativePlan | null;
   storyConcept?: string;
 
   storyVisualContinuity?: {
@@ -190,6 +192,7 @@ export async function saveCampaign(
     order: number;
   }>,
   storyData?: {
+    storyPlan?: StoryCreativePlan | null;
     storyConcept?: string;
     storyVisualContinuity?: {
       characterContinuity?: string;
@@ -240,6 +243,7 @@ export async function saveCampaign(
       ? { selectedCreatives }
       : {}),
 
+    ...(storyData?.storyPlan ? { storyPlan: storyData.storyPlan } : {}),
     ...(storyData?.storyConcept
       ? { storyConcept: storyData.storyConcept }
       : {}),

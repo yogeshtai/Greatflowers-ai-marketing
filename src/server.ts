@@ -27,7 +27,7 @@ import {
 import cors from "cors";
 import express from "express";
 import { z } from "zod";
-import { generateMarketingStrategy } from "./hermes.js";
+import { generateMarketingStrategy, generateStoryCreativePlan } from "./hermes.js";
 import {
   getGreatFlowersWebsiteContext,
 } from "./website.context.js";
@@ -129,6 +129,7 @@ app.post("/api/campaigns", async (req, res) => {
       creatives,
       selectedCreative,
       selectedCreatives,
+      storyPlan,
       storyConcept,
       storyVisualContinuity,
       storyCreatives,
@@ -150,6 +151,7 @@ app.post("/api/campaigns", async (req, res) => {
       selectedCreative,
       selectedCreatives,
       {
+        storyPlan,
         storyConcept,
         storyVisualContinuity,
         storyCreatives,
@@ -225,6 +227,7 @@ app.put(
         creatives,
         selectedCreative,
         selectedCreatives,
+        storyPlan,
         storyConcept,
         storyVisualContinuity,
         storyCreatives,
@@ -244,6 +247,7 @@ app.put(
         ...(selectedCreatives
           ? { selectedCreatives }
           : {}),
+        ...(storyPlan !== undefined ? { storyPlan } : {}),
         ...(storyConcept !== undefined
           ? { storyConcept }
           : {}),
@@ -840,6 +844,29 @@ app.post(
     }
   }
 );
+
+app.post("/api/creatives/story/plan", async (req, res) => {
+  const parsed = z.object({
+    input: campaignSchema,
+    selectedProduct: z.object({ name: z.string().min(1), image: z.string().url() }).passthrough(),
+    // Existing campaigns may predate the current creativeBrief schema.
+    strategy: z.object({ campaignObjective: z.string() }).passthrough(),
+  }).safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ success: false, error: "Invalid story planning input", details: parsed.error.issues });
+  }
+  const { input, selectedProduct, strategy } = parsed.data;
+  if (input.product !== selectedProduct.name) {
+    return res.status(400).json({ success: false, error: "Selected product does not match the campaign" });
+  }
+  try {
+    const storyPlan = await generateStoryCreativePlan(input, selectedProduct, strategy);
+    return res.json({ success: true, storyPlan });
+  } catch (error) {
+    console.error("Story planning failed:", error);
+    return res.status(502).json({ success: false, error: "Story planning failed. Please try again." });
+  }
+});
 
 app.post(
   "/api/creatives/generate/story/stream",

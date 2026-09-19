@@ -25,6 +25,7 @@ export async function generateStrategy(
 }
 
 export interface StoryData {
+  storyPlan?: unknown;
   storyConcept?: string;
   storyVisualContinuity?: unknown;
   storyCreatives?: unknown;

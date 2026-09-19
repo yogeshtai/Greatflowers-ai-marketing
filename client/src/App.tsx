@@ -138,6 +138,18 @@ type Strategy = {
   };
 };
 
+type StoryCreativePlan = {
+  carouselConcept: string;
+  revealSlide: 2 | 3 | 4;
+  visualContinuity?: {
+    characterContinuity?: string;
+    environmentContinuity?: string;
+    colorContinuity?: string;
+    stylingContinuity?: string;
+  };
+  slides: CreativeVariant[];
+};
+
 type CreativeVariant = {
   order?: number;
   creativeType:
@@ -266,6 +278,7 @@ type SavedCampaign = {
     order: number;
   }>;
 
+  storyPlan?: StoryCreativePlan | null;
   storyConcept?: string;
   storyVisualContinuity?: {
     characterContinuity?: string;
@@ -412,6 +425,7 @@ function App() {
   const [generationAbortController, setGenerationAbortController] = useState<AbortController | null>(null);
 
   // Story Creatives state (Stage 3) - separate workflow/state from normal creatives
+  const [storyPlan, setStoryPlan] = useState<StoryCreativePlan | null>(null);
   const [storySlides, setStorySlides] = useState<StorySlideResult[]>([]);
   const [storyLoading, setStoryLoading] = useState(false);
   const [storyError, setStoryError] = useState("");
@@ -595,6 +609,9 @@ function App() {
       setError("");
       setSavedCampaignId(null);
       setStrategy(null);
+      setStoryPlan(null);
+      setStorySlides([]);
+      setSelectedStoryCarousel(false);
       setRecommendationEvidence(null);
       setRecommendedProduct(null);
 
@@ -664,6 +681,7 @@ function App() {
       setSelectedCreatives([]);
     }
 
+    setStoryPlan(campaign.storyPlan ?? null);
     // Load Story Creatives (Stage 3) - old campaigns simply won't have these fields
     if (campaign.storyCreatives && campaign.storyCreatives.length > 0) {
       setStorySlides([...campaign.storyCreatives].sort((a, b) => a.order - b.order));
@@ -724,8 +742,9 @@ function App() {
       let response;
 
       const storyData = {
-        storyConcept: strategy.creativeBrief?.carouselConcept,
-        storyVisualContinuity: strategy.creativeBrief?.visualContinuity,
+        storyPlan,
+        storyConcept: storyPlan?.carouselConcept ?? strategy.creativeBrief?.carouselConcept,
+        storyVisualContinuity: storyPlan?.visualContinuity ?? strategy.creativeBrief?.visualContinuity,
         storyCreatives: storySlides.length > 0 ? storySlides : undefined,
         selectedStoryCarousel,
       };
@@ -823,6 +842,7 @@ function App() {
       setCreativeFallbackImage(null);
       setSelectedCreatives([]);
 
+      setStoryPlan(null);
       // Clear previous Story Creatives when new recommendation is generated
       setStorySlides([]);
       setStoryError("");
@@ -1053,11 +1073,6 @@ function App() {
       return;
     }
 
-    if (strategy.creativeBrief.creativeMode !== "story-carousel") {
-      setStoryError("This campaign's creative plan is not a story carousel.");
-      return;
-    }
-
     // Validate that the product hasn't been manually changed
     if (form.product !== recommendedProduct.name) {
       setStoryError(
@@ -1067,19 +1082,27 @@ function App() {
       return;
     }
 
-    // Build the StoryCreativePlan directly from the Hermes-generated
-    // creativeBrief (already planned in Stage 1). No planning logic is
-    // duplicated here - we only pass it through to the backend.
-    const storyPlan = {
-      carouselConcept: strategy.creativeBrief.carouselConcept,
-      revealSlide: strategy.creativeBrief.revealSlide,
-      visualContinuity: strategy.creativeBrief.visualContinuity,
-      slides: strategy.creativeBrief.variants,
-    };
-
+    if (storyLoading) return;
+    const abortController = new AbortController();
     try {
       setStoryLoading(true);
       setStoryError("");
+      setStoryAbortController(abortController);
+      setStoryPlan(null);
+      setStorySlides([]);
+      setSelectedStoryCarousel(false);
+      const planResponse = await fetch(`${API_BASE}/api/creatives/story/plan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input: { ...form, platforms }, selectedProduct: recommendedProduct, strategy }),
+        signal: abortController.signal,
+      });
+      const planData = await planResponse.json();
+      if (!planResponse.ok || !planData.storyPlan) {
+        throw new Error(planData.error || "Failed to create story plan");
+      }
+      const storyPlan: StoryCreativePlan = planData.storyPlan;
+      setStoryPlan(storyPlan);
       setStorySlides(
         storyPlan.slides.map((slide) => ({
           order: slide.order || 0,
@@ -1096,9 +1119,6 @@ function App() {
         }))
       );
       setSelectedStoryCarousel(false);
-
-      const abortController = new AbortController();
-      setStoryAbortController(abortController);
 
       const response = await fetch(`${API_BASE}/api/creatives/generate/story/stream`, {
         method: 'POST',
@@ -1170,7 +1190,7 @@ function App() {
         console.log("Story creative generation stopped by user");
       } else {
         console.error("Story creative generation failed:", error);
-        setStoryError("Failed to generate story creatives");
+        setStoryError(error instanceof Error ? error.message : "Failed to generate story creatives");
       }
     } finally {
       setStoryLoading(false);
@@ -1565,8 +1585,10 @@ function App() {
                         document
                           .getElementById("story-creatives-section")
                           ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        void handleGenerateStoryCreatives();
                       }}
                       className="btn-generate-creatives btn-generate-story-creatives"
+                      disabled={storyLoading}
                     >
                       Generate Story Creatives
                     </button>
@@ -1854,10 +1876,10 @@ function App() {
                 <p>A connected 4-slide visual story for this campaign</p>
               </div>
 
-              {strategy.creativeBrief.creativeMode === "story-carousel" && (
+              {storyPlan && (
                 <details className="story-concept-box" open>
-                  <summary>Story plan · Reveal slide {strategy.creativeBrief.revealSlide ?? "missing — generate a new recommendation"}</summary>
-                  {[...strategy.creativeBrief.variants].sort((a, b) => (a.order || 0) - (b.order || 0)).map(slide => (
+                  <summary>Story plan · Reveal slide {storyPlan.revealSlide}</summary>
+                  {[...storyPlan.slides].sort((a, b) => (a.order || 0) - (b.order || 0)).map(slide => (
                     <div key={slide.order}>
                       <p><strong>Slide {slide.order}: {slide.storyRole}</strong> — {slide.storyBeat}</p>
                       <p>Product: {slide.productRole} · Brand: {slide.brandRole ?? "unspecified"}</p>
@@ -1867,18 +1889,9 @@ function App() {
                 </details>
               )}
 
-              {strategy.creativeBrief.creativeMode !== "story-carousel" && storySlides.length === 0 && (
-                <div className="creatives-generate-prompt">
-                  <p className="creative-error-note">
-                    ⚠ For this campaign, the AI strategist (Hermes) determined that independent
-                    creatives work better than a connected story, so no Story Creative Plan was
-                    generated. Generate a new recommendation/strategy for a campaign where a
-                    narrative arc fits better to unlock Story Creatives.
-                  </p>
-                </div>
-              )}
+              {storyError && <p className="creative-error-note">⚠ {storyError}</p>}
 
-              {strategy.creativeBrief.creativeMode === "story-carousel" && storySlides.length === 0 && !storyLoading && (
+              {storySlides.length === 0 && !storyLoading && (
                 <div className="creatives-generate-prompt">
                   <button
                     onClick={handleGenerateStoryCreatives}
@@ -1890,24 +1903,22 @@ function App() {
                   <p className="creatives-hint">
                     Generate 4 connected slides that tell one coherent story
                   </p>
-                  {storyError && (
-                    <p className="creative-error-note">⚠ {storyError}</p>
-                  )}
+
                 </div>
               )}
 
               {(storySlides.length > 0 || storyLoading) && (
                 <>
-                  {strategy.creativeBrief.carouselConcept && (
+                  {storyPlan?.carouselConcept && (
                     <div className="story-concept-box">
-                      <h3>"{strategy.creativeBrief.carouselConcept}"</h3>
+                      <h3>"{storyPlan.carouselConcept}"</h3>
                     </div>
                   )}
 
                   {storyLoading && (
                     <div className="creatives-loading">
                       <p className="loading-message">
-                        🎬 Generating story slides in order. This may take several minutes.
+                        {storyPlan ? "🎬 Generating story slides in order. This may take several minutes." : "Planning your four-slide story…"}
                         <br />
                         <strong>{storySlides.filter(s => s.success).length} of 4 completed</strong>
                       </p>

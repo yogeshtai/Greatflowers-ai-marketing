@@ -614,9 +614,7 @@ async function executeCodex(
 
 type LogoPosition =
   | "top-left"
-  | "top-right"
-  | "bottom-left"
-  | "bottom-right";
+  | "top-right";
 
 function resolveLogoPosition(
   logoPlacement: string | undefined
@@ -624,18 +622,9 @@ function resolveLogoPosition(
   const placement = (logoPlacement || "")
     .toLowerCase();
 
-  const isTop = placement.includes("top");
-  const isBottom = placement.includes("bottom");
-  const isLeft = placement.includes("left");
-  const isRight = placement.includes("right");
-
-  if (isTop && isLeft) return "top-left";
-  if (isTop && isRight) return "top-right";
-  if (isBottom && isLeft) return "bottom-left";
-  if (isBottom && isRight) return "bottom-right";
-
-  // Sensible default: bottom-right
-  return "bottom-right";
+  // The logo is always anchored to a top corner; default top-right.
+  if (placement.includes("left")) return "top-left";
+  return "top-right";
 }
 
 async function addOfficialLogo(
@@ -677,37 +666,19 @@ async function addOfficialLogo(
 
   const position = resolveLogoPosition(logoPlacement);
 
-  let left = margin;
-  let top = margin;
-
-  switch (position) {
-    case "top-left":
-      left = margin;
-      top = margin;
-      break;
-    case "top-right":
-      left = imageWidth - logoWidth - margin;
-      top = margin;
-      break;
-    case "bottom-left":
-      left = margin;
-      top = imageHeight - logoHeight - margin;
-      break;
-    case "bottom-right":
-    default:
-      left = imageWidth - logoWidth - margin;
-      top = imageHeight - logoHeight - margin;
-      break;
-  }
-
   // Clamp to image bounds
-  left = Math.max(
+  const left = Math.max(
     0,
-    Math.min(left, imageWidth - logoWidth)
+    Math.min(
+      position === "top-left"
+        ? margin
+        : imageWidth - logoWidth - margin,
+      imageWidth - logoWidth
+    )
   );
-  top = Math.max(
+  const top = Math.max(
     0,
-    Math.min(top, imageHeight - logoHeight)
+    Math.min(margin, imageHeight - logoHeight)
   );
 
   await baseImage

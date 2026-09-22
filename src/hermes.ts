@@ -28,7 +28,7 @@ website, ecommerce/browser screenshots, sales language, Buy/Shop/Send-this-bouqu
 or premature visual solution cues. Headlines/subheadlines must read as storytelling.
 At revealSlide naturally introduce flowers, the selected product, GreatFlowers, or a verified
 feature. Later slides show consequences and emotional payoff, not repeated product ads.
-The final slide MUST use brandRole "reveal" and cta "Shop flowers — https://greatflowers.net", with an emotional resolution. Reserve its bottom 18% for the deterministic official GreatFlowers logo and website CTA footer; do not ask AI to recreate the logo.
+The final slide MUST use brandRole "reveal" and cta "Shop flowers — https://greatflowers.net", with an emotional resolution. The deterministic official GreatFlowers logo will be composited at the top-right corner; keep the top corners clear of text, faces and important details. The CTA and URL stay in the post caption/metadata, never inside the image; do not ask AI to recreate the logo.
 For EVERY slide add brandRole ("none", "subtle", "reveal"), sceneChange (what is visually
 new versus the previous shot; for slide 1 define the opening), and cameraDirection
 (the framing/composition for this beat). Hermes decides these roles per slide.
@@ -405,11 +405,12 @@ Do NOT tell the generator to replace or redesign the bouquet.
 logoPlacement:
 
 Simple design instruction for the GreatFlowers logo.
+The logo MUST always be placed in a top corner: "top-left" or "top-right" only.
+Never place the logo at the bottom, center or middle of the image.
 
 Examples:
+- top-right with comfortable margin
 - top-left with comfortable margin
-- centered at top
-- bottom-right, small and unobtrusive
 
 textPlacement:
 
@@ -774,6 +775,12 @@ Do NOT say:
 - Order now for guaranteed same-day delivery
 
 unless explicitly verified.
+
+LANGUAGE RULE:
+
+All generated text — headlines, subheadlines, CTAs, captions, hashtags, story beats,
+concepts and every other copy field — MUST use American English spelling, vocabulary
+and phrasing (e.g. "color" not "colour", "favorite" not "favourite").
 
 FACTUAL SAFETY RULES FOR CREATIVE COPY:
 

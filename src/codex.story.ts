@@ -193,25 +193,6 @@ async function compositeLogoOnImage(
   await unlink(imagePath + ".composite.png");
 }
 
-// Deterministic final-slide branding: never rely on AI-rendered logos or URLs.
-export async function buildFinalStoryImage(imageBuffer: Buffer, logoBuffer: Buffer): Promise<Buffer> {
-  const size = 1024;
-  const footerHeight = 164;
-  const logo = await sharp(logoBuffer, { density: 300 })
-    .resize(230, 112, { fit: "inside" }).png().toBuffer();
-  const metadata = await sharp(logo).metadata();
-  const footer = Buffer.from(`<svg width="1024" height="164" xmlns="http://www.w3.org/2000/svg">
-    <rect width="1024" height="164" fill="#fffdf8"/>
-    <path d="M0 1H1024" stroke="#e2ddd5" stroke-width="2"/>
-    <text x="968" y="65" text-anchor="end" font-family="sans-serif" font-size="25" fill="#333333">Shop flowers</text>
-    <text x="968" y="112" text-anchor="end" font-family="sans-serif" font-size="37" font-weight="bold" fill="#222222">greatflowers.net</text>
-  </svg>`);
-  return sharp(imageBuffer).resize(size, size).composite([
-    { input: footer, left: 0, top: size - footerHeight },
-    { input: logo, left: 48, top: size - footerHeight + Math.floor((footerHeight - metadata.height!) / 2) },
-  ]).png().toBuffer();
-}
-
 export function buildStorySlidePrompt(
   slide: StorySlide,
   creativeBrief: CreativeBrief,
@@ -410,13 +391,12 @@ ${slide.subheadline ? `Subheadline: "${slide.subheadline}"` : ""}
 
 ${creativeBrief.textPlacement}
 
-${slide.order === 4 ? "FINAL SLIDE: Keep the bottom 18% clear of text, faces and important story details. An opaque footer with the official logo, Shop flowers CTA and greatflowers.net URL will be composited there. Do not draw this footer, logo, CTA or URL yourself." : ""}
 BRAND ROLE: ${slide.brandRole}
 ${slide.brandRole === "none"
   ? "No logo, website, brand name, CTA or button-like branding. Do not reserve a logo area."
   : slide.brandRole === "subtle"
-    ? "Minimal logo only, composited separately. No website, CTA or button."
-    : "Approved branding may appear. Logo is composited separately. CTA remains caption/metadata, not an image button."}
+    ? "Minimal logo only, composited separately at the top-right corner. Keep the top-right corner clear of text, faces and important details. No website, CTA or button."
+    : "Approved branding may appear. Logo is composited separately at the top-right corner; keep that corner clear of text, faces and important details. CTA remains caption/metadata, not an image button."}
 Never recreate a logo with AI.
 
 Generate a premium 1:1 (1024x1024) social media creative that tells this specific moment in the story while maintaining visual continuity with the overall narrative.`;
@@ -583,14 +563,7 @@ async function generateStorySlide(
       outputFilename
     );
 
-    if (slide.order === 4) {
-      onProgress?.("[Slide 4] Adding GreatFlowers logo and website CTA...");
-      const logoResponse = await fetch("https://greatflowers.net/assets/svg/greatflowers-logo.svg");
-      if (!logoResponse.ok) throw new Error("Final-slide logo download failed; branding is required");
-      const branded = await buildFinalStoryImage(await readFile(generatedPath),
-        Buffer.from(await logoResponse.arrayBuffer()));
-      await writeFile(generatedPath, branded);
-    } else if (referencePolicy.compositeLogo) {
+    if (referencePolicy.compositeLogo) {
       onProgress?.(`[Slide ${slide.order}] Compositing logo...`);
       await compositeLogoOnImage(generatedPath,
         "https://greatflowers.net/assets/svg/greatflowers-logo.svg", slide.brandRole === "subtle");

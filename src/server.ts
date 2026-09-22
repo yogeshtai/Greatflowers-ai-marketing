@@ -423,51 +423,14 @@ app.post(
         productAnalytics
       );
 
-      console.log(
-        "Recent recommendations:",
+      const recentHistory =
         recentRecommendations.map(
-          (item) => item.productName
-        )
-      );
-
-      const excludedProductIds =
-        new Set(
-          recentRecommendations.map(
-            (item) => item.productId
-          )
-        );
-
-      const availableProducts =
-        products.filter(
-          (product) =>
-            !excludedProductIds.has(
-              product.id
-            )
+          (item) => `${item.productName} — ${item.occasion}`
         );
 
       console.log(
-        `Rotation: ${products.length} total → ${availableProducts.length} available`
-      );
-
-      console.log(
-        "③ Hermes choosing campaign..."
-      );
-
-
-      const recentOccasions =
-        recentRecommendations.map(
-          (item) => item.occasion
-        );
-
-
-      console.log(
-        "Recent occasions:",
-        recentOccasions
-      );
-
-      console.log(
-        "GA4 product analytics:",
-        productAnalytics
+        "Recent campaign history:",
+        recentHistory
       );
 
       console.log(
@@ -477,9 +440,9 @@ app.post(
       const recommendation =
         await withRetry(() =>
           generateCampaignRecommendation(
-            availableProducts,
+            products,
             websiteContext,
-            recentOccasions,
+            recentHistory,
             productAnalytics
           )
         );

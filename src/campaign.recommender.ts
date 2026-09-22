@@ -63,7 +63,7 @@ function createCompactCatalog(
 export async function generateCampaignRecommendation(
   products: MarketingProduct[],
   websiteContext: WebsitePageContext[],
-  recentOccasions: string[] = [],
+  recentHistory: string[] = [],
   analytics: ProductAnalyticsSignal[] = []
 ): Promise<CampaignRecommendation> {
   const apiUrl =
@@ -113,18 +113,23 @@ LIVE GREATFLOWERS WEBSITE CONTEXT:
 
 ${JSON.stringify(liveWebsiteContext)}
 
-RECENT CAMPAIGN OCCASIONS:
+RECENT CAMPAIGN HISTORY (last 10):
 
-${JSON.stringify(recentOccasions)}
+${JSON.stringify(recentHistory.map((entry, i) => `${i + 1}. ${entry}`))}
 
-CAMPAIGN ROTATION RULE:
+CAMPAIGN ROTATION RULES:
 
-Avoid repeatedly choosing the same primary occasion.
+1. PRODUCT ROTATION: avoid repeatedly choosing the same product.
+   If a product appears 2+ times in the recent history, strongly prefer a different product
+   UNLESS it is clearly the best strategic fit for the current date/occasion AND the catalog
+   offers limited alternatives for that occasion.
 
-If the recent campaigns heavily use the same occasion,
-prefer another strong and relevant occasion when appropriate.
+2. OCCASION ROTATION: avoid repeatedly choosing the same primary occasion.
+   If the recent campaigns heavily use the same occasion, prefer another strong and relevant
+   occasion when appropriate.
 
-Do not choose an irrelevant or weaker campaign only for variety.
+Do not choose an irrelevant or weaker campaign only for variety — rotation is a tiebreaker,
+not the primary selection criterion. Strategic fit comes first.
 
 
 REAL GREATFLOWERS GA4 BEHAVIOR DATA:
@@ -280,9 +285,10 @@ ANALYTICS EVIDENCE (analyticsEvidence):
 - Zero activity must NOT be interpreted as poor performance.
 
 ROTATION EVIDENCE (rotationEvidence):
-- Explain whether recent campaign occasions/history influenced the selection.
+- Explain whether recent campaign product/occasion history influenced the selection.
+- If a product appears 2+ times in recent history, note whether you avoided it or chose it anyway (and why).
 - Do not claim rotation influenced the decision if it did not.
-- Do not choose a weak/irrelevant occasion simply for variety.
+- Do not choose a weak/irrelevant product or occasion simply for variety.
 
 ASSUMPTIONS (assumptions):
 - Any reasoning not directly supported by website/catalog/GA4/history must appear here.

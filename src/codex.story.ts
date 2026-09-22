@@ -161,36 +161,139 @@ async function compositeLogoOnImage(
   const imageWidth = metadata.width || 1024;
   const imageHeight = metadata.height || 1024;
 
-  const logoSize = Math.floor(imageWidth * (subtle ? 0.08 : 0.15));
+  const logoTargetWidth = Math.floor(imageWidth * (subtle ? 0.14 : 0.2));
 
-  const resizedLogo = await sharp(logoBuffer)
-    .resize(logoSize, logoSize, {
-      fit: "inside",
-      withoutEnlargement: true,
-    })
+  const resizedLogo = await sharp(logoBuffer, { density: 300 })
+    .resize({ width: logoTargetWidth })
+    .png()
     .toBuffer();
 
   const logoMetadata = await sharp(resizedLogo).metadata();
-  const logoWidth = logoMetadata.width || logoSize;
-  const logoHeight = logoMetadata.height || logoSize;
+  const logoWidth = logoMetadata.width || logoTargetWidth;
+  const logoHeight = logoMetadata.height || Math.round(logoTargetWidth * 0.28);
 
-  const margin = Math.floor(imageWidth * 0.03);
-  const left = imageWidth - logoWidth - margin;
+  // White pill keeps the dark purple wordmark legible on any photo or scrim.
+  const padX = Math.round(logoHeight * 0.5);
+  const padY = Math.round(logoHeight * 0.35);
+  const pillWidth = logoWidth + padX * 2;
+  const pillHeight = logoHeight + padY * 2;
+  const pill = Buffer.from(`<svg width="${pillWidth}" height="${pillHeight}" xmlns="http://www.w3.org/2000/svg">
+    <rect width="${pillWidth}" height="${pillHeight}" rx="${Math.round(pillHeight / 2)}" fill="#ffffff" fill-opacity="0.94"/>
+  </svg>`);
+
+  const margin = Math.floor(imageWidth * 0.04);
+  const left = imageWidth - pillWidth - margin;
   const top = margin;
 
   await image
     .composite([
-      {
-        input: resizedLogo,
-        top,
-        left,
-      },
+      { input: pill, top, left },
+      { input: resizedLogo, top: top + padY, left: left + padX },
     ])
     .toFile(imagePath + ".composite.png");
 
   await unlink(imagePath);
   await writeFile(imagePath, await readFile(imagePath + ".composite.png"));
   await unlink(imagePath + ".composite.png");
+}
+
+// Single type system shared by all slides so the carousel reads as one designed set.
+const TEXT_CANVAS = 1024;
+const TEXT_LEFT = 64;
+const TEXT_TOP = 88;
+const TEXT_MAX_WIDTH = 690; // stays clear of the top-right logo zone
+const HEADLINE_SIZE = 56;
+const HEADLINE_LINE_HEIGHT = 1.12;
+const SUBHEADLINE_SIZE = 26;
+const SUBHEADLINE_LINE_HEIGHT = 1.35;
+const FONT_FAMILY = "Helvetica Neue, Helvetica, Arial, sans-serif";
+
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function wrapText(text: string, fontSize: number, maxWidth: number, maxLines: number): string[] {
+  const avgCharWidth = fontSize * 0.52;
+  const maxChars = Math.max(8, Math.floor(maxWidth / avgCharWidth));
+  const lines: string[] = [];
+  let current = "";
+
+  for (const word of text.trim().split(/\s+/)) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length <= maxChars || !current) {
+      current = candidate;
+    } else {
+      lines.push(current);
+      current = word;
+    }
+  }
+  if (current) lines.push(current);
+
+  if (lines.length > maxLines) {
+    const kept = lines.slice(0, maxLines);
+    kept[maxLines - 1] = kept[maxLines - 1]!.replace(/[.,;:]?$/, "…");
+    return kept;
+  }
+  return lines;
+}
+
+export function buildStoryTextOverlay(headline: string, subheadline: string): Buffer {
+  const headlineLines = wrapText(headline, HEADLINE_SIZE, TEXT_MAX_WIDTH, 3);
+  const subLines = subheadline.trim()
+    ? wrapText(subheadline, SUBHEADLINE_SIZE, TEXT_MAX_WIDTH, 3)
+    : [];
+
+  const headlineStep = Math.round(HEADLINE_SIZE * HEADLINE_LINE_HEIGHT);
+  const subStep = Math.round(SUBHEADLINE_SIZE * SUBHEADLINE_LINE_HEIGHT);
+  const headlineBaseline = TEXT_TOP + HEADLINE_SIZE;
+  const subStart = headlineBaseline + headlineStep * (headlineLines.length - 1) + 58;
+
+  const textBlockBottom = subLines.length
+    ? subStart + subStep * (subLines.length - 1) + SUBHEADLINE_SIZE
+    : headlineBaseline + headlineStep * (headlineLines.length - 1);
+  const scrimHeight = Math.min(TEXT_CANVAS, textBlockBottom + 120);
+
+  const headlineTspans = headlineLines
+    .map((line, i) => `<tspan x="${TEXT_LEFT}" y="${headlineBaseline + i * headlineStep}">${escapeXml(line)}</tspan>`)
+    .join("");
+  const subTspans = subLines
+    .map((line, i) => `<tspan x="${TEXT_LEFT}" y="${subStart + i * subStep}">${escapeXml(line)}</tspan>`)
+    .join("");
+
+  return Buffer.from(`<svg width="${TEXT_CANVAS}" height="${TEXT_CANVAS}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="scrim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#000" stop-opacity="0.62"/>
+      <stop offset="0.7" stop-color="#000" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+  <rect width="${TEXT_CANVAS}" height="${scrimHeight}" fill="url(#scrim)"/>
+  <text font-family="${FONT_FAMILY}" font-size="${HEADLINE_SIZE}" font-weight="700" fill="#ffffff" filter="url(#shadow)" letter-spacing="-0.5">${headlineTspans}</text>
+  ${subTspans ? `<text font-family="${FONT_FAMILY}" font-size="${SUBHEADLINE_SIZE}" font-weight="400" fill="#ffffff" fill-opacity="0.94" filter="url(#shadow)">${subTspans}</text>` : ""}
+</svg>`);
+}
+
+async function compositeTextOnImage(
+  imagePath: string,
+  headline: string,
+  subheadline: string
+): Promise<void> {
+  const overlay = buildStoryTextOverlay(headline, subheadline);
+  const output = await sharp(imagePath)
+    .resize(TEXT_CANVAS, TEXT_CANVAS, { fit: "cover" })
+    .composite([{ input: overlay, left: 0, top: 0 }])
+    .png()
+    .toBuffer();
+  await writeFile(imagePath, output);
 }
 
 export function buildStorySlidePrompt(
@@ -200,6 +303,8 @@ export function buildStorySlidePrompt(
   previousSlides: GeneratedSlide[]
 ): string {
   const preReveal = slide.order < storyPlan.revealSlide;
+  const isReveal = slide.order === storyPlan.revealSlide;
+  const isFinal = slide.order === 4;
   let continuityInstructions = "";
 
   if (storyPlan.visualContinuity) {
@@ -227,10 +332,10 @@ export function buildStorySlidePrompt(
 
   switch (slide.sceneStrategy) {
     case "PRODUCT_STUDIO":
-      sceneStrategyInstructions = `SCENE STRATEGY: PRODUCT_STUDIO (Commercial Product Photography)
-The product is the main visual subject in a clean, professional presentation.
-Use premium product photography lighting and composition.
-Background should be simple and elegant, allowing the product to be the hero.`;
+      sceneStrategyInstructions = `SCENE STRATEGY: PRODUCT_STUDIO (Product-led, in-story)
+The product is the main visual subject, but it MUST live inside the story's established environment and lighting.
+No studio backdrop, seamless paper or isolated catalog look — keep the same room, light and palette as the other slides.
+Use premium photographic lighting and composition; let the environment stay softly present around the product.`;
       break;
 
     case "HUMAN_GIFTING_MOMENT":
@@ -384,12 +489,21 @@ ${creativeBrief.mood}
 BACKGROUND & ENVIRONMENT:
 ${preReveal ? slide.visualDirection : creativeBrief.backgroundDirection}
 
-TEXT OVERLAY:
-
-Headline: "${slide.headline}"
-${slide.subheadline ? `Subheadline: "${slide.subheadline}"` : ""}
-
-${creativeBrief.textPlacement}
+⚠️ NO TEXT IN THE IMAGE ⚠️
+Do NOT render any text, letters, words, headlines, captions, typography, watermarks, signage, labels or handwriting anywhere in the image.
+The headline and subheadline are composited programmatically after generation.
+COMPOSITION SAFE AREA: the top 40% of the frame is reserved for the text overlay (top-left) and logo (top-right).
+Keep that band visually quiet: soft background, ambient depth, no faces, no product, no key story detail there.
+Place the subject, faces and product in the lower 60% of the frame.
+${isFinal ? `
+FINAL SLIDE — EMOTIONAL PAYOFF (mandatory):
+This is NOT a product shot. Show a real person's reaction to receiving or living with the flowers: a face, hands, a touch, a smile, an embrace, a quiet look.
+The flowers are supporting — present, recognizable, but not centered and not the largest element.
+The composition, camera angle, subject placement and product placement must be clearly different from the reveal slide.` : ""}
+${isReveal ? `
+REVEAL SLIDE (mandatory):
+Introduce the flowers INSIDE the story's established environment and lighting — same room, same light quality, same palette as the previous slides.
+No studio backdrop, no seamless paper, no isolated catalog-style shot. The product arrives into the scene (held, handed over, set down, unwrapped).` : ""}
 
 BRAND ROLE: ${slide.brandRole}
 ${slide.brandRole === "none"
@@ -399,7 +513,7 @@ ${slide.brandRole === "none"
     : "Approved branding may appear. Logo is composited separately at the top-right corner; keep that corner clear of text, faces and important details. CTA remains caption/metadata, not an image button."}
 Never recreate a logo with AI.
 
-Generate a premium 1:1 (1024x1024) social media creative that tells this specific moment in the story while maintaining visual continuity with the overall narrative.`;
+Generate a premium, text-free 1:1 (1024x1024) photographic scene that tells this specific moment in the story while maintaining visual continuity with the overall narrative.`;
 }
 
 async function executeCodex(
@@ -562,6 +676,9 @@ async function generateStorySlide(
       referenceImages,
       outputFilename
     );
+
+    onProgress?.(`[Slide ${slide.order}] Compositing headline text...`);
+    await compositeTextOnImage(generatedPath, slide.headline, slide.subheadline);
 
     if (referencePolicy.compositeLogo) {
       onProgress?.(`[Slide ${slide.order}] Compositing logo...`);

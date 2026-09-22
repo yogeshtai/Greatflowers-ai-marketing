@@ -41,6 +41,8 @@ export const creativeVariantSchema = z.object({
   storyBeat: z.string().optional(),
 });
 
+const HUMAN_SCENE_STRATEGIES = new Set(["HUMAN_GIFTING_MOMENT", "HUMAN_LIFESTYLE"]);
+
 export const storyCreativePlanSchema = z.object({
   carouselConcept: z.string().min(1),
   revealSlide: z.union([z.literal(2), z.literal(3), z.literal(4)]),
@@ -69,6 +71,17 @@ export const storyCreativePlanSchema = z.object({
     }
     if (slide.brandRole === "none" && slide.cta.trim()) {
       ctx.addIssue({ code: "custom", path: ["slides", i, "cta"], message: "Unbranded slides cannot carry a CTA" });
+    }
+    if (slide.sceneStrategy === "PRODUCT_STUDIO") {
+      ctx.addIssue({ code: "custom", path: ["slides", i, "sceneStrategy"], message: "PRODUCT_STUDIO is not allowed in story-carousel mode; keep the product inside the story environment" });
+    }
+    if (slide.order === 4) {
+      if (!HUMAN_SCENE_STRATEGIES.has(slide.sceneStrategy)) {
+        ctx.addIssue({ code: "custom", path: ["slides", i, "sceneStrategy"], message: "Final slide must be HUMAN_GIFTING_MOMENT or HUMAN_LIFESTYLE (emotional payoff with a visible person)" });
+      }
+      if (slide.productRole === "hero") {
+        ctx.addIssue({ code: "custom", path: ["slides", i, "productRole"], message: "Final slide is a human payoff, not a product shot; use productRole supporting" });
+      }
     }
   });
 });

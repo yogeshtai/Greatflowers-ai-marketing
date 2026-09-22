@@ -38,6 +38,28 @@ Continuity means recognizable characters/style, NOT repeated compositions. Adjac
 must change primary composition, subject placement, camera framing, character action,
 product placement and room/table setup unless sceneChange explains a deliberate narrative reason.
 Four distinct shots must show progression even with all text hidden.
+
+HUMAN THREAD (mandatory): characterContinuity MUST define specific people (age, look, clothing).
+Those people must be visible in at least 3 of the 4 slides, INCLUDING the final slide.
+Do not introduce people in slide 1 and then drop them.
+
+REVEAL vs PAYOFF (mandatory): the reveal slide and the final slide must be visibly different shots.
+- Reveal slide: the product enters the established scene (handed over, set down, unwrapped, held).
+  It stays in the same environment, lighting and palette as the previous slides. PRODUCT_STUDIO
+  is FORBIDDEN in story-carousel mode: no studio backdrop, seamless paper or isolated catalog shot.
+- Final slide: sceneStrategy MUST be HUMAN_GIFTING_MOMENT or HUMAN_LIFESTYLE, productRole
+  "supporting" (never "hero"). Its storyBeat MUST describe a human reaction or consequence
+  (a face, a smile, an embrace, hands touching the flowers, a quiet look). It is never a second
+  product shot; the bouquet is present but not centered and not the largest element.
+- The reveal and final slides must differ in cameraDirection, subject placement and product placement.
+
+ENVIRONMENT LOCK: environmentContinuity MUST name one concrete setting and light quality
+(e.g. "same candlelit dining room, warm tungsten light, evening"). Every slide, including the
+reveal, stays inside that world. Never switch to a bright studio or a different location mid-story.
+
+TEXT: headlines and subheadlines are composited programmatically onto the top-left of each
+slide; the image itself is generated text-free. Keep headlines under 45 characters and
+subheadlines under 110 characters so they fit cleanly.
 These additional fields belong in the JSON even though the generic example omits them.`;
 
 function buildPrompt(input: CampaignInput): string {
@@ -637,9 +659,11 @@ Different variants should produce visually distinct kinds of marketing content:
 
 FOR STORY-CAROUSEL MODE:
 
-The 4 slides may use similar sceneStrategy values IF the story requires it for continuity.
+The 4 slides may use similar sceneStrategy values IF the story requires it for continuity,
+EXCEPT: PRODUCT_STUDIO is never allowed, and the final slide must be HUMAN_GIFTING_MOMENT
+or HUMAN_LIFESTYLE. Prefer human-led strategies throughout so the characters carry the story.
 
-However, each slide must still have visual progression through the storyBeat.
+Each slide must still have visual progression through the storyBeat.
 
 CREATIVE CONCEPT DIVERSITY:
 

@@ -39,8 +39,25 @@ must change primary composition, subject placement, camera framing, character ac
 product placement and room/table setup unless sceneChange explains a deliberate narrative reason.
 Four distinct shots must show progression even with all text hidden.
 
-HUMAN THREAD (mandatory): characterContinuity MUST define specific people (age, look, clothing).
-Those people must be visible in at least 3 of the 4 slides, INCLUDING the final slide.
+GIFTING RELATIONSHIP (mandatory, decide this FIRST): fill giftingRelationship with a specific
+sender (the customer who buys), a specific recipient, their relationship, the reason, and the
+pointOfView the slides follow. Flowers are a gift between people — the viewer must never wonder
+"who is giving this to whom?". A single person alone with a bouquet, with no giver or receiver
+implied, is NOT a story. Self-gifting is allowed ONLY when relationship is "self-gift" and the
+copy makes that explicit ("treat yourself", "you earned this").
+- pointOfView "sender": we follow the giver — noticing the moment, deciding, choosing, handing over
+  or watching it be received. The recipient must appear by the reveal or final slide.
+- pointOfView "recipient": we follow the receiver — their day, the doorbell/handoff, the reaction.
+  The sender or the act of giving (hands, a card, a delivery) must be visible at the reveal.
+- pointOfView "both": alternate, and the reveal or final slide shows them together.
+The reveal slide MUST show the act of giving or receiving (handed over, delivered, unwrapped,
+a card read), not a bouquet that simply appears on a table.
+Every storyBeat must name who is in frame and what they are doing for the other person.
+
+HUMAN THREAD (mandatory): characterContinuity MUST describe the sender and recipient from
+giftingRelationship (age, look, clothing) so they are recognizable across slides.
+The pointOfView character appears in at least 3 of the 4 slides, INCLUDING the final slide;
+the other person appears in at least one slide (reveal or final) unless it is a self-gift.
 Do not introduce people in slide 1 and then drop them.
 
 REVEAL vs PAYOFF (mandatory): the reveal slide and the final slide must be visibly different shots.
@@ -210,6 +227,13 @@ Use exactly this structure:
     "textPlacement": "string",
     "creativeGoal": "string",
     "carouselConcept": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+    "giftingRelationship": {
+      "sender": "string (REQUIRED in story-carousel mode: who buys/sends, with age/look/clothing)",
+      "recipient": "string (who receives, with age/look/clothing)",
+      "relationship": "string (e.g. husband to wife, daughter to mother, friend to friend, self-gift)",
+      "reason": "string (why flowers are given in this story)",
+      "pointOfView": "sender | recipient | both"
+    },
     "visualContinuity": {
       "characterContinuity": "string (optional)",
       "environmentContinuity": "string (optional)",

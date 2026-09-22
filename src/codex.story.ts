@@ -307,6 +307,20 @@ export function buildStorySlidePrompt(
   const isFinal = slide.order === 4;
   let continuityInstructions = "";
 
+  const gift = storyPlan.giftingRelationship;
+  const relationshipInstructions = `
+⚠️ WHO IS GIVING TO WHOM ⚠️
+Sender (the one giving): ${gift.sender}
+Recipient (the one receiving): ${gift.recipient}
+Relationship: ${gift.relationship}
+Why: ${gift.reason}
+Point of view: we follow the ${gift.pointOfView === "both" ? "sender AND recipient" : gift.pointOfView}.
+The viewer must be able to tell at a glance who is giving and who is receiving.
+${gift.relationship.toLowerCase().includes("self")
+  ? "This is an explicit self-gift: one person choosing flowers for themselves. Make that unmistakable (e.g. selecting, unwrapping for herself)."
+  : "Never show one person alone with a bouquet that simply 'appears' — the gift must be given, handed, delivered, unwrapped, or received."}
+`;
+
   if (storyPlan.visualContinuity) {
     continuityInstructions = `\n⚠️ VISUAL CONTINUITY REQUIREMENTS ⚠️\n\n`;
     continuityInstructions += `This is slide ${slide.order} of a 4-slide visual story.\n\n`;
@@ -443,7 +457,7 @@ Flowers may appear generically if the story requires, but not the specific catal
   }
 
   return `Create a 1:1 cinematic visual story scene.
-
+${relationshipInstructions}
 ${continuityInstructions}
 ⚠️ STORY PROGRESSION REQUIREMENT ⚠️
 
@@ -503,7 +517,8 @@ The composition, camera angle, subject placement and product placement must be c
 ${isReveal ? `
 REVEAL SLIDE (mandatory):
 Introduce the flowers INSIDE the story's established environment and lighting — same room, same light quality, same palette as the previous slides.
-No studio backdrop, no seamless paper, no isolated catalog-style shot. The product arrives into the scene (held, handed over, set down, unwrapped).` : ""}
+No studio backdrop, no seamless paper, no isolated catalog-style shot.
+Show the ACT of giving or receiving: the sender handing it over, a delivery at the door, the recipient unwrapping it or reading the card. Hands and at least one face should be part of this moment.` : ""}
 
 BRAND ROLE: ${slide.brandRole}
 ${slide.brandRole === "none"

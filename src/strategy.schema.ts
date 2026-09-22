@@ -43,9 +43,20 @@ export const creativeVariantSchema = z.object({
 
 const HUMAN_SCENE_STRATEGIES = new Set(["HUMAN_GIFTING_MOMENT", "HUMAN_LIFESTYLE"]);
 
+// Who is giving flowers to whom. Every story must answer this before any image is made.
+export const giftingRelationshipSchema = z.object({
+  sender: z.string().min(1).describe("Who buys/sends the flowers (the customer). Age, look, clothing."),
+  recipient: z.string().min(1).describe("Who receives them. Age, look, clothing. Use the same description as sender only for an explicit self-gift."),
+  relationship: z.string().min(1).describe("How they relate, e.g. 'husband to wife', 'daughter to mother', 'friend to friend', 'self-gift'."),
+  reason: z.string().min(1).describe("Why flowers are being given in this story, in one sentence."),
+  pointOfView: z.enum(["sender", "recipient", "both"]).describe("Whose experience the slides follow."),
+});
+export type GiftingRelationship = z.infer<typeof giftingRelationshipSchema>;
+
 export const storyCreativePlanSchema = z.object({
   carouselConcept: z.string().min(1),
   revealSlide: z.union([z.literal(2), z.literal(3), z.literal(4)]),
+  giftingRelationship: giftingRelationshipSchema,
   visualContinuity: z.object({
     characterContinuity: z.string().optional(),
     environmentContinuity: z.string().optional(),
@@ -101,6 +112,7 @@ const creativeBriefSchema = z.object({
   creativeGoal: z.string().min(1),
   carouselConcept: z.string().optional(),
   revealSlide: z.union([z.literal(2), z.literal(3), z.literal(4)]).optional(),
+  giftingRelationship: giftingRelationshipSchema.optional(),
   visualContinuity: z.object({
     characterContinuity: z.string().optional(),
     environmentContinuity: z.string().optional(),

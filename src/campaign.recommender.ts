@@ -10,6 +10,8 @@ import type {
   MarketingProduct,
 } from "./greatflowers.products.js";
 
+import { formatOccasionGuidance } from "./occasion.calendar.js";
+
 export type ProductAnalyticsSignal = {
   itemId: string;
   itemName: string;
@@ -90,6 +92,8 @@ export async function generateCampaignRecommendation(
       text: page.text.slice(0, 3500),
     }));
 
+  const occasionGuidance = formatOccasionGuidance();
+
   const prompt = `
 Use the greatflowers-marketing-strategist skill.
 
@@ -103,6 +107,8 @@ ${today}
 
 Primary Objective:
 Generate orders.
+
+${occasionGuidance}
 
 Below is the REAL current GreatFlowers product catalog.
 
@@ -368,18 +374,29 @@ Do not combine many occasions into a single campaign.
 
 Prefer a focused campaign with one clear customer reason to buy.
 
+OCCASION PRIORITY:
+
+1. If a CRITICAL or HIGH priority seasonal occasion is active (see CURRENT OCCASION CALENDAR above),
+   STRONGLY prefer that occasion unless the catalog offers no suitable products for it.
+   
+2. Peak-phase occasions (≤7 days away) take absolute priority — these are time-sensitive.
+
+3. If no strong seasonal fit exists, choose from evergreen occasions based on product fit.
+
+4. Rotation is a tiebreaker, not the primary criterion.
+
 Examples:
 
-Good:
+Good (Feb 10, Valentine's in 4 days):
+Occasion: Valentine's Day
+
+Good (no active seasonal occasion):
 Occasion: Birthday
 
-Good:
+Bad (Valentine's in 4 days, but chose):
 Occasion: Just Because
 
-Good:
-Occasion: Get Well Soon
-
-Bad:
+Bad (combining multiple):
 Occasion: Birthday, Anniversary, Congratulations, Get Well Soon, New Baby
 
 If a product fits many occasions, select the ONE occasion

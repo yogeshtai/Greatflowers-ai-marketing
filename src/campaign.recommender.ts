@@ -516,6 +516,16 @@ Return the complete JSON object directly.
 
   const output = data?.choices?.[0]?.message?.content;
 
+  console.log("Hermes recommendation response diagnostic:", {
+    finishReason: data?.choices?.[0]?.finish_reason,
+    contentType: typeof output,
+    contentLength: typeof output === "string" ? output.length : null,
+    contentPreview:
+      typeof output === "string"
+        ? output.slice(0, 300).replace(/\s+/g, " ")
+        : null,
+  });
+
   if (!output || typeof output !== "string") {
     console.error("Unexpected Hermes API response:", data);
     throw new Error("Hermes API returned no message content");

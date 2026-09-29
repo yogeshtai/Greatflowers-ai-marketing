@@ -110,6 +110,7 @@ const creativeBriefSchema = z.object({
   logoPlacement: z.string().min(1),
   textPlacement: z.string().min(1),
   creativeGoal: z.string().min(1),
+  creativeScenario: z.string().optional().describe("Specific human situation justifying the flowers, e.g., 'grandmother turning 80, wants to feel celebrated after a quiet year'"),
   carouselConcept: z.string().optional(),
   revealSlide: z.union([z.literal(2), z.literal(3), z.literal(4)]).optional(),
   giftingRelationship: giftingRelationshipSchema.optional(),

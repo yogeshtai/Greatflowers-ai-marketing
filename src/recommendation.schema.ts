@@ -8,6 +8,8 @@ export const campaignRecommendationSchema =
 
     occasion: z.string(),
 
+    creativeScenario: z.string().describe("A specific human situation or story that justifies sending flowers — not just 'Birthday' or 'Anniversary'. Examples: 'grandmother turning 80, wants to feel celebrated', 'brother recovering from surgery, needs a lift', 'daughter moved away for college, missing home'. This becomes the campaign's emotional hook."),
+
     audience: z.string(),
 
     campaignGoal: z.string(),

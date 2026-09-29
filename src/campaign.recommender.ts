@@ -217,11 +217,36 @@ Choose exactly ONE product from this catalog that would be a strong candidate fo
 Then determine:
 
 1. Best relevant occasion
-2. Customer intent
-3. Marketing angle
-4. Audience
-5. Recommended social platforms
-6. Why this product should be tested
+2. CREATIVE SCENARIO: a specific human situation that justifies sending flowers — invent a real story
+3. Customer intent
+4. Marketing angle
+5. Audience
+6. Recommended social platforms
+7. Why this product should be tested
+
+CREATIVE SCENARIO RULES:
+
+Do NOT default to standard occasions like "Birthday" or "Anniversary" as the entire creative angle.
+Instead, invent a SPECIFIC HUMAN SITUATION that explains *why* someone would send flowers in this moment.
+
+GOOD creative scenarios (real, personal, specific):
+- "Grandmother turning 80, family wants to make her feel celebrated after a quiet year"
+- "Brother recovering from surgery, needs a morale boost during a long recovery"
+- "Daughter moved away for college, parents sending flowers to help her feel at home"
+- "Couple celebrating 25th anniversary together, rekindling the romance after busy years"
+- "Friend going through a breakup, needs a reminder she's loved and supported"
+- "Colleague earned a big promotion, team sending congratulations to celebrate the win"
+- "Neighbor lost their cat, sending sympathy with a gentle, comforting arrangement"
+
+BAD creative scenarios (generic, repetitive):
+- "Birthday celebration"
+- "Anniversary gift"
+- "Sympathy flowers"
+- "Get well soon"
+
+The creativeScenario becomes the campaign's emotional hook. Make it vivid, specific, and emotionally compelling.
+
+The occasion field (e.g., "Birthday", "Anniversary") is still required for tracking, but the creativeScenario is where the real thinking happens.
 
 IMPORTANT RULES:
 
@@ -316,8 +341,8 @@ Use exactly:
 {
   "selectedProductId": 0,
   "selectedProductName": "string",
-
   "occasion": "string",
+  "creativeScenario": "string",
 
   "audience": "string",
 

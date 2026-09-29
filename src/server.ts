@@ -73,6 +73,7 @@ const campaignSchema = z.object({
   product: z.string().min(1),
 
   occasion: z.string().optional(),
+  creativeScenario: z.string().optional(),
 
   audience: z.string().min(1),
 
@@ -490,6 +491,9 @@ app.post(
             occasion:
               recommendation.occasion,
 
+            creativeScenario:
+              recommendation.creativeScenario,
+
             audience:
               recommendation.audience,
 
@@ -545,6 +549,9 @@ ${recommendation.customerIntent}
 
 Suggested Marketing Angle:
 ${recommendation.marketingAngle}
+
+Creative Scenario:
+${recommendation.creativeScenario}
 
 ${recommendation.additionalContext}
 `.trim(),

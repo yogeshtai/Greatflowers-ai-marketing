@@ -10,6 +10,7 @@ export interface CampaignInput {
   campaignGoal: string;
   product: string;
   occasion?: string | undefined;
+  creativeScenario?: string | undefined;
   audience: string;
   trafficSource: string;
   platforms: string[];
@@ -87,6 +88,8 @@ Product / Feature: ${input.product}
 
 Occasion: ${input.occasion || "Not specified"}
 
+Creative Scenario: ${input.creativeScenario || "Not specified — will default to generic occasion framing"}
+
 Audience: ${input.audience}
 
 Traffic Source: ${input.trafficSource}
@@ -96,6 +99,20 @@ Platforms: ${input.platforms.join(", ")}
 Priority: ${input.priority}
 
 Additional Context: ${input.additionalContext || "None"}
+
+EMOTIONAL HOOK RULE:
+
+If a creativeScenario is provided, use it as the campaign's emotional foundation. Do NOT default to generic occasion framing like "Birthday celebration" or "Anniversary gift."
+
+The creativeScenario describes a specific human situation — lean into that specificity in the:
+- Marketing angle
+- Headlines and subheadlines
+- Visual direction
+- Customer intent
+- Platform copy
+
+Example: if creativeScenario is "Grandmother turning 80, family wants to make her feel celebrated after a quiet year,"
+the marketing angle should be about honoring a milestone with warmth, not a generic "birthday flowers" pitch.
 
 IMPORTANT OUTPUT INSTRUCTIONS:
 
@@ -226,6 +243,7 @@ Use exactly this structure:
     "logoPlacement": "string",
     "textPlacement": "string",
     "creativeGoal": "string",
+    "creativeScenario": "string (optional: specific human situation, e.g., 'grandmother turning 80, wants to feel celebrated after a quiet year')",
     "carouselConcept": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
     "giftingRelationship": {
       "sender": "string (REQUIRED in story-carousel mode: who buys/sends, with age/look/clothing)",

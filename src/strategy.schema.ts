@@ -120,15 +120,7 @@ const creativeBriefSchema = z.object({
     colorContinuity: z.string().optional(),
     stylingContinuity: z.string().optional(),
   }).optional(),
-  variants: z.array(creativeVariantSchema.extend({ cta: z.string() })).min(3).max(4).refine(
-    (variants) => {
-      const types = variants.map((v) => v.creativeType);
-      return new Set(types).size >= 2;
-    },
-    {
-      message: "Must have at least 2 different creative types among the variants",
-    }
-  ),
+  variants: z.array(creativeVariantSchema.extend({ cta: z.string() })).min(3).max(4),
 }).superRefine((brief, ctx) => {
   if (brief.creativeMode === "story-carousel") {
     const result = storyCreativePlanSchema.safeParse({ ...brief, slides: brief.variants });
@@ -136,6 +128,15 @@ const creativeBriefSchema = z.object({
       ctx.addIssue({ code: "custom", path: issue.path.map(p => p === "slides" ? "variants" : p), message: issue.message });
     }
   } else {
+    const types = brief.variants.map((variant) => variant.creativeType);
+    if (new Set(types).size < 2) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["variants"],
+        message: "Must have at least 2 different creative types among the variants",
+      });
+    }
+
     brief.variants.forEach((v, i) => {
       if (!v.cta.length) ctx.addIssue({ code: "custom", path: ["variants", i, "cta"], message: "CTA required" });
     });

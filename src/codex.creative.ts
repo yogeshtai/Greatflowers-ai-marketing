@@ -14,6 +14,7 @@ import { randomUUID } from "node:crypto";
 import fetch from "node-fetch";
 import sharp from "sharp";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { CODEX_SPAWN_OPTIONS, codexLimitArgs, guardCodexProcess } from "./ai.limits.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CODEX_GENERATED_IMAGES_DIR =
@@ -442,8 +443,11 @@ Use image generation. Do not create SVG, HTML, or CSS.`;
 async function executeCodex(
   prompt: string,
   productImagePath: string,
-  outputFilename: string
+  outputFilename: string,
+  signal?: AbortSignal
 ): Promise<string> {
+  signal?.throwIfAborted();
+
   // Take a snapshot of all Codex images BEFORE starting this generation
   const beforeImages = new Set(
     await getCodexGeneratedImages()
@@ -456,6 +460,7 @@ async function executeCodex(
   return new Promise((resolve, reject) => {
     const args = [
       "exec",
+      ...codexLimitArgs(),
       "-i",
       productImagePath,
       "--ephemeral",
@@ -472,9 +477,8 @@ async function executeCodex(
 
     console.log(`🔧 Codex binary: ${codexBinary}`);
 
-    const codex = spawn(codexBinary, args, {
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    const codex = spawn(codexBinary, args, CODEX_SPAWN_OPTIONS);
+    guardCodexProcess(codex, signal);
 
     let stdout = "";
     let stderr = "";
@@ -783,7 +787,8 @@ async function addCTAButton(
 export async function generateCreativeVariant(
   variant: CreativeVariant,
   productImageUrl: string,
-  creativeBrief: CreativeBrief
+  creativeBrief: CreativeBrief,
+  signal?: AbortSignal
 ): Promise<CreativeResult> {
   try {
     await mkdir(OUTPUT_DIR, { recursive: true });
@@ -816,7 +821,8 @@ export async function generateCreativeVariant(
     const generatedPath = await executeCodex(
       prompt,
       productImagePath,
-      outputFilename
+      outputFilename,
+      signal
     );
 
     // Step 2: Programmatically overlay the official GreatFlowers logo
@@ -895,7 +901,8 @@ export async function generateCreativeVariant(
 export async function generateAllCreatives(
   productImageUrl: string,
   creativeBrief: CreativeBrief,
-  onProgress?: (result: CreativeResult, index: number, total: number) => void
+  onProgress?: (result: CreativeResult, index: number, total: number) => void,
+  signal?: AbortSignal
 ): Promise<CreativeResult[]> {
   console.log(
     `\n🎨 Starting AI creative generation (${creativeBrief.variants.length} variants)...`
@@ -913,6 +920,11 @@ export async function generateAllCreatives(
   for (let i = 0; i < creativeBrief.variants.length; i++) {
     const variant = creativeBrief.variants[i]!;
 
+    if (signal?.aborted) {
+      console.log("⛔ Client disconnected — skipping remaining creatives");
+      break;
+    }
+
     console.log(
       `\n🔄 Generating ${variant.creativeType} variant...`
     );
@@ -920,7 +932,8 @@ export async function generateAllCreatives(
     const result = await generateCreativeVariant(
       variant,
       productImageUrl,
-      creativeBrief
+      creativeBrief,
+      signal
     );
 
     results.push(result);

@@ -41,6 +41,7 @@ import {
   getMetaConnectionStatus,
 } from "./meta.service.js";
 import { prepareInstagramImage } from "./meta.image.js";
+import { tryAcquire } from "./ai.limits.js";
 
 const app = express();
 
@@ -64,6 +65,35 @@ app.use(
 );
 
 app.use(express.json());
+
+// Reject duplicate expensive AI jobs (double clicks, re-sent requests, parallel tabs).
+// Codex routes share one lock: parallel runs also break the "newest generated image" detection.
+// The lock is held until the handler finishes, not just until the client disconnects.
+function singleFlight(key: string, handler: express.RequestHandler): express.RequestHandler {
+  return async (req, res, next) => {
+    const release = tryAcquire(key);
+    if (!release) {
+      return res.status(409).json({
+        success: false,
+        error: "A generation is already running. Please wait for it to finish.",
+      });
+    }
+    try {
+      await handler(req, res, next);
+    } finally {
+      release();
+    }
+  };
+}
+
+// Abort remaining AI work when the client disconnects before the response finishes.
+function abortOnDisconnect(res: express.Response) {
+  const controller = new AbortController();
+  res.on("close", () => {
+    if (!res.writableFinished) controller.abort();
+  });
+  return controller.signal;
+}
 
 // Serve generated creative images
 app.use('/test-creatives', express.static('test-creatives'));
@@ -95,7 +125,7 @@ app.get("/health", (_req, res) => {
   });
 });
 
-app.post("/api/strategies/generate", async (req, res) => {
+app.post("/api/strategies/generate", singleFlight("strategy", async (req, res) => {
   try {
     const parsed = campaignSchema.safeParse(req.body);
 
@@ -121,7 +151,7 @@ app.post("/api/strategies/generate", async (req, res) => {
       error: "Failed to generate marketing strategy",
     });
   }
-});
+}));
 
 app.post("/api/campaigns", async (req, res) => {
   try {
@@ -370,7 +400,16 @@ async function withRetry<T>(
   try {
     return await fn();
   } catch (error) {
-    if (retries <= 0) {
+    // Re-running the whole agent rarely fixes bad output or a timeout; it only doubles token usage.
+    const notRetryable =
+      error instanceof z.ZodError ||
+      error instanceof SyntaxError ||
+      (error instanceof Error &&
+        (error.name === "TimeoutError" ||
+          error.name === "AbortError" ||
+          error.message.includes("did not return")));
+
+    if (retries <= 0 || notRetryable) {
       throw error;
     }
 
@@ -385,7 +424,7 @@ async function withRetry<T>(
 
 app.post(
   "/api/recommendations/generate",
-  async (_req, res) => {
+  singleFlight("recommendation", async (_req, res) => {
     try {
       console.log("① Fetching catalog + website...");
 
@@ -654,12 +693,12 @@ ${recommendation.additionalContext}
             : String(error),
       });
     }
-  }
+  })
 );
 
 app.post(
   "/api/creatives/generate",
-  async (req, res) => {
+  singleFlight("codex", async (req, res) => {
     const { productImageUrl, creativeBrief } =
       req.body;
 
@@ -700,7 +739,9 @@ app.post(
       const creatives =
         await generateAllCreatives(
           productImageUrl,
-          creativeBrief
+          creativeBrief,
+          undefined,
+          abortOnDisconnect(res)
         );
 
       return res.json({
@@ -725,12 +766,12 @@ app.post(
             : String(error),
       });
     }
-  }
+  })
 );
 
 app.post(
   "/api/creatives/generate/stream",
-  async (req, res) => {
+  singleFlight("codex", async (req, res) => {
     const { productImageUrl, creativeBrief } =
       req.body;
 
@@ -796,7 +837,8 @@ app.post(
               productImageUrl,
             })}\n\n`
           );
-        }
+        },
+        abortOnDisconnect(res)
       );
 
       // Send completion event
@@ -827,10 +869,10 @@ app.post(
 
       res.end();
     }
-  }
+  })
 );
 
-app.post("/api/creatives/story/plan", async (req, res) => {
+app.post("/api/creatives/story/plan", singleFlight("story-plan", async (req, res) => {
   const parsed = z.object({
     input: campaignSchema,
     selectedProduct: z.object({ name: z.string().min(1), image: z.string().url() }).passthrough(),
@@ -851,11 +893,11 @@ app.post("/api/creatives/story/plan", async (req, res) => {
     console.error("Story planning failed:", error);
     return res.status(502).json({ success: false, error: "Story planning failed. Please try again." });
   }
-});
+}));
 
 app.post(
   "/api/creatives/generate/story/stream",
-  async (req, res) => {
+  singleFlight("codex", async (req, res) => {
     const { productImageUrl, creativeBrief, storyPlan } =
       req.body;
 
@@ -931,7 +973,8 @@ app.post(
               total,
             })}\n\n`
           );
-        }
+        },
+        abortOnDisconnect(res)
       );
 
       // Send completion event
@@ -964,12 +1007,12 @@ app.post(
 
       res.end();
     }
-  }
+  })
 );
 
 app.post(
   "/api/creatives/generate/variant",
-  async (req, res) => {
+  singleFlight("codex", async (req, res) => {
     const { productImageUrl, creativeBrief, variantType } =
       req.body;
 
@@ -1022,7 +1065,8 @@ app.post(
       const creative = await generateCreativeVariant(
         variant,
         productImageUrl,
-        creativeBrief
+        creativeBrief,
+        abortOnDisconnect(res)
       );
 
       return res.json({
@@ -1047,7 +1091,7 @@ app.post(
             : String(error),
       });
     }
-  }
+  })
 );
 
 app.get(

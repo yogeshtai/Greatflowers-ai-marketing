@@ -5,6 +5,7 @@ import {
   type StoryCreativePlan,
   type MarketingStrategy,
 } from "./strategy.schema.js";
+import { hermesSignal } from "./ai.limits.js";
 
 export interface CampaignInput {
   campaignGoal: string;
@@ -1079,6 +1080,7 @@ async function requestHermes(prompt: string): Promise<string> {
 
   const response = await fetch(apiUrl, {
     method: "POST",
+    signal: hermesSignal(),
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,

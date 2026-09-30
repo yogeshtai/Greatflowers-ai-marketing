@@ -11,6 +11,7 @@ import type {
 } from "./greatflowers.products.js";
 
 import { formatOccasionGuidance } from "./occasion.calendar.js";
+import { hermesSignal } from "./ai.limits.js";
 
 export type ProductAnalyticsSignal = {
   itemId: string;
@@ -514,6 +515,7 @@ Return the complete JSON object directly.
 
   const response = await fetch(apiUrl, {
     method: "POST",
+    signal: hermesSignal(),
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,

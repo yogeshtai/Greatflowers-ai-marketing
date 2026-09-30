@@ -14,6 +14,7 @@ import { randomUUID } from "node:crypto";
 import { storyCreativePlanSchema, type StoryCreativePlan, type StoryCreativeSlide as StorySlide } from "./strategy.schema.js";
 import sharp from "sharp";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { CODEX_SPAWN_OPTIONS, codexLimitArgs, guardCodexProcess } from "./ai.limits.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -534,8 +535,10 @@ Generate a premium, text-free 1:1 (1024x1024) photographic scene that tells this
 async function executeCodex(
   prompt: string,
   referenceImagePaths: string[],
-  outputFilename: string
+  outputFilename: string,
+  signal?: AbortSignal
 ): Promise<string> {
+  signal?.throwIfAborted();
   // Take a snapshot of all Codex images BEFORE starting this generation
   const beforeImages = new Set(
     await getCodexGeneratedImages()
@@ -544,6 +547,7 @@ async function executeCodex(
   return new Promise((resolve, reject) => {
     const args = [
       "exec",
+      ...codexLimitArgs(),
       ...referenceImagePaths.flatMap((p) => ["-i", p]),
       "--ephemeral",
       "--cd",
@@ -552,9 +556,8 @@ async function executeCodex(
     ];
 
     const codexBinary = resolveCodexBinary();
-    const codex = spawn(codexBinary, args, {
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    const codex = spawn(codexBinary, args, CODEX_SPAWN_OPTIONS);
+    guardCodexProcess(codex, signal);
 
     let stdout = "";
     let stderr = "";
@@ -647,7 +650,8 @@ async function generateStorySlide(
   storyPlan: StoryCreativePlan,
   productImageUrl: string | null,
   previousSlides: GeneratedSlide[],
-  onProgress?: (message: string) => void
+  onProgress?: (message: string) => void,
+  signal?: AbortSignal
 ): Promise<GeneratedSlide> {
   const tempDir = join(__dirname, "..", "temp");
   await mkdir(tempDir, { recursive: true });
@@ -689,7 +693,8 @@ async function generateStorySlide(
     const generatedPath = await executeCodex(
       prompt,
       referenceImages,
-      outputFilename
+      outputFilename,
+      signal
     );
 
     onProgress?.(`[Slide ${slide.order}] Compositing headline text...`);
@@ -780,7 +785,8 @@ export async function generateStoryCreatives(
   creativeBrief: CreativeBrief,
   productImageUrl: string | null,
   onProgress?: (message: string) => void,
-  onSlideComplete?: (slide: GeneratedSlide, index: number, total: number) => void
+  onSlideComplete?: (slide: GeneratedSlide, index: number, total: number) => void,
+  signal?: AbortSignal
 ): Promise<StoryCreativeResult> {
   storyPlan = storyCreativePlanSchema.parse(storyPlan);
   // Apply the final-image requirement to older saved plans as well.
@@ -805,13 +811,19 @@ export async function generateStoryCreatives(
   for (let i = 0; i < sortedSlides.length; i++) {
     const slide = sortedSlides[i]!;
 
+    if (signal?.aborted) {
+      console.log("⛔ Client disconnected — skipping remaining story slides");
+      break;
+    }
+
     const result = await generateStorySlide(
       slide,
       creativeBrief,
       storyPlan,
       productImageUrl,
       generatedSlides,
-      onProgress
+      onProgress,
+      signal
     );
 
     generatedSlides.push(result);

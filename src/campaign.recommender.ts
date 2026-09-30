@@ -12,6 +12,7 @@ import type {
 
 import { formatOccasionGuidance } from "./occasion.calendar.js";
 import { hermesSignal } from "./ai.limits.js";
+import { parseModelJSON } from "./model.json.js";
 
 export type ProductAnalyticsSignal = {
   itemId: string;
@@ -560,7 +561,7 @@ Return the complete JSON object directly.
 
   try {
     const jsonText = extractJSON(output);
-    const parsedJSON = JSON.parse(jsonText);
+    const parsedJSON = parseModelJSON(jsonText);
 
     const recommendation =
       campaignRecommendationSchema.parse(parsedJSON);

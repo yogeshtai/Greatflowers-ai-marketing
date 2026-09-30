@@ -6,6 +6,7 @@ import {
   type MarketingStrategy,
 } from "./strategy.schema.js";
 import { hermesSignal } from "./ai.limits.js";
+import { parseModelJSON } from "./model.json.js";
 
 export interface CampaignInput {
   campaignGoal: string;
@@ -1053,7 +1054,7 @@ export async function generateMarketingStrategy(
 
   try {
     const jsonText = extractJSON(output);
-    const parsedJSON = JSON.parse(jsonText);
+    const parsedJSON = parseModelJSON(jsonText);
 
     const normalizedJSON =
       normalizeStrategyUrls(parsedJSON);
@@ -1139,5 +1140,5 @@ discounts, delivery guarantees, reviews or service claims. Keep hypotheses out o
 Return ONLY JSON conforming to this schema, with no markdown or explanation:
 ${JSON.stringify(storyCreativePlanSchema.toJSONSchema())}
 `);
-  return storyCreativePlanSchema.parse(JSON.parse(extractJSON(output)));
+  return storyCreativePlanSchema.parse(parseModelJSON(extractJSON(output)));
 }

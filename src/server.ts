@@ -425,6 +425,8 @@ async function withRetry<T>(
 app.post(
   "/api/recommendations/generate",
   singleFlight("recommendation", async (_req, res) => {
+    const signal = abortOnDisconnect(res);
+
     try {
       console.log("① Fetching catalog + website...");
 
@@ -483,7 +485,8 @@ app.post(
             products,
             websiteContext,
             recentHistory,
-            productAnalytics
+            productAnalytics,
+            signal
           )
         );
 
@@ -594,7 +597,7 @@ ${recommendation.creativeScenario}
 
 ${recommendation.additionalContext}
 `.trim(),
-          })
+          }, signal)
         );
 
       console.log("⑥ Strategy complete");

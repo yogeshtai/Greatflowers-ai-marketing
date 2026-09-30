@@ -68,7 +68,8 @@ export async function generateCampaignRecommendation(
   products: MarketingProduct[],
   websiteContext: WebsitePageContext[],
   recentHistory: string[] = [],
-  analytics: ProductAnalyticsSignal[] = []
+  analytics: ProductAnalyticsSignal[] = [],
+  signal?: AbortSignal
 ): Promise<CampaignRecommendation> {
   const apiUrl =
     process.env.HERMES_API_URL ||
@@ -516,7 +517,7 @@ Return the complete JSON object directly.
 
   const response = await fetch(apiUrl, {
     method: "POST",
-    signal: hermesSignal(),
+    signal: hermesSignal(signal),
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,

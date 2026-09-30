@@ -38,8 +38,9 @@ export function guardCodexProcess(child: ChildProcess, signal?: AbortSignal) {
   });
 }
 
-export function hermesSignal() {
-  return AbortSignal.timeout(HERMES_TIMEOUT_MS);
+export function hermesSignal(signal?: AbortSignal) {
+  const timeout = AbortSignal.timeout(HERMES_TIMEOUT_MS);
+  return signal ? AbortSignal.any([timeout, signal]) : timeout;
 }
 
 // Allow only one expensive AI job per key at a time.

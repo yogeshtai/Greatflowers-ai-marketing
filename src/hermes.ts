@@ -247,6 +247,7 @@ Use exactly this structure:
     "creativeGoal": "string",
     "creativeScenario": "string (optional: specific human situation, e.g., 'grandmother turning 80, wants to feel celebrated after a quiet year')",
     "carouselConcept": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+    "revealSlide": "2 | 3 | 4 (a JSON number, REQUIRED if creativeMode is story-carousel, otherwise omit)",
     "giftingRelationship": {
       "sender": "string (REQUIRED in story-carousel mode: who buys/sends, with age/look/clothing)",
       "recipient": "string (who receives, with age/look/clothing)",
@@ -278,7 +279,10 @@ Use exactly this structure:
         "lightingStyle": "string",
         "sceneType": "string",
         "storyRole": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
-        "storyBeat": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)"
+        "storyBeat": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "brandRole": "none | subtle | reveal (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "sceneChange": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "cameraDirection": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)"
       },
       {
         "order": 2,
@@ -297,7 +301,10 @@ Use exactly this structure:
         "lightingStyle": "string",
         "sceneType": "string",
         "storyRole": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
-        "storyBeat": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)"
+        "storyBeat": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "brandRole": "none | subtle | reveal (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "sceneChange": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "cameraDirection": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)"
       },
       {
         "order": 3,
@@ -316,7 +323,10 @@ Use exactly this structure:
         "lightingStyle": "string",
         "sceneType": "string",
         "storyRole": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
-        "storyBeat": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)"
+        "storyBeat": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "brandRole": "none | subtle | reveal (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "sceneChange": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "cameraDirection": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)"
       },
       {
         "order": 4,
@@ -335,7 +345,10 @@ Use exactly this structure:
         "lightingStyle": "string",
         "sceneType": "string",
         "storyRole": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
-        "storyBeat": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)"
+        "storyBeat": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "brandRole": "none | subtle | reveal (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "sceneChange": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "cameraDirection": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)"
       }
     ]
   }
@@ -1044,13 +1057,20 @@ function normalizeStrategyUrls(data: any) {
       );
   }
 
+  const brief = data?.creativeBrief;
+
+  if (brief && typeof brief.revealSlide === "string" && /^[234]$/.test(brief.revealSlide.trim())) {
+    brief.revealSlide = Number(brief.revealSlide.trim());
+  }
+
   return data;
 }
 
 export async function generateMarketingStrategy(
-  input: CampaignInput
+  input: CampaignInput,
+  signal?: AbortSignal
 ): Promise<MarketingStrategy> {
-  const output = await requestHermes(`Use the greatflowers-marketing-strategist skill.\n\n${buildPrompt(input)}`);
+  const output = await requestHermes(`Use the greatflowers-marketing-strategist skill.\n\n${buildPrompt(input)}`, signal);
 
   try {
     const jsonText = extractJSON(output);
@@ -1068,7 +1088,7 @@ export async function generateMarketingStrategy(
   }
 }
 
-async function requestHermes(prompt: string): Promise<string> {
+async function requestHermes(prompt: string, signal?: AbortSignal): Promise<string> {
   const apiUrl =
     process.env.HERMES_API_URL ||
     "http://127.0.0.1:8642/v1/chat/completions";
@@ -1081,7 +1101,7 @@ async function requestHermes(prompt: string): Promise<string> {
 
   const response = await fetch(apiUrl, {
     method: "POST",
-    signal: hermesSignal(),
+    signal: hermesSignal(signal),
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,

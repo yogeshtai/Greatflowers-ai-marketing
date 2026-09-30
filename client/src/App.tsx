@@ -884,7 +884,9 @@ function App() {
       );
 
       setError(
-        "Could not generate an automatic campaign recommendation."
+        (error as { response?: { status?: number } })?.response?.status === 409
+          ? "A recommendation is already being generated. Please wait a few minutes and try again."
+          : "Could not generate an automatic campaign recommendation."
       );
     } finally {
       setRecommending(false);

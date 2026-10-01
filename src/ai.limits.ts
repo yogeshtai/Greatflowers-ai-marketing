@@ -3,9 +3,10 @@ import type { ChildProcess, SpawnOptions } from "node:child_process";
 export const HERMES_TIMEOUT_MS = Number(process.env.HERMES_TIMEOUT_MS) || 5 * 60_000;
 export const CODEX_TIMEOUT_MS = Number(process.env.CODEX_TIMEOUT_MS) || 8 * 60_000;
 
-// Keep Codex from escalating to expensive reasoning for simple image tasks.
+// Optional overrides only; by default Codex uses its own configured model and reasoning effort.
 export function codexLimitArgs(): string[] {
-  const args = ["-c", `model_reasoning_effort="${process.env.CODEX_REASONING_EFFORT || "low"}"`];
+  const args: string[] = [];
+  if (process.env.CODEX_REASONING_EFFORT) args.push("-c", `model_reasoning_effort="${process.env.CODEX_REASONING_EFFORT}"`);
   if (process.env.CODEX_MODEL) args.push("-m", process.env.CODEX_MODEL);
   return args;
 }

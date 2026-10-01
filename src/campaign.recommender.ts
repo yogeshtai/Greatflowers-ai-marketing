@@ -36,7 +36,7 @@ function extractJSON(output: string) {
 
   if (start === -1 || end === -1) {
     throw new Error(
-      "Hermes did not return recommendation JSON"
+      `Hermes did not return recommendation JSON. Reply started with: ${cleaned.slice(0, 300).replace(/\s+/g, " ")}`
     );
   }
 

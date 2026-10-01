@@ -980,7 +980,7 @@ function extractJSON(output: string): string {
   const end = cleaned.lastIndexOf("}");
 
   if (start === -1 || end === -1) {
-    throw new Error("Hermes did not return JSON");
+    throw new Error(`Hermes did not return JSON. Reply started with: ${cleaned.slice(0, 300).replace(/\s+/g, " ")}`);
   }
 
   return cleaned.slice(start, end + 1);

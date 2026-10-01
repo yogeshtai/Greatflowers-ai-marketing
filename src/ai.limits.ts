@@ -1,6 +1,6 @@
 import type { ChildProcess, SpawnOptions } from "node:child_process";
 
-export const HERMES_TIMEOUT_MS = Number(process.env.HERMES_TIMEOUT_MS) || 5 * 60_000;
+export const HERMES_TIMEOUT_MS = Number(process.env.HERMES_TIMEOUT_MS) || 8 * 60_000;
 export const CODEX_TIMEOUT_MS = Number(process.env.CODEX_TIMEOUT_MS) || 8 * 60_000;
 
 // Optional overrides only; by default Codex uses its own configured model and reasoning effort.

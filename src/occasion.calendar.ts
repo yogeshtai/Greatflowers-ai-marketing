@@ -194,7 +194,7 @@ function getLastFullWeekAprilWednesday(year: number): Date {
 }
 
 function resolveOccasionDate(occasion: OccasionWindow, year: number): Date {
-  if (occasion.date.includes("-")) {
+  if (/^\d{2}-\d{2}$/.test(occasion.date)) {
     const parts = occasion.date.split("-").map(Number);
     const month = parts[0]!;
     const day = parts[1]!;

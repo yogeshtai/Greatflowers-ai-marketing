@@ -6,6 +6,9 @@ export interface CampaignInput {
   campaignGoal: string;
   product: string;
   occasion?: string;
+  creativeScenario?: string;
+  contentTheme?: string;
+  visualTreatment?: string;
   audience: string;
   trafficSource: string;
   platforms: string[];

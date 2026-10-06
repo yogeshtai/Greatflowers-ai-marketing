@@ -6,6 +6,11 @@ export interface RecommendationHistoryItem {
   productName: string;
   occasion: string;
   recommendedAt: string;
+  contentTheme?: string;
+  visualTreatment?: string;
+  creativeScenario?: string;
+  marketingAngle?: string;
+  visualDirection?: string;
 }
 
 const DATA_DIR = path.join(process.cwd(), "data");

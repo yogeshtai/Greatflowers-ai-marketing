@@ -1,3 +1,4 @@
+import { createRotationPlan, type RotationPlan } from "./campaign.rotation.js";
 import type {
   WebsitePageContext,
 } from "./website.context.js";
@@ -69,7 +70,8 @@ export async function generateCampaignRecommendation(
   websiteContext: WebsitePageContext[],
   recentHistory: string[] = [],
   analytics: ProductAnalyticsSignal[] = [],
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  rotationPlan?: RotationPlan
 ): Promise<CampaignRecommendation> {
   const apiUrl =
     process.env.HERMES_API_URL ||
@@ -81,8 +83,8 @@ export async function generateCampaignRecommendation(
     throw new Error("HERMES_API_KEY is not configured");
   }
 
-  const catalog =
-    createCompactCatalog(products);
+  const rotation = rotationPlan ?? createRotationPlan(products, [], []);
+  const catalog = createCompactCatalog(rotation.candidates);
 
   const today = new Date()
     .toISOString()
@@ -109,7 +111,35 @@ Current Date:
 ${today}
 
 Primary Objective:
-Generate orders.
+Promote GreatFlowers through a varied mix of useful, inspiring, engaging and sales content.
+For THIS recommendation use campaignGoal: ${rotation.campaignGoal}
+and priority: ${rotation.priority}.
+
+REQUIRED CONTENT DIRECTION (selected by weighted rotation):
+contentTheme: ${rotation.contentTheme}
+visualTreatment: ${rotation.visualTreatment}
+${rotation.guidance}
+Keep these exact contentTheme and visualTreatment values in the output.
+Choose the strongest product fit WITHIN this direction using catalog, website and GA4 evidence.
+A holiday can shape any theme; it must not override this content direction.
+For non-gifting themes, creativeScenario describes a specific useful idea, scene or question.
+Use a descriptive topic for occasion when there is no gifting occasion (e.g. Home styling).
+Connect the content naturally to GreatFlowers and the selected real product.
+Use save/share/comment calls to action for engagement, discover/explore for awareness,
+and shopping for conversions. Never invent testimonials, behind-the-scenes facts or promotions.
+
+STRUCTURED RECOMMENDATION HISTORY (newest first):
+${JSON.stringify(rotation.recent)}
+
+PUBLISHED POST HISTORY (newest first; actual feed exposure):
+${JSON.stringify(rotation.published)}
+
+CREATIVE ROTATION:
+Do not reuse recent creative scenarios, marketing angles or visual compositions from either history.
+Develop a fresh human situation or useful idea, not a paraphrase of a recent post.
+Theme and visual cooldowns have already been enforced before this call.
+Product cooldown relaxed for seasonal fit or limited catalog: ${rotation.productCooldownRelaxed}.
+Choose only from the supplied eligible catalog. Explain actual rotation decisions honestly.
 
 ${occasionGuidance}
 
@@ -122,7 +152,7 @@ LIVE GREATFLOWERS WEBSITE CONTEXT:
 
 ${JSON.stringify(liveWebsiteContext)}
 
-RECENT CAMPAIGN HISTORY (last 10):
+LEGACY PRODUCT / OCCASION HISTORY:
 
 ${JSON.stringify(recentHistory.map((entry, i) => `${i + 1}. ${entry}`))}
 
@@ -137,8 +167,8 @@ CAMPAIGN ROTATION RULES:
    If the recent campaigns heavily use the same occasion, prefer another strong and relevant
    occasion when appropriate.
 
-Do not choose an irrelevant or weaker campaign only for variety — rotation is a tiebreaker,
-not the primary selection criterion. Strategic fit comes first.
+Find a relevant campaign within the assigned content theme. Rotation constraints are required;
+use strategic fit to choose between eligible products and ideas.
 
 
 REAL GREATFLOWERS GA4 BEHAVIOR DATA:
@@ -220,7 +250,7 @@ Choose exactly ONE product from this catalog that would be a strong candidate fo
 Then determine:
 
 1. Best relevant occasion
-2. CREATIVE SCENARIO: a specific human situation that justifies sending flowers — invent a real story
+2. CREATIVE SCENARIO: a specific human situation, styling idea, educational topic or conversation fitting the assigned theme; never present an invented story as a real customer testimonial
 3. Customer intent
 4. Marketing angle
 5. Audience
@@ -230,7 +260,8 @@ Then determine:
 CREATIVE SCENARIO RULES:
 
 Do NOT default to standard occasions like "Birthday" or "Anniversary" as the entire creative angle.
-Instead, invent a SPECIFIC HUMAN SITUATION that explains *why* someone would send flowers in this moment.
+For gifting stories, devise a SPECIFIC HUMAN SITUATION that explains why someone would send flowers.
+For other themes, develop a specific useful topic or scene without forcing a gift occasion.
 
 GOOD creative scenarios (real, personal, specific):
 - "Grandmother turning 80, family wants to make her feel celebrated after a quiet year"
@@ -342,6 +373,8 @@ DECISION SUMMARY (decisionSummary):
 Use exactly:
 
 {
+  "contentTheme": "${rotation.contentTheme}",
+  "visualTreatment": "${rotation.visualTreatment}",
   "selectedProductId": 0,
   "selectedProductName": "string",
   "occasion": "string",
@@ -349,7 +382,7 @@ Use exactly:
 
   "audience": "string",
 
-  "campaignGoal": "Generate orders",
+  "campaignGoal": "${rotation.campaignGoal}",
 
   "trafficSource": "Organic Social",
 
@@ -361,7 +394,7 @@ Use exactly:
     "YouTube Shorts"
   ],
 
-  "priority": "Conversions",
+  "priority": "${rotation.priority}",
 
   "reasonForSelection": "string",
 
@@ -407,11 +440,11 @@ OCCASION PRIORITY:
 1. If a CRITICAL or HIGH priority seasonal occasion is active (see CURRENT OCCASION CALENDAR above),
    STRONGLY prefer that occasion unless the catalog offers no suitable products for it.
    
-2. Peak-phase occasions (≤7 days away) take absolute priority — these are time-sensitive.
+2. Peak-phase occasions (≤7 days away) deserve extra attention within the assigned theme.
 
-3. If no strong seasonal fit exists, choose from evergreen occasions based on product fit.
+3. If no strong seasonal fit exists, choose a topic matching the assigned theme; evergreen occasions are only necessary for gifting stories.
 
-4. Rotation is a tiebreaker, not the primary criterion.
+4. Respect the assigned theme and visual treatment. Seasonal relevance must not collapse the feed back into repetitive gift posts.
 
 Examples:
 
@@ -566,6 +599,21 @@ Return the complete JSON object directly.
 
     const recommendation =
       campaignRecommendationSchema.parse(parsedJSON);
+
+    if (!rotation.candidates.some(product => product.id === recommendation.selectedProductId && product.name === recommendation.selectedProductName)) {
+      throw new Error("Recommendation must select an eligible catalog product with its exact name");
+    }
+    if (recommendation.contentTheme !== rotation.contentTheme || recommendation.visualTreatment !== rotation.visualTreatment) {
+      throw new Error("Recommendation did not follow the selected content rotation");
+    }
+    const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    if ([...rotation.recent, ...rotation.published].some(entry =>
+      entry.creativeScenario && normalize(entry.creativeScenario) === normalize(recommendation.creativeScenario)
+    )) {
+      throw new Error("Recommendation repeated a recent creative scenario");
+    }
+    recommendation.campaignGoal = rotation.campaignGoal;
+    recommendation.priority = rotation.priority;
 
     console.log("\n================ AI DECISION ================\n");
     console.log(`PRODUCT:\n${recommendation.selectedProductName} (ID: ${recommendation.selectedProductId})\n`);

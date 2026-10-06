@@ -212,3 +212,28 @@ GreatFlowers Team
 ## 📞 Support
 
 For issues and questions, please open an issue in the GitHub repository.
+
+
+## Campaign recommendation variety
+
+Recommendations use weighted random selection across gifting stories, home styling,
+flower care, product spotlights, seasonal inspiration and conversation starters.
+Less-used themes receive more weight. The latest 20 recommendations and latest 20
+published campaigns supply creative history; published history covers campaigns
+recorded by this app, not posts created directly on social platforms.
+
+The last two themes in each history are on cooldown, as is the latest visual
+treatment in each history. Products used in the last three entries of either
+history are excluded when alternatives exist. Product cooldowns relax for small
+catalogs or active high/critical holidays so seasonal fit remains possible.
+Important holidays also increase the weight of gifting and seasonal inspiration.
+
+The AI still receives today's GA4 product data, live website context, eligible
+in-stock catalog products with images, and occasion guidance. Content goals and
+calls to action vary by theme. Theme/product validation and exact scenario-repeat
+checks enforce rotation; avoiding semantically similar stories remains an AI
+instruction. Older saved records work without the new creative metadata.
+
+Run `npm test` for rotation and mocked recommendation regressions,
+`npx tsc --noEmit` for backend type checks, and `cd client && npm run build`
+for the frontend production build. The tests do not contact GA4, Hermes or Meta.

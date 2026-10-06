@@ -13,6 +13,8 @@ export interface CampaignInput {
   product: string;
   occasion?: string | undefined;
   creativeScenario?: string | undefined;
+  contentTheme?: string | undefined;
+  visualTreatment?: string | undefined;
   audience: string;
   trafficSource: string;
   platforms: string[];
@@ -91,6 +93,19 @@ Product / Feature: ${input.product}
 Occasion: ${input.occasion || "Not specified"}
 
 Creative Scenario: ${input.creativeScenario || "Not specified — will default to generic occasion framing"}
+
+Content Theme: ${input.contentTheme || "Choose a suitable theme"}
+Visual Treatment: ${input.visualTreatment || "Choose a suitable treatment"}
+
+CONTENT MIX RULES:
+Preserve the supplied theme, creative scenario, goal and visual treatment in captions,
+headlines, CTAs and the creative brief. Promote GreatFlowers naturally in every theme.
+For home-styling, flower-care, product-spotlight, seasonal-inspiration and conversation-starter,
+use independent creativeMode, without forcing a sender/recipient or gifting narrative.
+Use save/share/comment CTAs for engagement, discovery CTAs for awareness/consideration,
+and shopping CTAs for conversion campaigns. Do not turn every post into a sales pitch.
+Care content must use reliable general advice, without unsupported product-specific claims.
+Keep all four variants within the selected theme while varying their compositions.
 
 Audience: ${input.audience}
 
@@ -1079,9 +1094,11 @@ export async function generateMarketingStrategy(
     const normalizedJSON =
       normalizeStrategyUrls(parsedJSON);
 
-    return marketingStrategySchema.parse(
-      normalizedJSON
-    );
+    const strategy = marketingStrategySchema.parse(normalizedJSON);
+    if (input.contentTheme && input.contentTheme !== "gifting-story" && strategy.creativeBrief?.creativeMode === "story-carousel") {
+      throw new Error("Non-gifting content must preserve its theme using independent creatives");
+    }
+    return strategy;
   } catch (error) {
     console.error("Raw Hermes output:", output);
     throw error;

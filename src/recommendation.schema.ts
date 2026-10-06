@@ -1,14 +1,17 @@
 import { z } from "zod";
+import { CONTENT_THEMES, VISUAL_TREATMENTS } from "./campaign.rotation.js";
 
 export const campaignRecommendationSchema =
   z.object({
+    contentTheme: z.enum(CONTENT_THEMES),
+    visualTreatment: z.enum(VISUAL_TREATMENTS),
     selectedProductId: z.number(),
 
     selectedProductName: z.string(),
 
     occasion: z.string(),
 
-    creativeScenario: z.string().describe("A specific human situation or story that justifies sending flowers — not just 'Birthday' or 'Anniversary'. Examples: 'grandmother turning 80, wants to feel celebrated', 'brother recovering from surgery, needs a lift', 'daughter moved away for college, missing home'. This becomes the campaign's emotional hook."),
+    creativeScenario: z.string().min(1).describe("A specific human situation, useful care topic, styling idea or conversation matching the assigned content theme."),
 
     audience: z.string(),
 

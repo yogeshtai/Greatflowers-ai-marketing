@@ -385,10 +385,22 @@ export async function deleteCampaign(id: string) {
   });
 }
 
-export async function withCampaignPublishing<T>(id: string, publish: (campaign: SavedCampaign) => Promise<T>) {
+export async function withCampaignPublishing<T>(
+  id: string,
+  publish: (campaign: SavedCampaign) => Promise<T>,
+  platform: "facebook" | "instagram",
+) {
   return withCampaignLock(async () => {
-    const campaign = (await readCampaigns()).find(c => c.id === id);
+    const campaigns = await readCampaigns();
+    const campaign = campaigns.find(c => c.id === id);
     if (!campaign) throw new Error("Campaign not found");
-    return publish(campaign);
+    const result = await publish(campaign);
+    // Record each successful platform immediately, including manual and partial publishes.
+    // Scheduling state stays intact; the scheduler owns recurrence and retry transitions.
+    campaign.publishedAt = new Date().toISOString();
+    campaign.updatedAt = campaign.publishedAt;
+    campaign.publishedPlatforms = [...new Set([...(campaign.publishedPlatforms ?? []), platform])];
+    await writeCampaigns(campaigns);
+    return result;
   });
 }

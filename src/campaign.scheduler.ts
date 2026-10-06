@@ -3,6 +3,7 @@ import cron from "node-cron";
 import {
   getCampaigns,
   updateCampaign,
+  withCampaignPublishing,
 } from "./campaign.store.js";
 
 import {
@@ -102,9 +103,7 @@ async function processScheduledCampaigns() {
           campaign.strategy
             .platformContent.facebook
         ) {
-          await publishFacebook(
-            campaign
-          );
+          await withCampaignPublishing(campaign.id, publishFacebook, "facebook");
 
           publishedPlatforms.push(
             "facebook"
@@ -118,9 +117,7 @@ async function processScheduledCampaigns() {
           campaign.strategy
             .platformContent.instagram
         ) {
-          await publishInstagram(
-            campaign
-          );
+          await withCampaignPublishing(campaign.id, publishInstagram, "instagram");
 
           publishedPlatforms.push(
             "instagram"

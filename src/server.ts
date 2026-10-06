@@ -1,3 +1,4 @@
+import { createRotationPlan, publishedRotationHistory } from "./campaign.rotation.js";
 import { storyCreativePlanSchema } from "./strategy.schema.js";
 import "dotenv/config";
 import {
@@ -104,6 +105,8 @@ const campaignSchema = z.object({
 
   occasion: z.string().optional(),
   creativeScenario: z.string().optional(),
+  contentTheme: z.string().optional(),
+  visualTreatment: z.string().optional(),
 
   audience: z.string().min(1),
 
@@ -436,13 +439,15 @@ app.post(
         websiteContext,
         recentRecommendations,
         rawAnalytics,
+        savedCampaigns,
       ] = await Promise.all([
         getGreatFlowersProducts(),
         getGreatFlowersWebsiteContext(),
-        getRecentRecommendations(5),
+        getRecentRecommendations(20),
 
         // Use clean/new tracking initially.
         getProductAnalytics("today"),
+        getCampaigns(),
       ]);
 
       const validProductIds =
@@ -465,6 +470,8 @@ app.post(
         productAnalytics
       );
 
+      const rotationPlan = createRotationPlan(products, recentRecommendations, publishedRotationHistory(savedCampaigns));
+
       const recentHistory =
         recentRecommendations.map(
           (item) => `${item.productName} — ${item.occasion}`
@@ -486,7 +493,8 @@ app.post(
             websiteContext,
             recentHistory,
             productAnalytics,
-            signal
+            signal,
+            rotationPlan
           )
         );
 
@@ -510,7 +518,7 @@ app.post(
             String(selectedProduct?.id)
         ) || null;
 
-      if (!selectedProduct) {
+      if (!selectedProduct || selectedProduct.stockStatus !== "in_stock" || !selectedProduct.image) {
         throw new Error(
           "Hermes selected an invalid product"
         );
@@ -524,6 +532,8 @@ app.post(
       const strategy =
         await withRetry(() =>
           generateMarketingStrategy({
+            contentTheme: recommendation.contentTheme,
+            visualTreatment: recommendation.visualTreatment,
             campaignGoal:
               recommendation.campaignGoal,
 
@@ -605,8 +615,12 @@ ${recommendation.additionalContext}
       await recordRecommendation({
         productId: selectedProduct.id,
         productName: selectedProduct.name,
-        occasion:
-          recommendation.occasion,
+        occasion: recommendation.occasion,
+        contentTheme: recommendation.contentTheme,
+        visualTreatment: recommendation.visualTreatment,
+        creativeScenario: recommendation.creativeScenario,
+        marketingAngle: recommendation.marketingAngle,
+        visualDirection: strategy.creativeBrief?.backgroundDirection || "",
       });
 
       console.log(
@@ -1288,7 +1302,7 @@ app.post(
       }
 
       const result =
-        await withCampaignPublishing(campaign.id, publishFacebook);
+        await withCampaignPublishing(campaign.id, publishFacebook, "facebook");
 
       return res.json({
         success: true,
@@ -1336,7 +1350,7 @@ app.post(
       }
 
       const result =
-        await withCampaignPublishing(campaign.id, publishInstagram);
+        await withCampaignPublishing(campaign.id, publishInstagram, "instagram");
 
       return res.json({
         success: true,

@@ -230,6 +230,9 @@ type SavedCampaign = {
     campaignGoal: string;
     product: string;
     occasion?: string;
+    creativeScenario?: string;
+    contentTheme?: string;
+    visualTreatment?: string;
     audience: string;
     trafficSource: string;
     platforms: string[];
@@ -382,6 +385,9 @@ function App() {
     campaignGoal: "Generate orders",
     product: "Build Your Bouquet",
     occasion: "Birthday",
+    creativeScenario: "",
+    contentTheme: "",
+    visualTreatment: "",
     audience: "US customers",
     trafficSource: "Organic Social",
     priority: "Conversions",
@@ -669,6 +675,9 @@ function App() {
       campaignGoal: campaign.input.campaignGoal,
       product: campaign.input.product,
       occasion: campaign.input.occasion || "",
+      creativeScenario: campaign.input.creativeScenario || "",
+      contentTheme: campaign.input.contentTheme || "",
+      visualTreatment: campaign.input.visualTreatment || "",
       audience: campaign.input.audience,
       trafficSource: campaign.input.trafficSource,
       priority: campaign.input.priority,
@@ -834,6 +843,9 @@ function App() {
       setRecommendationEvidence(evidence);
 
       setForm({
+        creativeScenario: recommendation.creativeScenario || "",
+        contentTheme: recommendation.contentTheme || "",
+        visualTreatment: recommendation.visualTreatment || "",
         campaignGoal:
           recommendation.campaignGoal,
 
@@ -1367,7 +1379,7 @@ function App() {
           <span className="eyebrow">GreatFlowers</span>
           <h1>AI Marketing Strategist</h1>
           <p>
-            Build conversion-focused campaigns using customer intent,
+            Build sales, awareness and engagement campaigns using customer intent,
             emotional positioning and GreatFlowers brand knowledge.
           </p>
         </div>
@@ -1401,7 +1413,7 @@ function App() {
           </label>
 
           <label>
-            Occasion
+            Occasion / Topic
             <input
               name="occasion"
               value={form.occasion}
@@ -1457,6 +1469,24 @@ function App() {
             ))}
           </div>
         </div>
+
+        {form.contentTheme && (
+          <p>
+            <strong>Content theme:</strong> {form.contentTheme.replaceAll("-", " ")}
+            {form.visualTreatment && <> · <strong>Visual direction:</strong> {form.visualTreatment.replaceAll("-", " ")}</>}
+          </p>
+        )}
+
+        <label>
+          Creative Idea / Scenario
+          <textarea
+            name="creativeScenario"
+            value={form.creativeScenario}
+            onChange={updateField}
+            rows={2}
+            placeholder="A specific story, styling idea, care tip or conversation starter."
+          />
+        </label>
 
         <label>
           Additional Context

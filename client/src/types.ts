@@ -280,3 +280,22 @@ export type SavedCampaign = {
   storyCreatives?: StorySlideResult[];
   selectedStoryCarousel?: boolean;
 };
+
+export type ScheduleForm = {
+  date: string;
+  time: string;
+  timezone: string;
+  facebook: boolean;
+  instagram: boolean;
+  recurrence: string;
+};
+
+export type SelectedCreative = {
+  type: string;
+  imageUrl: string;
+  headline: string;
+  subheadline: string;
+  cta: string;
+  isFallback: boolean;
+  order: number;
+};

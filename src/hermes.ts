@@ -1,3 +1,4 @@
+import { requestHermesJSON } from "./hermes.json.js";
 
 import {
   marketingStrategySchema,
@@ -1085,9 +1086,7 @@ export async function generateMarketingStrategy(
   input: CampaignInput,
   signal?: AbortSignal
 ): Promise<MarketingStrategy> {
-  const output = await requestHermes(`Use the greatflowers-marketing-strategist skill.\n\n${buildPrompt(input)}`, signal);
-
-  try {
+  return requestHermesJSON(`Use the greatflowers-marketing-strategist skill.\n\n${buildPrompt(input)}`, (output) => {
     const jsonText = extractJSON(output);
     const parsedJSON = parseModelJSON(jsonText);
 
@@ -1099,10 +1098,7 @@ export async function generateMarketingStrategy(
       throw new Error("Non-gifting content must preserve its theme using independent creatives");
     }
     return strategy;
-  } catch (error) {
-    console.error("Raw Hermes output:", output);
-    throw error;
-  }
+  }, signal);
 }
 
 async function requestHermes(prompt: string, signal?: AbortSignal): Promise<string> {

@@ -18,11 +18,12 @@ test("recommendation preserves evidence inputs and rejects outputs that bypass r
   };
   let prompt = "";
   t.mock.method(globalThis, "fetch", async (_url: unknown, init: RequestInit) => {
-    prompt = JSON.parse(String(init.body)).messages[0].content;
+    prompt = JSON.parse(String(init.body)).messages[1].content;
     return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) } }] }), { status: 200 });
   });
   t.mock.method(console, "log", () => {});
   t.mock.method(console, "error", () => {});
+  t.mock.method(console, "warn", () => {});
   const oldKey = process.env.HERMES_API_KEY;
   process.env.HERMES_API_KEY = "test-only";
   t.after(() => { if (oldKey === undefined) delete process.env.HERMES_API_KEY; else process.env.HERMES_API_KEY = oldKey; });

@@ -408,7 +408,8 @@ async function withRetry<T>(
       error instanceof z.ZodError ||
       error instanceof SyntaxError ||
       (error instanceof Error &&
-        (error.name === "TimeoutError" ||
+        (error.name === "HermesOutputError" ||
+          error.name === "TimeoutError" ||
           error.name === "AbortError" ||
           error.message.includes("did not return")));
 

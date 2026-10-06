@@ -12,7 +12,7 @@ import type {
 } from "./greatflowers.products.js";
 
 import { formatOccasionGuidance } from "./occasion.calendar.js";
-import { hermesSignal } from "./ai.limits.js";
+import { requestHermesJSON } from "./hermes.json.js";
 import { parseModelJSON } from "./model.json.js";
 
 export type ProductAnalyticsSignal = {
@@ -73,16 +73,6 @@ export async function generateCampaignRecommendation(
   signal?: AbortSignal,
   rotationPlan?: RotationPlan
 ): Promise<CampaignRecommendation> {
-  const apiUrl =
-    process.env.HERMES_API_URL ||
-    "http://127.0.0.1:8642/v1/chat/completions";
-
-  const apiKey = process.env.HERMES_API_KEY;
-
-  if (!apiKey) {
-    throw new Error("HERMES_API_KEY is not configured");
-  }
-
   const rotation = rotationPlan ?? createRotationPlan(products, [], []);
   const catalog = createCompactCatalog(rotation.candidates);
 
@@ -548,52 +538,7 @@ Return the complete JSON object directly.
 
 `.trim();
 
-  const response = await fetch(apiUrl, {
-    method: "POST",
-    signal: hermesSignal(signal),
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "hermes-agent",
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-
-    throw new Error(
-      `Hermes API failed (${response.status}): ${errorText}`
-    );
-  }
-
-  const data = (await response.json()) as any;
-
-  const output = data?.choices?.[0]?.message?.content;
-
-  console.log("Hermes recommendation response diagnostic:", {
-    finishReason: data?.choices?.[0]?.finish_reason,
-    contentType: typeof output,
-    contentLength: typeof output === "string" ? output.length : null,
-    contentPreview:
-      typeof output === "string"
-        ? output.slice(0, 300).replace(/\s+/g, " ")
-        : null,
-  });
-
-  if (!output || typeof output !== "string") {
-    console.error("Unexpected Hermes API response:", data);
-    throw new Error("Hermes API returned no message content");
-  }
-
-  try {
+  return requestHermesJSON(prompt, (output) => {
     const jsonText = extractJSON(output);
     const parsedJSON = parseModelJSON(jsonText);
 
@@ -633,8 +578,5 @@ Return the complete JSON object directly.
     console.log("\n=============================================\n");
 
     return recommendation;
-  } catch (error) {
-    console.error("Raw Hermes output:", output);
-    throw error;
-  }
+  }, signal);
 }

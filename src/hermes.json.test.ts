@@ -19,11 +19,14 @@ test("repairs Markdown with original evidence, validates JSON, and shares the de
     return parsed;
   };
   const prompt = "Catalog product 90; GA4 views=3; required theme=flower-care. Return JSON.";
-  assert.deepEqual(await requestHermesJSON(prompt, validate), { productId: 90 });
+  const schema = { type: "object", properties: { productId: { type: "number" } }, required: ["productId"] };
+  assert.deepEqual(await requestHermesJSON(prompt, validate, undefined, schema), { productId: 90 });
   assert.equal(calls.length, 2);
   assert.equal(calls[0]!.signal, calls[1]!.signal);
   const repair = JSON.parse(String(calls[1]!.body)).messages;
   assert.equal(repair[0].role, "system");
+  assert.ok(repair[0].content.includes(JSON.stringify(schema)));
+  assert.ok(repair.at(-1).content.includes(JSON.stringify(schema)));
   assert.ok(repair.at(-1).content.includes(prompt), "include original evidence even for bridges that only read the last user message");
   assert.ok(repair.at(-1).content.includes("previous response is not evidence"));
 

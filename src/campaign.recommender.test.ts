@@ -29,6 +29,8 @@ test("recommendation preserves evidence inputs and rejects outputs that bypass r
   t.after(() => { if (oldKey === undefined) delete process.env.HERMES_API_KEY; else process.env.HERMES_API_KEY = oldKey; });
   const run = () => generateCampaignRecommendation(products, [{ url: "https://greatflowers.net", title: "GreatFlowers", text: "Verified website message" }] as WebsitePageContext[], [], [{ itemId: "1", itemName: "Catalog bouquet", views: 3, addToCarts: 1, checkouts: 0, purchases: 0 }], undefined, rotation);
   const result = await run();
+  assert.ok(prompt.includes('"required":["contentTheme","visualTreatment","selectedProductId"'));
+  assert.ok(!prompt.includes("Use the greatflowers-marketing-strategist skill"));
   assert.equal(result.contentTheme, rotation.contentTheme);
   for (const evidence of ["Verified website message", "Verified catalog description", '"views":3', '"addToCarts":1', "CURRENT OCCASION CALENDAR", "Already used scene", "Previously published angle"]) assert.ok(prompt.includes(evidence), evidence);
   output.selectedProductId = 999;

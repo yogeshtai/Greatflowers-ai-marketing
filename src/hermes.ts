@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { requestHermesJSON } from "./hermes.json.js";
 
 import {
@@ -1098,7 +1099,7 @@ export async function generateMarketingStrategy(
       throw new Error("Non-gifting content must preserve its theme using independent creatives");
     }
     return strategy;
-  }, signal);
+  }, signal, z.toJSONSchema(marketingStrategySchema));
 }
 
 async function requestHermes(prompt: string, signal?: AbortSignal): Promise<string> {

@@ -2,6 +2,8 @@ import "dotenv/config";
 import cors from "cors";
 import express from "express";
 import { startCampaignScheduler } from "./campaign.scheduler.js";
+import { startBlogScheduler } from "./blog.scheduler.js";
+import blogsRoutes from "./routes/blogs.routes.js";
 import campaignsRoutes from "./routes/campaigns.routes.js";
 import recommendationsRoutes from "./routes/recommendations.routes.js";
 import creativesRoutes from "./routes/creatives.routes.js";
@@ -46,10 +48,12 @@ app.use(recommendationsRoutes);
 app.use(creativesRoutes);
 app.use(infoRoutes);
 app.use(publishingRoutes);
+app.use(blogsRoutes);
 
 const PORT = process.env.PORT || 3000;
 
 startCampaignScheduler();
+startBlogScheduler();
 
 app.listen(PORT, () => {
   console.log(

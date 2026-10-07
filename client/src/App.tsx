@@ -18,6 +18,7 @@ import { EvidenceSection } from "./components/EvidenceSection";
 import { CampaignCreativesSection } from "./components/CampaignCreativesSection";
 import { StoryCreativesSection } from "./components/StoryCreativesSection";
 import { StrategyDetails } from "./components/StrategyDetails";
+import { BlogQueueSection } from "./components/BlogQueueSection";
 import { HistorySection } from "./components/HistorySection";
 import { ScheduleModal } from "./components/ScheduleModal";
 import { LoginScreen } from "./components/LoginScreen";
@@ -1131,6 +1132,8 @@ function App() {
           />
         </section>
       )}
+
+      <BlogQueueSection />
 
       <HistorySection
         campaigns={campaigns}

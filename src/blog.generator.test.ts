@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { resolveLinks, sanitizeEmbeds, toCatalogProduct, validatePost } from "./blog.generator.js";
 import { nextNewYorkHour } from "./blog.time.js";
+import { buildHeroPrompt, pickComposition } from "./blog.image.js";
 import { getUpcomingOccasions } from "./occasion.calendar.js";
 
 const para = "<p>" + "Fresh flowers make every gift feel personal and thoughtful. ".repeat(25) + "</p>";
@@ -51,4 +52,11 @@ test("publish time: crosses DST end (Nov 1 2026)", () => assert.equal(nextNewYor
 test("blog lookahead sees Halloween and Thanksgiving from Oct 8", () => {
   const names = getUpcomingOccasions(50, new Date(2026, 9, 8)).map((o) => o.name);
   assert.deepEqual(names, ["Halloween", "Thanksgiving"]);
+});
+test("hero prompt uses the creative concept, varies the composition and forbids text", () => {
+  const prompt = buildHeroPrompt({ title: "T", topic: "Thanksgiving", heroConcept: "Golden-hour kitchen with pies and maple leaves." }, "an overhead flat lay");
+  assert.ok(prompt.includes("Golden-hour kitchen with pies and maple leaves."));
+  assert.ok(prompt.includes("an overhead flat lay"));
+  assert.ok(/no text/.test(prompt) && /exact flowers/.test(prompt));
+  assert.notEqual(pickComposition(() => 0), pickComposition(() => 0.99));
 });

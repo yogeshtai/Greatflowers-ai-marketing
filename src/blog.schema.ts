@@ -17,6 +17,7 @@ export const GeneratedPostSchema = z.object({
   secondCategorySlug: z.string().min(1).optional(),
   productIds: z.array(z.number().int()).min(1).max(4),
   heroProductId: z.number().int(),
+  heroConcept: z.string().min(30).max(500).optional(),
   html: z.string().min(1500).refine((h) => !FORBIDDEN_HTML.test(h), "html contains forbidden tags or attributes")
     .refine((h) => wordCount(h) >= 500, "html must be at least 500 words")
     .refine((h) => /<h2[\s>]/i.test(h), "html needs at least one <h2>"),

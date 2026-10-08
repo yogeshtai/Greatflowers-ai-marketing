@@ -3,7 +3,7 @@ import { z } from "zod";
 export const BLOG_STATUSES = ["draft", "approved", "published", "rejected", "failed"] as const;
 export type BlogDraftStatus = (typeof BLOG_STATUSES)[number];
 
-const FORBIDDEN_HTML = /<\s*(script|style|iframe|object|embed|form)\b|\son[a-z]+\s*=|javascript:/i;
+const FORBIDDEN_HTML = /<\s*(script|style|iframe|object|embed|form|img)\b|\son[a-z]+\s*=|javascript:/i;
 const wordCount = (html: string) => html.replace(/<[^>]+>/g, " ").split(/\s+/).filter(Boolean).length;
 
 export const GeneratedPostSchema = z.object({

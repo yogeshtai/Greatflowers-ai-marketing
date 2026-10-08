@@ -302,3 +302,20 @@ export function formatOccasionGuidance(): string {
 
   return guidance;
 }
+
+// Occasions starting within `lookaheadDays` (blog posts need far more lead time than ad campaigns to rank).
+export function getUpcomingOccasions(lookaheadDays = 50, today: Date = new Date()): Array<{ name: string; date: string; daysUntil: number }> {
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const upcoming: Array<{ name: string; date: string; daysUntil: number }> = [];
+  for (const occasion of OCCASIONS) {
+    for (const year of [today.getFullYear(), today.getFullYear() + 1]) {
+      const date = resolveOccasionDate(occasion, year);
+      const daysUntil = Math.round((date.getTime() - start) / 86_400_000);
+      if (daysUntil >= 0 && daysUntil <= lookaheadDays) {
+        upcoming.push({ name: occasion.name, date: `${year}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`, daysUntil });
+        break;
+      }
+    }
+  }
+  return upcoming.sort((a, b) => a.daysUntil - b.daysUntil);
+}

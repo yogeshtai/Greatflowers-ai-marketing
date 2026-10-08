@@ -1,18 +1,33 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { sanitizeEmbeds, validatePost } from "./blog.generator.js";
+import { resolveLinks, sanitizeEmbeds, validatePost } from "./blog.generator.js";
 import { nextNewYorkHour } from "./blog.time.js";
+import { getUpcomingOccasions } from "./occasion.calendar.js";
 
 const para = "<p>" + "Fresh flowers make every gift feel personal and thoughtful. ".repeat(25) + "</p>";
-const html = `<h2>Why flowers</h2>${para}<div class="blog-product-embed" data-product-id="7"></div><h2>More</h2>${para}${para}${para}`;
+const html = `<h2>Why flowers</h2>${para}<p><a href="PRODUCT:7">Red Rose Bouquet</a> and <a href="BLOG:other-post">our other guide</a>.</p><div class="blog-product-embed" data-product-id="7"></div><h2>More</h2>${para}${para}${para}<p>Visit <a href="HOME">Great Flowers</a> today.</p>`;
 const base = {
   topic: "Thanksgiving table flowers", title: "Best Thanksgiving Table Flowers for Hosts", slug: "thanksgiving-table-flowers",
   metaTitle: "Thanksgiving Table Flowers", metaDescription: "Discover thoughtful Thanksgiving table flower ideas for hosts, from warm autumn bouquets to simple centerpieces that fit any dinner.",
   summary: "Simple ideas for choosing flowers that suit a Thanksgiving dinner table.", categorySlug: "gift", productIds: [7], heroProductId: 7, html,
 };
-const ctx = { existingTitles: ["Other post title here"], existingSlugs: ["other"], categories: new Set(["gift"]), productIds: new Set([7, 8]) };
+const products = [{ id: 7, name: "Red Rose Bouquet", slug: "red-rose-bouquet", price: 40, imageUrl: "x" }, { id: 8, name: "Other", slug: "other", price: 30, imageUrl: "x" }];
+const ctx = { existingTitles: ["Other post title here"], existingSlugs: ["other"], categories: new Set(["gift"]), products, relatedSlugs: new Set(["other-post"]), base: "https://greatflowers.net" };
 
-test("valid post passes", () => assert.equal(validatePost(JSON.stringify(base), ctx).slug, base.slug));
+test("valid post passes and links resolve to real URLs", () => {
+  const out = validatePost(JSON.stringify(base), ctx);
+  assert.equal(out.slug, base.slug);
+  assert.ok(out.html.includes('href="https://greatflowers.net/product/red-rose-bouquet/"'));
+  assert.ok(out.html.includes('href="https://greatflowers.net/blogs/other-post/"'));
+  assert.ok(out.html.includes('href="https://greatflowers.net/"'));
+});
+test("invented URLs are rejected", () => assert.throws(() => validatePost(JSON.stringify({ ...base, html: html + '<p><a href="https://example.com/x">x</a></p>' }), ctx), /not allowed/));
+test("single-quoted or unquoted hrefs are rejected", () => {
+  for (const bad of [`<a href='https://example.com'>x</a>`, `<a href=https://example.com>x</a>`]) assert.throws(() => resolveLinks(bad, { productSlugs: new Map(), blogSlugs: new Set(), base: "b" }), /double quotes/);
+});
+test("images are rejected", () => assert.throws(() => validatePost(JSON.stringify({ ...base, html: html + '<img src="https://example.com/a.png">' }), ctx)));
+test("unknown product link is rejected", () => assert.throws(() => resolveLinks('<a href="PRODUCT:99">x</a>', { productSlugs: new Map(), blogSlugs: new Set(), base: "b" }), /unknown product/));
+test("missing HOME closing link is rejected", () => assert.throws(() => validatePost(JSON.stringify({ ...base, html: html.replace('href="HOME"', 'href="BLOG:other-post"') }), ctx), /HOME/));
 test("duplicate slug rejected", () => assert.throws(() => validatePost(JSON.stringify(base), { ...ctx, existingSlugs: [base.slug] }), /slug/));
 test("unknown category rejected", () => assert.throws(() => validatePost(JSON.stringify({ ...base, categorySlug: "nope" }), ctx), /categorySlug/));
 test("script tags rejected", () => assert.throws(() => validatePost(JSON.stringify({ ...base, html: html + "<script>x</script>" }), ctx)));
@@ -24,3 +39,7 @@ test("publish time: summer is 10:00 EDT (14:00Z)", () => assert.equal(nextNewYor
 test("publish time: winter is 10:00 EST (15:00Z)", () => assert.equal(nextNewYorkHour(10, new Date("2026-12-01T16:00:00Z")).toISOString(), "2026-12-02T15:00:00.000Z"));
 test("publish time: before slot stays same day", () => assert.equal(nextNewYorkHour(10, new Date("2026-10-07T12:00:00Z")).toISOString(), "2026-10-07T14:00:00.000Z"));
 test("publish time: crosses DST end (Nov 1 2026)", () => assert.equal(nextNewYorkHour(10, new Date("2026-11-01T15:30:00Z")).toISOString(), "2026-11-02T15:00:00.000Z"));
+test("blog lookahead sees Halloween and Thanksgiving from Oct 8", () => {
+  const names = getUpcomingOccasions(50, new Date(2026, 9, 8)).map((o) => o.name);
+  assert.deepEqual(names, ["Halloween", "Thanksgiving"]);
+});

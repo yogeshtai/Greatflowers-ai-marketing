@@ -1,27 +1,15 @@
 import cron from "node-cron";
-import { generateDailyBlogDraft } from "./blog.generator.js";
+import { startGeneration } from "./blog.jobs.js";
 import { publishDraft } from "./blog.publisher.js";
 import { getBlogDrafts } from "./blog.store.js";
 import { istDateKey } from "./blog.time.js";
-import { tryAcquire } from "./ai.limits.js";
 
 export async function generateDraftIfNeeded() {
-  if (process.env.BLOG_AUTOGENERATE === "false") return null;
+  if (process.env.BLOG_AUTOGENERATE === "false") return false;
   const today = istDateKey();
   const drafts = await getBlogDrafts();
-  if (drafts.some((d) => d.status !== "rejected" && istDateKey(new Date(d.createdAt)) === today)) return null;
-  const release = tryAcquire("blog");
-  if (!release) return null;
-  try {
-    const draft = await generateDailyBlogDraft();
-    console.log(`📝 Blog draft ready for approval: ${draft.title}`);
-    return draft;
-  } catch (error) {
-    console.error("Blog draft generation failed:", error instanceof Error ? error.message : error);
-    return null;
-  } finally {
-    release();
-  }
+  if (drafts.some((d) => d.status !== "rejected" && istDateKey(new Date(d.createdAt)) === today)) return false;
+  return startGeneration("schedule");
 }
 
 let publishing = false;

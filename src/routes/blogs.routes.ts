@@ -1,35 +1,35 @@
 import express from "express";
 import { z } from "zod";
 import { BlogEditSchema } from "../blog.schema.js";
-import { generateDailyBlogDraft } from "../blog.generator.js";
 import { approveDraft, publishDraft } from "../blog.publisher.js";
+import { getGenerationState, startGeneration } from "../blog.jobs.js";
 import { getBlogDraft, getBlogDrafts, updateBlogDraft } from "../blog.store.js";
-import { abortOnDisconnect, singleFlight } from "../http.helpers.js";
+import { abortOnDisconnect, errorDetail, singleFlight } from "../http.helpers.js";
 import { attachHeroImage, toCatalogProduct } from "../blog.generator.js";
 import { withGfClient } from "../gf.admin.client.js";
 import { heroPath } from "../blog.image.js";
 import { existsSync } from "node:fs";
 
 const router = express.Router();
-const fail = (res: express.Response, error: unknown, status = 500) =>
-  res.status(error instanceof z.ZodError ? 400 : status).json({ success: false, error: error instanceof Error ? error.message : String(error) });
+const fail = (res: express.Response, error: unknown, status = 500) => {
+  console.error("Blog route error:", error);
+  return res.status(error instanceof z.ZodError ? 400 : status).json({ success: false, error: errorDetail(error) });
+};
 const idOf = (req: express.Request) => String(req.params.id);
 
 router.get("/api/blogs", async (_req, res) => {
   try {
-    res.json({ success: true, blogs: await getBlogDrafts(), liveMode: process.env.BLOG_PUBLISH_LIVE === "true" });
+    res.json({ success: true, blogs: await getBlogDrafts(), liveMode: process.env.BLOG_PUBLISH_LIVE === "true", generation: getGenerationState() });
   } catch (error) {
     fail(res, error);
   }
 });
 
-router.post("/api/blogs/generate", singleFlight("blog", async (_req, res) => {
-  try {
-    res.json({ success: true, blog: await generateDailyBlogDraft(abortOnDisconnect(res)) });
-  } catch (error) {
-    fail(res, error);
-  }
-}));
+router.post("/api/blogs/generate", (_req, res) => {
+  startGeneration("manual")
+    ? res.status(202).json({ success: true, started: true })
+    : res.status(409).json({ success: false, error: "A draft is already being written. Please wait for it to finish." });
+});
 
 router.get("/api/blogs/:id/hero", (req, res) => {
   const file = heroPath(idOf(req));

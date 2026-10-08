@@ -1,6 +1,11 @@
 import type { ChildProcess, SpawnOptions } from "node:child_process";
+import { Agent } from "undici";
 
 export const HERMES_TIMEOUT_MS = Number(process.env.HERMES_TIMEOUT_MS) || 10 * 60_000;
+// Node's built-in fetch gives up after 5 minutes without response headers, long before HERMES_TIMEOUT_MS.
+// A non-streaming Hermes call (a full blog post) can legitimately take longer, so raise the client-side limits to match.
+export const hermesDispatcher = new Agent({ headersTimeout: HERMES_TIMEOUT_MS, bodyTimeout: HERMES_TIMEOUT_MS });
+
 export const CODEX_TIMEOUT_MS = Number(process.env.CODEX_TIMEOUT_MS) || 8 * 60_000;
 
 // Optional overrides only; by default Codex uses its own configured model and reasoning effort.

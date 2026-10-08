@@ -3,6 +3,7 @@ import { withGfClient } from "./gf.admin.client.js";
 import { toCatalogProduct } from "./blog.generator.js";
 import { getBlogDraft, updateBlogDraft } from "./blog.store.js";
 import { readHeroImage } from "./blog.image.js";
+import { errorDetail } from "./http.helpers.js";
 import { nextNewYorkHour } from "./blog.time.js";
 import type { BlogDraft } from "./blog.schema.js";
 
@@ -80,7 +81,7 @@ export async function publishDraft(id: string) {
       ...(url ? { url } : {}),
     }));
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorDetail(error);
     console.error(`Blog publish failed (${attempts}/${MAX_ATTEMPTS}) for ${draft.slug}:`, message);
     return updateBlogDraft(id, (d) => ({ ...d, error: message, status: attempts >= MAX_ATTEMPTS ? "failed" : "approved" }));
   }

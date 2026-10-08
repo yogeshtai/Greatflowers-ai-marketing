@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { approveBlog, blogHeroUrl, editBlog, generateBlog, getBlogs, publishBlogNow, regenerateBlogHero, rejectBlog, type BlogDraft } from "../api/blogs";
+import { approveBlog, blogHeroUrl, editBlog, generateBlog, getBlogs, publishBlogNow, regenerateBlogHero, rejectBlog, type BlogDraft, type GenerationState } from "../api/blogs";
 
 const when = (iso?: string) => (iso ? new Date(iso).toLocaleString() : "");
 
@@ -8,7 +8,7 @@ export function BlogQueueSection() {
   const [liveMode, setLiveMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
+  const [generation, setGeneration] = useState<GenerationState>({ running: false });
   const [openId, setOpenId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
@@ -19,6 +19,7 @@ export function BlogQueueSection() {
       const data = await getBlogs();
       setBlogs(data.blogs);
       setLiveMode(data.liveMode);
+      setGeneration(data.generation);
       setError("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load blogs");
@@ -28,6 +29,12 @@ export function BlogQueueSection() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    if (!generation.running) return;
+    const timer = setInterval(() => void load(), 5000);
+    return () => clearInterval(timer);
+  }, [generation.running, load]);
 
   const run = async (id: string | null, action: () => Promise<unknown>) => {
     setBusyId(id);
@@ -57,15 +64,14 @@ export function BlogQueueSection() {
         </div>
         <div style={{ display: "flex", gap: 10 }}>
           <button className="secondary-button" onClick={load} disabled={loading}>{loading ? "Loading..." : "Refresh"}</button>
-          <button className="primary-action-button" disabled={generating} onClick={async () => {
-            setGenerating(true);
-            await run(null, generateBlog);
-            setGenerating(false);
-          }}>{generating ? "Writing draft (a few minutes)..." : "Generate draft now"}</button>
+          <button className="primary-action-button" disabled={generation.running} onClick={() => run(null, generateBlog)}>
+            {generation.running ? "Writing draft (up to 10 minutes)..." : "Generate draft now"}
+          </button>
         </div>
       </div>
 
       {error && <p role="alert" className="creative-error-note">{error}</p>}
+      {!generation.running && generation.error && <p role="alert" className="creative-error-note">The last draft attempt failed: {generation.error}</p>}
 
       {blogs.length === 0 ? (
         <div className="empty-state"><h3>No blog drafts yet</h3><p>The first draft appears after the next 7:00 PM IST run, or generate one now.</p></div>

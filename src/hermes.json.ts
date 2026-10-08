@@ -1,4 +1,4 @@
-import { hermesSignal } from "./ai.limits.js";
+import { hermesDispatcher, hermesSignal } from "./ai.limits.js";
 
 export class HermesOutputError extends Error {
   override name = "HermesOutputError";
@@ -27,7 +27,8 @@ export async function requestHermesJSON<T>(
       method: "POST", signal: requestSignal,
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({ model: "hermes-agent", messages }),
-    });
+      dispatcher: hermesDispatcher,
+    } as RequestInit);
     if (!response.ok) throw new Error(`Hermes API failed (${response.status}): ${await response.text()}`);
     const data = await response.json() as { choices?: Array<{ message?: { content?: unknown } }> };
     const output = data.choices?.[0]?.message?.content;

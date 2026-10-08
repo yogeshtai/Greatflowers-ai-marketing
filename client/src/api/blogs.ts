@@ -29,6 +29,14 @@ export interface BlogDraft {
   environment: string;
 }
 
+export interface GenerationState {
+  running: boolean;
+  trigger?: "manual" | "schedule";
+  startedAt?: string;
+  finishedAt?: string;
+  error?: string;
+}
+
 export type BlogEdit = Partial<Pick<BlogDraft, "title" | "metaTitle" | "metaDescription" | "summary" | "html">>;
 
 const url = (path = "") => `${API_BASE}/api/blogs${path}`;
@@ -37,8 +45,8 @@ const unwrap = (error: unknown): never => {
 };
 const call = async <T,>(request: Promise<{ data: T }>) => request.then((r) => r.data).catch(unwrap);
 
-export const getBlogs = () => call<{ blogs: BlogDraft[]; liveMode: boolean }>(axios.get(url()));
-export const generateBlog = () => call<{ blog: BlogDraft }>(axios.post(url("/generate"), {}, { timeout: 22 * 60_000 }));
+export const getBlogs = () => call<{ blogs: BlogDraft[]; liveMode: boolean; generation: GenerationState }>(axios.get(url()));
+export const generateBlog = () => call<{ started: boolean }>(axios.post(url("/generate"), {}));
 export const editBlog = (id: string, edit: BlogEdit) => call<{ blog: BlogDraft }>(axios.patch(url(`/${id}`), edit));
 export const approveBlog = (id: string) => call<{ blog: BlogDraft }>(axios.post(url(`/${id}/approve`)));
 export const rejectBlog = (id: string) => call<{ blog: BlogDraft }>(axios.post(url(`/${id}/reject`)));

@@ -61,3 +61,11 @@ export async function withRetry<T>(
     );
   }
 }
+
+// Node's fetch only says "fetch failed"; the useful part (ECONNREFUSED, ENOTFOUND, timeout...) is on error.cause.
+export function errorDetail(error: unknown): string {
+  if (!(error instanceof Error)) return String(error);
+  const cause = error.cause as { code?: string; message?: string; address?: string; port?: number } | undefined;
+  const reason = cause ? [cause.code, cause.address && `${cause.address}${cause.port ? `:${cause.port}` : ""}`, !cause.code && cause.message].filter(Boolean).join(" ") : "";
+  return reason ? `${error.message} (${reason})` : error.message;
+}

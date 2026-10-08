@@ -7,7 +7,7 @@ import {
   type StoryCreativePlan,
   type MarketingStrategy,
 } from "./strategy.schema.js";
-import { hermesSignal } from "./ai.limits.js";
+import { hermesDispatcher, hermesSignal } from "./ai.limits.js";
 import { parseModelJSON } from "./model.json.js";
 
 export interface CampaignInput {
@@ -1129,7 +1129,8 @@ async function requestHermes(prompt: string, signal?: AbortSignal): Promise<stri
         },
       ],
     }),
-  });
+    dispatcher: hermesDispatcher,
+  } as RequestInit);
 
   if (!response.ok) {
     const errorText = await response.text();

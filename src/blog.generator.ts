@@ -3,7 +3,7 @@ import { requestHermesJSON } from "./hermes.json.js";
 import { parseModelJSON } from "./model.json.js";
 import { GeneratedPostJsonSchema, GeneratedPostSchema, type GeneratedPost } from "./blog.schema.js";
 import { addBlogDraft, getBlogDrafts, updateBlogDraft } from "./blog.store.js";
-import { generateHeroImage } from "./blog.image.js";
+import { generateHeroImage, type HeroInput } from "./blog.image.js";
 import { gfApiHost, withGfClient } from "./gf.admin.client.js";
 
 export const EMBED_RE = /<div[^>]*class="blog-product-embed"[^>]*data-product-id="(\d+)"[^>]*>\s*<\/div>/gi;
@@ -97,8 +97,12 @@ Style sample from a live post (links shown as placeholders):
 WRITING RULES
 - html must be plain HTML only: <p>, <h2>, <h3>, <ul>, <li>, <strong>, <em>, <a>. No <h1>, no inline styles, no scripts, no images.
 - Name and link 4 to 6 catalog products in the text (every product you name is linked once). Additionally embed a product card for the 2 to 4 most relevant ones, right after the paragraph about that product, with EXACTLY: <div class="blog-product-embed" data-product-id="PRODUCT_ID"></div>. List only the embedded ids in productIds. Do not use any other product markup.
-- heroProductId must be one of the productIds; its photo is the reference for the post image.
-- heroConcept: 1 or 2 vivid sentences describing a creative photo scene for THIS post (setting, seasonal props, light, mood, color palette) in which that bouquet is the star. Make it specific to the topic and memorable, not a plain table or white background. Example: "Golden-hour kitchen window, the bouquet beside a pile of cinnamon-dusted pies, a linen napkin and scattered maple leaves, warm amber light with soft steam in the background." Do not put any text, signs or cards with words in the scene.
+- HERO IMAGE (an AI-made photo for this post; plan it like a social campaign creative, from the CONTENT of the post):
+  * heroStrategy: HUMAN_GIFTING_MOMENT (default for gift, birthday, thank-you, host, boss, family posts: a person giving, receiving or arranging the flowers; the person and the emotion are the story), HUMAN_LIFESTYLE (everyday moments at home or work with flowers present), OCCASION_SCENE (holiday or occasion environment dominates: table, doorstep, decor; people optional) or EDITORIAL_CONTENT (guides about meanings, colors or care: styled editorial still life, no people needed).
+  * For sympathy, funeral or condolence topics always use OCCASION_SCENE: quiet, respectful, soft light, no smiling people.
+  * heroProductRole: "supporting" when people or the scene lead (the usual choice), "hero" only for EDITORIAL_CONTENT close-ups.
+  * heroConcept: 2 or 3 vivid sentences describing the exact scene that matches THIS post's topic: who is in it (age, relationship), what they are doing, the setting, seasonal props, light and mood. Example for a Boss's Day post: "A team member steps into a sunlit corner office and hands a sunflower bouquet to her manager, who looks up from her laptop with a surprised, genuine smile; autumn light through the window, a thank-you card unopened on the desk." Never a plain table or white background. No text, signs or cards with words in the scene.
+- heroProductId must be one of the productIds; its photo is the reference the image must match.
 - LINKS: every href must be exactly one of: PRODUCT:<id> (a catalog id), BLOG:<slug> (a slug from the existing posts list) or HOME. Never write a real URL. Format A: link 1 to 3 related posts; format B: 4 to 8${args.related.length ? "" : " (skip BLOG links if none are listed)"}. End with the closing paragraph that links HOME.
 - Write as GreatFlowers speaking to its own customers. Do not give generic advice about "online florists", "looking for a florist", "subscription services" or how to shop elsewhere; every section must help the reader choose or send flowers from GreatFlowers.
 - Do not state historical, scientific or cultural origin claims (for example "dates back to ancient Rome") unless they are common, well-established knowledge; if unsure, leave them out and describe meanings as "traditionally associated with".
@@ -161,7 +165,7 @@ export async function generateDailyBlogDraft(signal?: AbortSignal) {
   return attachHeroImage(draft.id, post, products.find((p) => p.id === post.heroProductId)?.imageUrl, signal);
 }
 
-export async function attachHeroImage(id: string, post: { title: string; topic: string; heroConcept?: string | undefined }, productImageUrl: string | null | undefined, signal?: AbortSignal) {
+export async function attachHeroImage(id: string, post: HeroInput, productImageUrl: string | null | undefined, signal?: AbortSignal) {
   const ai = productImageUrl ? await generateHeroImage(id, post, productImageUrl, signal) : false;
   return (await updateBlogDraft(id, (d) => ({ ...d, heroSource: ai ? "ai" : "product" })))!;
 }

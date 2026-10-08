@@ -53,10 +53,14 @@ test("blog lookahead sees Halloween and Thanksgiving from Oct 8", () => {
   const names = getUpcomingOccasions(50, new Date(2026, 9, 8)).map((o) => o.name);
   assert.deepEqual(names, ["Halloween", "Thanksgiving"]);
 });
-test("hero prompt uses the creative concept, varies the composition and forbids text", () => {
-  const prompt = buildHeroPrompt({ title: "T", topic: "Thanksgiving", heroConcept: "Golden-hour kitchen with pies and maple leaves." }, "an overhead flat lay");
-  assert.ok(prompt.includes("Golden-hour kitchen with pies and maple leaves."));
-  assert.ok(prompt.includes("an overhead flat lay"));
-  assert.ok(/no text/.test(prompt) && /exact flowers/.test(prompt));
-  assert.notEqual(pickComposition(() => 0), pickComposition(() => 0.99));
+test("hero prompt follows the scene strategy, keeps the product exact, and forbids text", () => {
+  const prompt = buildHeroPrompt({ title: "Best Flowers for Boss's Day", topic: "Boss's Day", heroStrategy: "HUMAN_GIFTING_MOMENT", heroProductRole: "supporting", heroConcept: "A colleague hands a sunflower bouquet to her manager." }, "a candid medium shot");
+  assert.ok(prompt.includes("HUMAN_GIFTING_MOMENT") && prompt.includes("A colleague hands a sunflower bouquet to her manager."));
+  assert.ok(prompt.includes("a candid medium shot") && /exact flowers, colors, shapes and vase/.test(prompt));
+  assert.ok(/no text/.test(prompt) && /REQUIRED: include one or more people/.test(prompt));
 });
+test("sensitive topics are forced into a respectful scene without people moments", () => {
+  const prompt = buildHeroPrompt({ title: "Sympathy Flowers for a Funeral", topic: "sympathy", heroStrategy: "HUMAN_GIFTING_MOMENT" });
+  assert.ok(prompt.includes("OCCASION_SCENE") && prompt.includes("SENSITIVE TOPIC") && !prompt.includes("HUMAN_GIFTING_MOMENT"));
+});
+test("compositions vary by strategy", () => assert.notEqual(pickComposition("EDITORIAL_CONTENT", () => 0), pickComposition("HUMAN_GIFTING_MOMENT", () => 0)));

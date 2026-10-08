@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import { startGeneration } from "./blog.jobs.js";
-import { publishDraft } from "./blog.publisher.js";
+import { PUBLISH_HOUR_ET, publishDraft, publishImmediate } from "./blog.publisher.js";
 import { getBlogDrafts } from "./blog.store.js";
 import { istDateKey } from "./blog.time.js";
 
@@ -27,7 +27,7 @@ export async function publishDueBlogs() {
 }
 
 export function startBlogScheduler() {
-  console.log("📝 Blog scheduler started (draft 18:00 IST, publish 10:00 ET)");
+  console.log(`📝 Blog scheduler started (draft 18:00 IST, publish ${publishImmediate() ? "on approve" : `${PUBLISH_HOUR_ET}:00 ET`})`);
   cron.schedule("0 18 * * *", () => void generateDraftIfNeeded(), { timezone: "Asia/Kolkata" });
   cron.schedule("*/10 * * * *", () => void publishDueBlogs());
 }

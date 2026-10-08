@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { resolveLinks, sanitizeEmbeds, toCatalogProduct, validatePost } from "./blog.generator.js";
 import { nextNewYorkHour } from "./blog.time.js";
+import { publishAfterFor } from "./blog.publisher.js";
 import { buildHeroPrompt, pickComposition } from "./blog.image.js";
 import { getUpcomingOccasions } from "./occasion.calendar.js";
 
@@ -53,6 +54,17 @@ test("publish time: summer is 10:00 EDT (14:00Z)", () => assert.equal(nextNewYor
 test("publish time: winter is 10:00 EST (15:00Z)", () => assert.equal(nextNewYorkHour(10, new Date("2026-12-01T16:00:00Z")).toISOString(), "2026-12-02T15:00:00.000Z"));
 test("publish time: before slot stays same day", () => assert.equal(nextNewYorkHour(10, new Date("2026-10-07T12:00:00Z")).toISOString(), "2026-10-07T14:00:00.000Z"));
 test("publish time: crosses DST end (Nov 1 2026)", () => assert.equal(nextNewYorkHour(10, new Date("2026-11-01T15:30:00Z")).toISOString(), "2026-11-02T15:00:00.000Z"));
+test("immediate mode schedules publishing for now; scheduled mode uses the 10 AM ET slot", () => {
+  const now = new Date("2026-10-07T12:00:00Z");
+  try {
+    delete process.env.BLOG_PUBLISH_MODE;
+    assert.equal(publishAfterFor(now).toISOString(), now.toISOString());
+    process.env.BLOG_PUBLISH_MODE = "scheduled";
+    assert.equal(publishAfterFor(now).toISOString(), "2026-10-07T14:00:00.000Z");
+  } finally {
+    delete process.env.BLOG_PUBLISH_MODE;
+  }
+});
 test("blog lookahead sees Halloween and Thanksgiving from Oct 8", () => {
   const names = getUpcomingOccasions(50, new Date(2026, 9, 8)).map((o) => o.name);
   assert.deepEqual(names, ["Halloween", "Thanksgiving"]);

@@ -6,6 +6,7 @@ const when = (iso?: string) => (iso ? new Date(iso).toLocaleString() : "");
 export function BlogQueueSection() {
   const [blogs, setBlogs] = useState<BlogDraft[]>([]);
   const [liveMode, setLiveMode] = useState(false);
+  const [publishMode, setPublishMode] = useState<"immediate" | "scheduled">("immediate");
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [generation, setGeneration] = useState<GenerationState>({ running: false });
@@ -20,6 +21,7 @@ export function BlogQueueSection() {
       const data = await getBlogs();
       setBlogs(data.blogs);
       setLiveMode(data.liveMode);
+      setPublishMode(data.publishMode ?? "immediate");
       setGeneration(data.generation);
       setError("");
     } catch (e) {
@@ -72,7 +74,8 @@ export function BlogQueueSection() {
           <span className="step">Daily Blog</span>
           <h2>Blog Queue{awaiting > 0 ? ` (${awaiting} waiting for approval)` : ""}</h2>
           <p style={{ margin: "6px 0 0", color: "#70706a", fontSize: 13 }}>
-            A draft is written daily at 6:00 PM IST. Approved posts go live at 10:00 AM ET.{" "}
+            A draft is written daily at 6:00 PM IST.{" "}
+            {publishMode === "immediate" ? "Approving a post publishes it right away." : "Approved posts go live at 10:00 AM ET."}{" "}
             {liveMode ? "Live mode: posts are published." : "Safe mode: posts are created hidden (not visible to readers)."}
           </p>
         </div>
@@ -117,14 +120,14 @@ export function BlogQueueSection() {
                 </div>
                 <h3 style={{ marginBottom: 6 }}>{blog.title}</h3>
                 <p style={{ margin: "0 0 8px" }}>{blog.summary}</p>
-                {blog.status === "approved" && <div className="schedule-info">Goes live: {when(blog.publishAfter)}{blog.error ? ` (last error: ${blog.error})` : ""}</div>}
+                {blog.status === "approved" && <div className="schedule-info">{publishMode === "immediate" ? `Publishing${blog.error ? ` failed, retrying: ${blog.error}` : " now or retrying after a failure..."}` : `Goes live: ${when(blog.publishAfter)}${blog.error ? ` (last error: ${blog.error})` : ""}`}</div>}
                 {blog.status === "published" && <div className="schedule-info">Published {when(blog.publishedAt)} ({blog.remoteStatus === 1 ? "visible" : "hidden"}){blog.url && <> - <a href={blog.url} target="_blank" rel="noreferrer">view</a></>}</div>}
                 {(blog.status === "failed") && <div className="schedule-error">Failed after {blog.attempts} attempts: {blog.error}</div>}
 
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
                   <button className="secondary-button" onClick={() => setOpenId(open ? null : blog.id)}>{open ? "Hide preview" : "Preview / edit"}</button>
-                  {editable && <button className="primary-action-button" disabled={busyId === blog.id || makingImage} title={makingImage ? "Wait for the hero image to finish" : undefined} onClick={() => run(blog.id, () => approveBlog(blog.id))}>Approve</button>}
-                  {(editable || blog.status === "approved") && <button className="secondary-button" disabled={busyId === blog.id || makingImage} onClick={() => window.confirm("Publish this post right now?") && run(blog.id, () => publishBlogNow(blog.id))}>Publish now</button>}
+                  {editable && <button className="primary-action-button" disabled={busyId === blog.id || makingImage} title={makingImage ? "Wait for the hero image to finish" : undefined} onClick={() => run(blog.id, () => approveBlog(blog.id))}>{publishMode === "immediate" ? "Approve & publish" : "Approve"}</button>}
+                  {(blog.status === "approved" || (editable && publishMode === "scheduled")) && <button className="secondary-button" disabled={busyId === blog.id || makingImage} onClick={() => window.confirm("Publish this post right now?") && run(blog.id, () => publishBlogNow(blog.id))}>Publish now</button>}
                   {blog.status !== "published" && blog.status !== "rejected" && <button className="secondary-button" disabled={busyId === blog.id} onClick={() => window.confirm("Reject this draft?") && run(blog.id, () => rejectBlog(blog.id))}>Reject</button>}
                 </div>
 

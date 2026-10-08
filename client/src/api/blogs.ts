@@ -45,7 +45,7 @@ const unwrap = (error: unknown): never => {
 };
 const call = async <T,>(request: Promise<{ data: T }>) => request.then((r) => r.data).catch(unwrap);
 
-export const getBlogs = () => call<{ blogs: BlogDraft[]; liveMode: boolean; generation: GenerationState }>(axios.get(url()));
+export const getBlogs = () => call<{ blogs: BlogDraft[]; liveMode: boolean; publishMode: "immediate" | "scheduled"; generation: GenerationState }>(axios.get(url()));
 export const getBlogStatus = () => call<{ generation: GenerationState }>(axios.get(url("/status")));
 export const generateBlog = () => call<{ started: boolean }>(axios.post(url("/generate"), {}));
 export const editBlog = (id: string, edit: BlogEdit) => call<{ blog: BlogDraft }>(axios.patch(url(`/${id}`), edit));

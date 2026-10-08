@@ -2,7 +2,7 @@ import sharp from "sharp";
 import { withGfClient } from "./gf.admin.client.js";
 import { NO_CATEGORY, toCatalogProduct } from "./blog.generator.js";
 import { getBlogDraft, updateBlogDraft } from "./blog.store.js";
-import { readHeroImage } from "./blog.image.js";
+import { HERO_HEIGHT, HERO_WIDTH, readHeroImage } from "./blog.image.js";
 import { isDraftImagePending } from "./blog.jobs.js";
 import { emitBlogEvent } from "./blog.notify.js";
 import { errorDetail } from "./http.helpers.js";
@@ -54,7 +54,7 @@ export async function approveFlow(id: string): Promise<ApproveResult> {
 async function heroImage(imageUrl: string): Promise<Buffer> {
   const res = await fetch(imageUrl, { signal: AbortSignal.timeout(30_000) });
   if (!res.ok) throw new Error(`hero image download failed (${res.status})`);
-  return sharp(Buffer.from(await res.arrayBuffer())).resize(1200, 630, { fit: "cover" }).png().toBuffer();
+  return sharp(Buffer.from(await res.arrayBuffer())).resize(HERO_WIDTH, HERO_HEIGHT, { fit: "cover" }).png().toBuffer();
 }
 
 async function publish(draft: BlogDraft) {

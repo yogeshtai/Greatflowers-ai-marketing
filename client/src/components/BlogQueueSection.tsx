@@ -135,7 +135,7 @@ export function BlogQueueSection() {
                   <div style={{ marginTop: 16 }}>
                     <div style={{ marginBottom: 12 }}>
                       {blog.heroSource === "ai" ? (
-                        <img src={blogHeroUrl(blog)} alt={`Hero for ${blog.title}`} style={{ width: "100%", maxWidth: 600, aspectRatio: "1200 / 630", objectFit: "cover", borderRadius: 10, border: "1px solid #e0e0d8" }} />
+                        <img src={blogHeroUrl(blog)} alt={`Hero for ${blog.title}`} style={{ width: "100%", maxWidth: 600, aspectRatio: "1712 / 624", objectFit: "cover", borderRadius: 10, border: "1px solid #e0e0d8" }} />
                       ) : (
                         <div style={{ fontSize: 12, color: "#70706a" }}>Post image: the product photo (no AI image was made).</div>
                       )}

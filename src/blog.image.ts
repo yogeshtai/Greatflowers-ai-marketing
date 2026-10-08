@@ -8,6 +8,10 @@ import { tryAcquire } from "./ai.limits.js";
 const HERO_DIR = path.join(process.cwd(), "data", "blog-heroes");
 export const heroPath = (id: string) => path.join(HERO_DIR, `${id}.png`);
 
+// The blog's hero slot renders a wide panoramic banner; existing posts all use 1712×624.
+export const HERO_WIDTH = 1712;
+export const HERO_HEIGHT = 624;
+
 export interface HeroInput {
   title: string;
   topic: string;
@@ -73,7 +77,7 @@ The bouquet in the attached product photo must appear in the scene with its exac
 ${sensitive ? "SENSITIVE TOPIC: keep the image quiet, respectful and tasteful: soft light, calm colors, no smiling people, no celebratory props.\n\n" : ""}PEOPLE (when present): natural, candid and realistic, with correct hands and faces, authentic expressions, varied ages and backgrounds that fit the story. No stiff stock-photo posing, no distorted fingers or faces.
 
 STYLE: premium magazine lifestyle photography, layered depth, atmospheric light, warm storytelling mood, themed props that fit the topic and season.
-FORMAT: landscape 16:9.
+FORMAT: extra-wide panoramic banner (1712×624, about 2.7:1): compose for a very wide, short frame — spread the scene horizontally, keep the key subject off the extreme edges.
 STRICTLY: no text, no letters, no numbers, no logos, no watermarks, no signs or cards with readable words, no buttons or UI elements.`;
 }
 
@@ -93,7 +97,7 @@ export async function generateHeroImage(id: string, post: HeroInput, productImag
     temporary.push(productPath);
     const generated = await executeCodex(buildHeroPrompt(post), productPath, `blog-hero-${uuid}.png`, signal);
     temporary.push(generated);
-    await writeFile(heroPath(id), await sharp(generated).resize(1200, 630, { fit: "cover", position: sharp.strategy.attention }).png().toBuffer());
+    await writeFile(heroPath(id), await sharp(generated).resize(HERO_WIDTH, HERO_HEIGHT, { fit: "cover", position: sharp.strategy.attention }).png().toBuffer());
     return true;
   } catch (error) {
     console.error("Hero image generation failed, falling back to the product photo:", error instanceof Error ? error.message : error);

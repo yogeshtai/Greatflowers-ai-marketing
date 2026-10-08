@@ -72,7 +72,7 @@ export function BlogQueueSection() {
           <span className="step">Daily Blog</span>
           <h2>Blog Queue{awaiting > 0 ? ` (${awaiting} waiting for approval)` : ""}</h2>
           <p style={{ margin: "6px 0 0", color: "#70706a", fontSize: 13 }}>
-            A draft is written daily at 7:00 PM IST. Approved posts go live at 10:00 AM ET.{" "}
+            A draft is written daily at 6:00 PM IST. Approved posts go live at 10:00 AM ET.{" "}
             {liveMode ? "Live mode: posts are published." : "Safe mode: posts are created hidden (not visible to readers)."}
           </p>
         </div>
@@ -88,7 +88,7 @@ export function BlogQueueSection() {
         <div role="status" style={{ margin: "0 0 16px", padding: "14px 18px", borderRadius: 12, background: "#eef3ff", border: "1px solid #c9d6ff", color: "#1f3a8a" }}>
           <strong>Writing a new blog draft... {elapsedLabel}</strong>
           <div style={{ fontSize: 13, marginTop: 4 }}>
-            {generation.trigger === "schedule" ? "Started by the daily 7:00 PM IST run. " : "Started from this page. "}
+            {generation.trigger === "schedule" ? "Started by the daily 6:00 PM IST run. " : "Started from this page. "}
             This takes about 5 to 10 minutes (the writing, then the hero image). You can leave this page; the draft appears here by itself when it is ready.
             {elapsedSeconds > 15 * 60 && " It is taking unusually long. Check the server logs if it does not finish soon."}
           </div>
@@ -98,7 +98,7 @@ export function BlogQueueSection() {
       {!generation.running && generation.error && <p role="alert" className="creative-error-note">The last draft attempt failed: {generation.error}</p>}
 
       {blogs.length === 0 ? (
-        <div className="empty-state"><h3>No blog drafts yet</h3><p>The first draft appears after the next 7:00 PM IST run, or generate one now.</p></div>
+        <div className="empty-state"><h3>No blog drafts yet</h3><p>The first draft appears after the next 6:00 PM IST run, or generate one now.</p></div>
       ) : (
         <div className="campaign-list">
           {blogs.map((blog) => {

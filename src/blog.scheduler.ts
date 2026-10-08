@@ -27,7 +27,7 @@ export async function publishDueBlogs() {
 }
 
 export function startBlogScheduler() {
-  console.log("📝 Blog scheduler started (draft 19:00 IST, publish 10:00 ET)");
-  cron.schedule("0 19 * * *", () => void generateDraftIfNeeded(), { timezone: "Asia/Kolkata" });
+  console.log("📝 Blog scheduler started (draft 18:00 IST, publish 10:00 ET)");
+  cron.schedule("0 18 * * *", () => void generateDraftIfNeeded(), { timezone: "Asia/Kolkata" });
   cron.schedule("*/10 * * * *", () => void publishDueBlogs());
 }

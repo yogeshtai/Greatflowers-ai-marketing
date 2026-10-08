@@ -86,8 +86,8 @@ async function publish(draft: BlogDraft) {
       is_all_categories: 0,
       categories: categoryIds,
       is_all_tags: 1,
-      is_featured: 0,
-      is_sticky: 0,
+      is_featured: 1,
+      is_sticky: 1,
       status,
     });
     const id = Number(created?.id ?? created?.data?.id);

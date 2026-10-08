@@ -39,6 +39,10 @@ test("second category accepted when different, rejected when same or unknown", (
   assert.throws(() => validatePost(JSON.stringify({ ...base, secondCategorySlug: "gift" }), ctx2), /secondCategorySlug/);
   assert.throws(() => validatePost(JSON.stringify({ ...base, secondCategorySlug: "nope" }), ctx2), /secondCategorySlug/);
 });
+test("'none' is accepted when no category fits, but not with a second category", () => {
+  assert.equal(validatePost(JSON.stringify({ ...base, categorySlug: "none" }), ctx).categorySlug, "none");
+  assert.throws(() => validatePost(JSON.stringify({ ...base, categorySlug: "none", secondCategorySlug: "gift" }), ctx), /omit secondCategorySlug/);
+});
 test("unknown category rejected", () => assert.throws(() => validatePost(JSON.stringify({ ...base, categorySlug: "nope" }), ctx), /categorySlug/));
 test("script tags rejected", () => assert.throws(() => validatePost(JSON.stringify({ ...base, html: html + "<script>x</script>" }), ctx)));
 test("hallucinated embeds are stripped", () => {

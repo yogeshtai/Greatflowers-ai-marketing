@@ -112,7 +112,7 @@ export function BlogQueueSection() {
                   <span className={`status status-${blog.status}`}>{blog.status}</span>
                   {makingImage && <span>making the hero image...</span>}
                   <span>{when(blog.createdAt)}</span>
-                  <span>categories: {[blog.categorySlug, blog.secondCategorySlug].filter(Boolean).join(" + ")}</span>
+                  <span>categories: {blog.categorySlug === "none" ? "none (no category fits)" : [blog.categorySlug, blog.secondCategorySlug].filter(Boolean).join(" + ")}</span>
                   <span>{blog.environment}</span>
                 </div>
                 <h3 style={{ marginBottom: 6 }}>{blog.title}</h3>

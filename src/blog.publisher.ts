@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { withGfClient } from "./gf.admin.client.js";
-import { toCatalogProduct } from "./blog.generator.js";
+import { NO_CATEGORY, toCatalogProduct } from "./blog.generator.js";
 import { getBlogDraft, updateBlogDraft } from "./blog.store.js";
 import { readHeroImage } from "./blog.image.js";
 import { errorDetail } from "./http.helpers.js";
@@ -32,7 +32,7 @@ async function heroImage(imageUrl: string): Promise<Buffer> {
 async function publish(draft: BlogDraft) {
   return withGfClient(async (client) => {
     const [categories, products] = await Promise.all([client.listBlogCategories(), client.searchProducts("", 100)]);
-    const categoryIds = [draft.categorySlug, ...(draft.secondCategorySlug ? [draft.secondCategorySlug] : [])].map((slug) => {
+    const categoryIds = [draft.categorySlug, ...(draft.secondCategorySlug ? [draft.secondCategorySlug] : [])].filter((slug) => slug !== NO_CATEGORY).map((slug) => {
       const category = categories.find((c: any) => c.slug === slug);
       if (!category) throw new Error(`category "${slug}" not found`);
       return Number(category.id);

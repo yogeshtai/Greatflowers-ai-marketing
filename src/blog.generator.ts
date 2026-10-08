@@ -6,6 +6,9 @@ import { addBlogDraft, getBlogDrafts, updateBlogDraft } from "./blog.store.js";
 import { generateHeroImage, type HeroInput } from "./blog.image.js";
 import { gfApiHost, withGfClient } from "./gf.admin.client.js";
 
+// The model may say no category fits; the post is then published without a category instead of a wrong one.
+export const NO_CATEGORY = "none";
+
 export const EMBED_RE = /<div[^>]*class="blog-product-embed"[^>]*data-product-id="(\d+)"[^>]*>\s*<\/div>/gi;
 
 export interface CatalogProduct {
@@ -76,7 +79,7 @@ TOPIC RULES
 ${args.existingTitles.slice(0, 120).map((t) => `  - ${t}`).join("\n")}
 - Existing slugs already taken: ${args.existingSlugs.slice(0, 200).join(", ")}
 
-CATEGORIES (categorySlug = the best fit from this list; optionally secondCategorySlug = a different one from this list ONLY when the post genuinely belongs in both, e.g. a birthday gift idea fits "birthday" and "gift". Omit secondCategorySlug otherwise. Never more than two):
+CATEGORIES (categorySlug = the best fit from this list; optionally secondCategorySlug = a different one from this list ONLY when the post genuinely belongs in both, e.g. a birthday gift idea fits "birthday" and "gift". Omit secondCategorySlug otherwise. Never more than two. If NONE of them genuinely fits the post, for example a Halloween post when only "birthday" and "sympathy" exist, set categorySlug to "none" and omit secondCategorySlug; never force an unrelated category):
 ${args.categories.map((c) => `  - ${c.slug} (${c.name})`).join("\n")}
 
 EXISTING POSTS YOU MAY LINK TO (slug: title):
@@ -124,7 +127,8 @@ export function validatePost(
   const lower = post.title.toLowerCase();
   if (ctx.existingTitles.some((t) => t.toLowerCase() === lower)) throw new Error("title duplicates an existing post");
   if (ctx.existingSlugs.includes(post.slug)) throw new Error("slug is already taken");
-  if (!ctx.categories.has(post.categorySlug)) throw new Error(`categorySlug must be one of: ${[...ctx.categories].join(", ")}`);
+  if (post.categorySlug !== NO_CATEGORY && !ctx.categories.has(post.categorySlug)) throw new Error(`categorySlug must be one of: ${[...ctx.categories].join(", ")}, or "none" if nothing fits`);
+  if (post.categorySlug === NO_CATEGORY && post.secondCategorySlug) throw new Error('omit secondCategorySlug when categorySlug is "none"');
   if (post.secondCategorySlug && (!ctx.categories.has(post.secondCategorySlug) || post.secondCategorySlug === post.categorySlug)) throw new Error(`secondCategorySlug must be a different one of: ${[...ctx.categories].join(", ")} (or omitted)`);
   const bad = post.productIds.filter((id) => !productIds.has(id));
   if (bad.length) throw new Error(`productIds not in catalog: ${bad.join(", ")}`);

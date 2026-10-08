@@ -5,6 +5,10 @@ import { generateDailyBlogDraft } from "../blog.generator.js";
 import { approveDraft, publishDraft } from "../blog.publisher.js";
 import { getBlogDraft, getBlogDrafts, updateBlogDraft } from "../blog.store.js";
 import { abortOnDisconnect, singleFlight } from "../http.helpers.js";
+import { attachHeroImage, toCatalogProduct } from "../blog.generator.js";
+import { withGfClient } from "../gf.admin.client.js";
+import { heroPath } from "../blog.image.js";
+import { existsSync } from "node:fs";
 
 const router = express.Router();
 const fail = (res: express.Response, error: unknown, status = 500) =>
@@ -22,6 +26,23 @@ router.get("/api/blogs", async (_req, res) => {
 router.post("/api/blogs/generate", singleFlight("blog", async (_req, res) => {
   try {
     res.json({ success: true, blog: await generateDailyBlogDraft(abortOnDisconnect(res)) });
+  } catch (error) {
+    fail(res, error);
+  }
+}));
+
+router.get("/api/blogs/:id/hero", (req, res) => {
+  const file = heroPath(idOf(req));
+  existsSync(file) ? res.sendFile(file) : res.status(404).json({ success: false, error: "No AI hero image" });
+});
+
+router.post("/api/blogs/:id/hero/regenerate", singleFlight("blog", async (req, res) => {
+  try {
+    const draft = await getBlogDraft(idOf(req));
+    if (!draft || (draft.status !== "draft" && draft.status !== "failed" && draft.status !== "approved")) return res.status(409).json({ success: false, error: "Only unpublished posts can get a new image" });
+    const products = await withGfClient((client) => client.searchProducts("", 100));
+    const imageUrl = products.map(toCatalogProduct).find((p) => p.id === draft.heroProductId)?.imageUrl;
+    res.json({ success: true, blog: await attachHeroImage(draft.id, draft, imageUrl, abortOnDisconnect(res)) });
   } catch (error) {
     fail(res, error);
   }

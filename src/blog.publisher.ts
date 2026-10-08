@@ -2,6 +2,7 @@ import sharp from "sharp";
 import { withGfClient } from "./gf.admin.client.js";
 import { toCatalogProduct } from "./blog.generator.js";
 import { getBlogDraft, updateBlogDraft } from "./blog.store.js";
+import { readHeroImage } from "./blog.image.js";
 import { nextNewYorkHour } from "./blog.time.js";
 import type { BlogDraft } from "./blog.schema.js";
 
@@ -35,13 +36,14 @@ async function publish(draft: BlogDraft) {
       if (!category) throw new Error(`category "${slug}" not found`);
       return Number(category.id);
     });
+    const aiHero = await readHeroImage(draft.id);
     const hero = products.map(toCatalogProduct).find((p) => p.id === draft.heroProductId);
-    if (!hero?.imageUrl) throw new Error(`hero product ${draft.heroProductId} has no image on the target environment`);
+    if (!aiHero && !hero?.imageUrl) throw new Error(`hero product ${draft.heroProductId} has no image on the target environment`);
 
     const existing = (await client.listBlogs()).find((b: any) => b.slug === draft.slug || b.title === draft.title);
     if (existing) return { id: Number(existing.id), status: Number(existing.status) as 0 | 1, reused: true };
 
-    const imageId = await client.uploadAttachment(await heroImage(hero.imageUrl), `${draft.slug}.png`, "image/png");
+    const imageId = await client.uploadAttachment(aiHero ?? await heroImage(hero!.imageUrl!), `${draft.slug}.png`, "image/png");
     const status: 0 | 1 = liveMode() ? 1 : 0;
     const created = await client.createBlog({
       title: draft.title,

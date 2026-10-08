@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { approveBlog, editBlog, generateBlog, getBlogs, publishBlogNow, rejectBlog, type BlogDraft } from "../api/blogs";
+import { approveBlog, blogHeroUrl, editBlog, generateBlog, getBlogs, publishBlogNow, regenerateBlogHero, rejectBlog, type BlogDraft } from "../api/blogs";
 
 const when = (iso?: string) => (iso ? new Date(iso).toLocaleString() : "");
 
@@ -98,6 +98,20 @@ export function BlogQueueSection() {
 
                 {open && (
                   <div style={{ marginTop: 16 }}>
+                    <div style={{ marginBottom: 12 }}>
+                      {blog.heroSource === "ai" ? (
+                        <img src={blogHeroUrl(blog)} alt={`Hero for ${blog.title}`} style={{ width: "100%", maxWidth: 600, aspectRatio: "1200 / 630", objectFit: "cover", borderRadius: 10, border: "1px solid #e0e0d8" }} />
+                      ) : (
+                        <div style={{ fontSize: 12, color: "#70706a" }}>Post image: the product photo (no AI image was made).</div>
+                      )}
+                      {(editable || blog.status === "approved") && (
+                        <div style={{ marginTop: 8 }}>
+                          <button className="secondary-button" disabled={busyId === blog.id} onClick={() => run(blog.id, () => regenerateBlogHero(blog.id))}>
+                            {busyId === blog.id ? "Making image (a few minutes)..." : blog.heroSource === "ai" ? "New AI image" : "Make AI image"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                     {editable && (
                       <div style={{ display: "grid", gap: 8, marginBottom: 12 }}>
                         <label style={{ fontSize: 12, color: "#70706a" }}>Title</label>

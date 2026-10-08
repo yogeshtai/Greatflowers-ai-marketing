@@ -42,6 +42,7 @@ export interface BlogDraft extends GeneratedPost {
   approvedAt?: string;
   publishAfter?: string;
   publishedAt?: string;
+  heroSource?: "ai" | "product";
   remoteId?: number;
   remoteStatus?: 0 | 1;
   url?: string;

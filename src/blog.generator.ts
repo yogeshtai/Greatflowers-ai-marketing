@@ -2,7 +2,8 @@ import { formatOccasionGuidance, getUpcomingOccasions } from "./occasion.calenda
 import { requestHermesJSON } from "./hermes.json.js";
 import { parseModelJSON } from "./model.json.js";
 import { GeneratedPostJsonSchema, GeneratedPostSchema, type GeneratedPost } from "./blog.schema.js";
-import { addBlogDraft, getBlogDrafts } from "./blog.store.js";
+import { addBlogDraft, getBlogDrafts, updateBlogDraft } from "./blog.store.js";
+import { generateHeroImage } from "./blog.image.js";
 import { gfApiHost, withGfClient } from "./gf.admin.client.js";
 
 export const EMBED_RE = /<div[^>]*class="blog-product-embed"[^>]*data-product-id="(\d+)"[^>]*>\s*<\/div>/gi;
@@ -155,5 +156,11 @@ export async function generateDailyBlogDraft(signal?: AbortSignal) {
     signal,
     GeneratedPostJsonSchema,
   );
-  return addBlogDraft({ ...post, environment });
+  const draft = await addBlogDraft({ ...post, environment });
+  return attachHeroImage(draft.id, post, products.find((p) => p.id === post.heroProductId)?.imageUrl, signal);
+}
+
+export async function attachHeroImage(id: string, post: { title: string; topic: string }, productImageUrl: string | null | undefined, signal?: AbortSignal) {
+  const ai = productImageUrl ? await generateHeroImage(id, post, productImageUrl, signal) : false;
+  return (await updateBlogDraft(id, (d) => ({ ...d, heroSource: ai ? "ai" : "product" })))!;
 }

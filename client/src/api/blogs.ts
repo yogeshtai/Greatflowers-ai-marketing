@@ -19,6 +19,8 @@ export interface BlogDraft {
   approvedAt?: string;
   publishAfter?: string;
   publishedAt?: string;
+  heroSource?: "ai" | "product";
+  updatedAt?: string;
   remoteId?: number;
   remoteStatus?: 0 | 1;
   url?: string;
@@ -36,8 +38,10 @@ const unwrap = (error: unknown): never => {
 const call = async <T,>(request: Promise<{ data: T }>) => request.then((r) => r.data).catch(unwrap);
 
 export const getBlogs = () => call<{ blogs: BlogDraft[]; liveMode: boolean }>(axios.get(url()));
-export const generateBlog = () => call<{ blog: BlogDraft }>(axios.post(url("/generate"), {}, { timeout: 11 * 60_000 }));
+export const generateBlog = () => call<{ blog: BlogDraft }>(axios.post(url("/generate"), {}, { timeout: 22 * 60_000 }));
 export const editBlog = (id: string, edit: BlogEdit) => call<{ blog: BlogDraft }>(axios.patch(url(`/${id}`), edit));
 export const approveBlog = (id: string) => call<{ blog: BlogDraft }>(axios.post(url(`/${id}/approve`)));
 export const rejectBlog = (id: string) => call<{ blog: BlogDraft }>(axios.post(url(`/${id}/reject`)));
 export const publishBlogNow = (id: string) => call<{ blog: BlogDraft }>(axios.post(url(`/${id}/publish-now`), {}, { timeout: 2 * 60_000 }));
+export const blogHeroUrl = (blog: Pick<BlogDraft, "id" | "updatedAt">) => `${url(`/${blog.id}/hero`)}?v=${encodeURIComponent(blog.updatedAt ?? "")}`;
+export const regenerateBlogHero = (id: string) => call<{ blog: BlogDraft }>(axios.post(url(`/${id}/hero/regenerate`), {}, { timeout: 12 * 60_000 }));

@@ -11,6 +11,7 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
+import { homedir } from "node:os";
 import fetch from "node-fetch";
 import sharp from "sharp";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
@@ -18,7 +19,7 @@ import { CODEX_SPAWN_OPTIONS, codexLimitArgs, guardCodexProcess } from "./ai.lim
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CODEX_GENERATED_IMAGES_DIR =
-  "/home/ubuntu/.codex/generated_images";
+  process.env.CODEX_GENERATED_IMAGES_DIR || join(homedir(), ".codex", "generated_images");
 
 function resolveCodexBinary(): string {
   // Prefer locally installed @openai/codex so it works after npm install
@@ -144,7 +145,7 @@ const GREATFLOWERS_LOGO_URL =
 
 const OUTPUT_DIR = join(process.cwd(), "test-creatives");
 
-async function downloadToTemp(
+export async function downloadToTemp(
   url: string,
   filename: string
 ): Promise<string> {
@@ -440,7 +441,7 @@ Save the generated image inside ./test-creatives/ with the filename provided in 
 Use image generation. Do not create SVG, HTML, or CSS.`;
 }
 
-async function executeCodex(
+export async function executeCodex(
   prompt: string,
   productImagePath: string,
   outputFilename: string,

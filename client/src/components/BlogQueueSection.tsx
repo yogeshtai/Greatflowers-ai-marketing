@@ -12,6 +12,7 @@ export function BlogQueueSection() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
+  const [now, setNow] = useState(() => Date.now());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -32,9 +33,16 @@ export function BlogQueueSection() {
 
   useEffect(() => {
     if (!generation.running) return;
-    const timer = setInterval(() => void load(), 5000);
-    return () => clearInterval(timer);
+    const poll = setInterval(() => void load(), 5000);
+    const tick = setInterval(() => setNow(Date.now()), 1000);
+    return () => {
+      clearInterval(poll);
+      clearInterval(tick);
+    };
   }, [generation.running, load]);
+
+  const elapsedSeconds = generation.running && generation.startedAt ? Math.max(0, Math.floor((now - Date.parse(generation.startedAt)) / 1000)) : 0;
+  const elapsedLabel = `${Math.floor(elapsedSeconds / 60)}:${String(elapsedSeconds % 60).padStart(2, "0")}`;
 
   const run = async (id: string | null, action: () => Promise<unknown>) => {
     setBusyId(id);
@@ -70,6 +78,16 @@ export function BlogQueueSection() {
         </div>
       </div>
 
+      {generation.running && (
+        <div role="status" style={{ margin: "0 0 16px", padding: "14px 18px", borderRadius: 12, background: "#eef3ff", border: "1px solid #c9d6ff", color: "#1f3a8a" }}>
+          <strong>Writing a new blog draft... {elapsedLabel}</strong>
+          <div style={{ fontSize: 13, marginTop: 4 }}>
+            {generation.trigger === "schedule" ? "Started by the daily 7:00 PM IST run. " : "Started from this page. "}
+            This takes about 5 to 10 minutes (the writing, then the hero image). You can leave this page; the draft appears here by itself when it is ready.
+            {elapsedSeconds > 15 * 60 && " It is taking unusually long. Check the server logs if it does not finish soon."}
+          </div>
+        </div>
+      )}
       {error && <p role="alert" className="creative-error-note">{error}</p>}
       {!generation.running && generation.error && <p role="alert" className="creative-error-note">The last draft attempt failed: {generation.error}</p>}
 

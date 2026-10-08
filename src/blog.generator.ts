@@ -13,6 +13,7 @@ export interface CatalogProduct {
   slug: string;
   price: number | null;
   imageUrl: string | null;
+  description: string;
 }
 
 export function toCatalogProduct(raw: any): CatalogProduct {
@@ -22,6 +23,7 @@ export function toCatalogProduct(raw: any): CatalogProduct {
     slug: String(raw.slug),
     price: Number(raw.sale_price || raw.price) || null,
     imageUrl: raw.product_thumbnail?.original_url ?? null,
+    description: String(raw.short_description ?? "").replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim().slice(0, 240),
   };
 }
 
@@ -80,7 +82,7 @@ EXISTING POSTS YOU MAY LINK TO (slug: title):
 ${args.related.map((r) => `  - ${r.slug}: ${r.title}`).join("\n") || "  (none)"}
 
 PRODUCT CATALOG (use ONLY these; never invent products, prices, or availability):
-${args.products.map((p) => `  - id ${p.id}: ${p.name}${p.price ? ` ($${p.price})` : ""}`).join("\n")}
+${args.products.map((p) => `  - id ${p.id}: ${p.name}${p.price ? ` ($${p.price})` : ""}${p.description ? ` | ${p.description}` : " | (no description)"}`).join("\n")}
 
 HOUSE STYLE (measured from our 15 most recent live posts; follow it closely)
 Choose ONE format for the topic:
@@ -98,6 +100,8 @@ WRITING RULES
 - LINKS: every href must be exactly one of: PRODUCT:<id> (a catalog id), BLOG:<slug> (a slug from the existing posts list) or HOME. Never write a real URL. Format A: link 1 to 3 related posts; format B: 4 to 8${args.related.length ? "" : " (skip BLOG links if none are listed)"}. End with the closing paragraph that links HOME.
 - Write as GreatFlowers speaking to its own customers. Do not give generic advice about "online florists", "looking for a florist", "subscription services" or how to shop elsewhere; every section must help the reader choose or send flowers from GreatFlowers.
 - Do not state historical, scientific or cultural origin claims (for example "dates back to ancient Rome") unless they are common, well-established knowledge; if unsure, leave them out and describe meanings as "traditionally associated with".
+- PRODUCT FACTS: describe a product's flowers, colors, vase or style ONLY from its catalog description above. Never infer looks from the product name (a name like "Black Velvet" does not mean black flowers). If a product has no description, name and link it but add no claims about how it looks. Prefer products whose description fits the topic.
+- Do not create urgency or scarcity claims such as "before they sell out" or "ensures your flowers arrive on time".
 - Do not invent statistics, awards, delivery guarantees, discounts, promo codes, or competitor names. Do not write "SAVE15" or any code.
 - Do not claim same-day delivery is guaranteed everywhere; say "same-day delivery is available in many areas".
 - title: 35-65 characters, natural, includes the main keyword. metaTitle: 10-55 characters, WITHOUT the brand name (we append " | Great Flowers" ourselves). metaDescription: 140-165 characters, one or two sentences, may end with "Same-day delivery is available in many areas." summary: 1-2 sentences.

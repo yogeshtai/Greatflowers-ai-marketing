@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { resolveLinks, sanitizeEmbeds, validatePost } from "./blog.generator.js";
+import { resolveLinks, sanitizeEmbeds, toCatalogProduct, validatePost } from "./blog.generator.js";
 import { nextNewYorkHour } from "./blog.time.js";
 import { getUpcomingOccasions } from "./occasion.calendar.js";
 
@@ -11,7 +11,7 @@ const base = {
   metaTitle: "Thanksgiving Table Flowers", metaDescription: "Discover thoughtful Thanksgiving table flower ideas for hosts, from warm autumn bouquets to simple centerpieces that fit any dinner.",
   summary: "Simple ideas for choosing flowers that suit a Thanksgiving dinner table.", categorySlug: "gift", productIds: [7], heroProductId: 7, html,
 };
-const products = [{ id: 7, name: "Red Rose Bouquet", slug: "red-rose-bouquet", price: 40, imageUrl: "x" }, { id: 8, name: "Other", slug: "other", price: 30, imageUrl: "x" }];
+const products = [{ id: 7, name: "Red Rose Bouquet", slug: "red-rose-bouquet", price: 40, imageUrl: "x", description: "Red roses in a glass vase." }, { id: 8, name: "Other", slug: "other", price: 30, imageUrl: "x", description: "Red roses in a glass vase." }];
 const ctx = { existingTitles: ["Other post title here"], existingSlugs: ["other"], categories: new Set(["gift"]), products, relatedSlugs: new Set(["other-post"]), base: "https://greatflowers.net" };
 
 test("valid post passes and links resolve to real URLs", () => {
@@ -24,6 +24,9 @@ test("valid post passes and links resolve to real URLs", () => {
 test("invented URLs are rejected", () => assert.throws(() => validatePost(JSON.stringify({ ...base, html: html + '<p><a href="https://example.com/x">x</a></p>' }), ctx), /not allowed/));
 test("single-quoted or unquoted hrefs are rejected", () => {
   for (const bad of [`<a href='https://example.com'>x</a>`, `<a href=https://example.com>x</a>`]) assert.throws(() => resolveLinks(bad, { productSlugs: new Map(), blogSlugs: new Set(), base: "b" }), /double quotes/);
+});
+test("catalog description is cleaned of HTML", () => {
+  assert.equal(toCatalogProduct({ id: 1, name: "A", slug: "a", short_description: "<p>Pink &amp; white <b>lilies</b></p>" }).description, "Pink & white lilies");
 });
 test("images are rejected", () => assert.throws(() => validatePost(JSON.stringify({ ...base, html: html + '<img src="https://example.com/a.png">' }), ctx)));
 test("unknown product link is rejected", () => assert.throws(() => resolveLinks('<a href="PRODUCT:99">x</a>', { productSlugs: new Map(), blogSlugs: new Set(), base: "b" }), /unknown product/));

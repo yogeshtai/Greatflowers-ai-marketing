@@ -13,6 +13,7 @@ export interface BlogDraft {
   metaDescription: string;
   summary: string;
   categorySlug: string;
+  secondCategorySlug?: string;
   html: string;
   createdAt: string;
   approvedAt?: string;

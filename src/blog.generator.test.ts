@@ -29,6 +29,12 @@ test("images are rejected", () => assert.throws(() => validatePost(JSON.stringif
 test("unknown product link is rejected", () => assert.throws(() => resolveLinks('<a href="PRODUCT:99">x</a>', { productSlugs: new Map(), blogSlugs: new Set(), base: "b" }), /unknown product/));
 test("missing HOME closing link is rejected", () => assert.throws(() => validatePost(JSON.stringify({ ...base, html: html.replace('href="HOME"', 'href="BLOG:other-post"') }), ctx), /HOME/));
 test("duplicate slug rejected", () => assert.throws(() => validatePost(JSON.stringify(base), { ...ctx, existingSlugs: [base.slug] }), /slug/));
+test("second category accepted when different, rejected when same or unknown", () => {
+  const ctx2 = { ...ctx, categories: new Set(["gift", "birthday"]) };
+  assert.equal(validatePost(JSON.stringify({ ...base, secondCategorySlug: "birthday" }), ctx2).secondCategorySlug, "birthday");
+  assert.throws(() => validatePost(JSON.stringify({ ...base, secondCategorySlug: "gift" }), ctx2), /secondCategorySlug/);
+  assert.throws(() => validatePost(JSON.stringify({ ...base, secondCategorySlug: "nope" }), ctx2), /secondCategorySlug/);
+});
 test("unknown category rejected", () => assert.throws(() => validatePost(JSON.stringify({ ...base, categorySlug: "nope" }), ctx), /categorySlug/));
 test("script tags rejected", () => assert.throws(() => validatePost(JSON.stringify({ ...base, html: html + "<script>x</script>" }), ctx)));
 test("hallucinated embeds are stripped", () => {

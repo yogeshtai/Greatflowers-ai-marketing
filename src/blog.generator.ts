@@ -73,7 +73,7 @@ TOPIC RULES
 ${args.existingTitles.slice(0, 120).map((t) => `  - ${t}`).join("\n")}
 - Existing slugs already taken: ${args.existingSlugs.slice(0, 200).join(", ")}
 
-CATEGORIES (choose exactly one categorySlug from this list):
+CATEGORIES (categorySlug = the best fit from this list; optionally secondCategorySlug = a different one from this list ONLY when the post genuinely belongs in both, e.g. a birthday gift idea fits "birthday" and "gift". Omit secondCategorySlug otherwise. Never more than two):
 ${args.categories.map((c) => `  - ${c.slug} (${c.name})`).join("\n")}
 
 EXISTING POSTS YOU MAY LINK TO (slug: title):
@@ -82,18 +82,25 @@ ${args.related.map((r) => `  - ${r.slug}: ${r.title}`).join("\n") || "  (none)"}
 PRODUCT CATALOG (use ONLY these; never invent products, prices, or availability):
 ${args.products.map((p) => `  - id ${p.id}: ${p.name}${p.price ? ` ($${p.price})` : ""}`).join("\n")}
 
+HOUSE STYLE (measured from our 15 most recent live posts; follow it closely)
+Choose ONE format for the topic:
+A) LISTICLE (default for occasions, recipients and gift ideas; 12 of our 15 posts). Title like "Best 5 ... for ...", "Top 5 ...", "5 ... for ...". 650-900 words. Intro of 2 short paragraphs. Exactly 5 numbered <h2> items written "1. Product Name for/with a short angle" (one catalog product each, 2-3 short paragraphs per item, the first mention linked). Then 2-3 more <h2> sections such as "How to Choose ...", "When Should You Send/Order ...?", "Make ... More Meaningful". No FAQ section.
+B) GUIDE (for "what flowers should I send/mean ..." questions). 1,200-1,450 words, 11-14 <h2> sections, 4-8 product links, 4-8 links to related posts, and a final <h2>Frequently Asked Questions</h2> with 3-4 <h3> questions and short <p> answers.
+Style: warm, practical, plain words for US gift buyers. Paragraphs are SHORT: 1-2 sentences, about 15-25 words. No hype, no exclamation marks. Intro starts with the occasion or the reader's situation, never with "Looking for".
+Closing: a short final paragraph in this style, linking HOME: "Explore <a href="HOME">Great Flowers</a> to find a thoughtful bouquet for ... and make ... a little more special." (vary the words, keep it modest).
+Style sample from a live post (links shown as placeholders):
+<h2>1. Sunflower Bouquet</h2><p>Sunflowers are a cheerful choice for Boss's Day. Their bright appearance can bring positive energy to an office while expressing appreciation and good wishes.</p><p>A sunflower bouquet works particularly well for a boss who has an upbeat personality or creates a positive team environment.</p><p>Consider the <a href="PRODUCT:<id>">Sunflower Sunshine Bouquet</a> when you want to send something bright and welcoming.</p>
+
 WRITING RULES
-- 700 to 1100 words, warm and helpful, written for US gift buyers. Answer the reader's real question.
 - html must be plain HTML only: <p>, <h2>, <h3>, <ul>, <li>, <strong>, <em>, <a>. No <h1>, no inline styles, no scripts, no images.
-- Include 4 to 6 <h2> sections and a final FAQ section with <h2>Frequently Asked Questions</h2> and 3 to 4 <h3> questions with <p> answers.
-- Mention 2 to 4 catalog products naturally. After the paragraph that discusses a product, embed it with EXACTLY: <div class="blog-product-embed" data-product-id="PRODUCT_ID"></div> (PRODUCT_ID from the catalog). List each used id in productIds. Do not use any other product markup.
+- Name and link 4 to 6 catalog products in the text (every product you name is linked once). Additionally embed a product card for the 2 to 4 most relevant ones, right after the paragraph about that product, with EXACTLY: <div class="blog-product-embed" data-product-id="PRODUCT_ID"></div>. List only the embedded ids in productIds. Do not use any other product markup.
 - heroProductId must be one of the productIds; its photo becomes the post image.
-- LINKS: every href must be exactly one of: PRODUCT:<id> (a catalog id), BLOG:<slug> (a slug from the existing posts list) or HOME. Never write a real URL. Link a product's name once in the text with <a href="PRODUCT:<id>">Name</a>. Include 1 or 2 BLOG: links to the most relevant existing posts${args.related.length ? "" : " (skip if none listed)"}, and end the post with a short closing paragraph that links <a href="HOME">Great Flowers</a>.
+- LINKS: every href must be exactly one of: PRODUCT:<id> (a catalog id), BLOG:<slug> (a slug from the existing posts list) or HOME. Never write a real URL. Format A: link 1 to 3 related posts; format B: 4 to 8${args.related.length ? "" : " (skip BLOG links if none are listed)"}. End with the closing paragraph that links HOME.
 - Write as GreatFlowers speaking to its own customers. Do not give generic advice about "online florists", "looking for a florist", "subscription services" or how to shop elsewhere; every section must help the reader choose or send flowers from GreatFlowers.
 - Do not state historical, scientific or cultural origin claims (for example "dates back to ancient Rome") unless they are common, well-established knowledge; if unsure, leave them out and describe meanings as "traditionally associated with".
 - Do not invent statistics, awards, delivery guarantees, discounts, promo codes, or competitor names. Do not write "SAVE15" or any code.
 - Do not claim same-day delivery is guaranteed everywhere; say "same-day delivery is available in many areas".
-- title: 50-70 characters, natural, includes the main keyword. metaTitle: 10-55 characters, WITHOUT the brand name (we append " | Great Flowers" ourselves). metaDescription: 120-160 characters. summary: 1-2 sentences.
+- title: 35-65 characters, natural, includes the main keyword. metaTitle: 10-55 characters, WITHOUT the brand name (we append " | Great Flowers" ourselves). metaDescription: 140-165 characters, one or two sentences, may end with "Same-day delivery is available in many areas." summary: 1-2 sentences.
 - slug: lowercase-hyphenated, unique vs the taken slugs.
 Return the JSON object only.`;
 }
@@ -108,6 +115,7 @@ export function validatePost(
   if (ctx.existingTitles.some((t) => t.toLowerCase() === lower)) throw new Error("title duplicates an existing post");
   if (ctx.existingSlugs.includes(post.slug)) throw new Error("slug is already taken");
   if (!ctx.categories.has(post.categorySlug)) throw new Error(`categorySlug must be one of: ${[...ctx.categories].join(", ")}`);
+  if (post.secondCategorySlug && (!ctx.categories.has(post.secondCategorySlug) || post.secondCategorySlug === post.categorySlug)) throw new Error(`secondCategorySlug must be a different one of: ${[...ctx.categories].join(", ")} (or omitted)`);
   const bad = post.productIds.filter((id) => !productIds.has(id));
   if (bad.length) throw new Error(`productIds not in catalog: ${bad.join(", ")}`);
   if (!post.productIds.includes(post.heroProductId)) throw new Error("heroProductId must be one of productIds");

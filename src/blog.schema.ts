@@ -14,6 +14,7 @@ export const GeneratedPostSchema = z.object({
   metaDescription: z.string().min(80).max(170),
   summary: z.string().min(40).max(300),
   categorySlug: z.string().min(1),
+  secondCategorySlug: z.string().min(1).optional(),
   productIds: z.array(z.number().int()).min(1).max(4),
   heroProductId: z.number().int(),
   html: z.string().min(1500).refine((h) => !FORBIDDEN_HTML.test(h), "html contains forbidden tags or attributes")

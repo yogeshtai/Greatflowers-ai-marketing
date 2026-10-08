@@ -30,8 +30,11 @@ async function heroImage(imageUrl: string): Promise<Buffer> {
 async function publish(draft: BlogDraft) {
   return withGfClient(async (client) => {
     const [categories, products] = await Promise.all([client.listBlogCategories(), client.searchProducts("", 100)]);
-    const category = categories.find((c: any) => c.slug === draft.categorySlug);
-    if (!category) throw new Error(`category "${draft.categorySlug}" not found`);
+    const categoryIds = [draft.categorySlug, ...(draft.secondCategorySlug ? [draft.secondCategorySlug] : [])].map((slug) => {
+      const category = categories.find((c: any) => c.slug === slug);
+      if (!category) throw new Error(`category "${slug}" not found`);
+      return Number(category.id);
+    });
     const hero = products.map(toCatalogProduct).find((p) => p.id === draft.heroProductId);
     if (!hero?.imageUrl) throw new Error(`hero product ${draft.heroProductId} has no image on the target environment`);
 
@@ -50,7 +53,7 @@ async function publish(draft: BlogDraft) {
       blog_thumbnail_id: imageId,
       blog_meta_image_id: imageId,
       is_all_categories: 0,
-      categories: [Number(category.id)],
+      categories: categoryIds,
       is_all_tags: 1,
       is_featured: 0,
       is_sticky: 0,

@@ -80,7 +80,7 @@ export function BlogQueueSection() {
                 <div className="campaign-meta">
                   <span className={`status status-${blog.status}`}>{blog.status}</span>
                   <span>{when(blog.createdAt)}</span>
-                  <span>category: {blog.categorySlug}</span>
+                  <span>categories: {[blog.categorySlug, blog.secondCategorySlug].filter(Boolean).join(" + ")}</span>
                   <span>{blog.environment}</span>
                 </div>
                 <h3 style={{ marginBottom: 6 }}>{blog.title}</h3>

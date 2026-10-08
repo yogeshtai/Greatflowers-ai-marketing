@@ -17,6 +17,18 @@ const fail = (res: express.Response, error: unknown, status = 500) => {
 };
 const idOf = (req: express.Request) => String(req.params.id);
 
+// Lightweight progress check for the dashboard (the full list carries every draft's article text).
+router.get("/api/blogs/status", (_req, res) => {
+  res.json({ success: true, generation: getGenerationState() });
+});
+
+// A draft is saved as soon as the text is written; its hero image is made right after, and publishing before then would miss it.
+const imageInProgress = (draft: { createdAt: string }) => {
+  const generation = getGenerationState();
+  return generation.running && !!generation.startedAt && draft.createdAt >= generation.startedAt;
+};
+const imageBusyMessage = "The hero image is still being made for this draft. Try again in a minute.";
+
 router.get("/api/blogs", async (_req, res) => {
   try {
     res.json({ success: true, blogs: await getBlogDrafts(), liveMode: process.env.BLOG_PUBLISH_LIVE === "true", generation: getGenerationState() });
@@ -60,6 +72,8 @@ router.patch("/api/blogs/:id", async (req, res) => {
 
 router.post("/api/blogs/:id/approve", async (req, res) => {
   try {
+    const current = await getBlogDraft(idOf(req));
+    if (current && imageInProgress(current)) return res.status(409).json({ success: false, error: imageBusyMessage });
     const blog = await approveDraft(idOf(req));
     blog ? res.json({ success: true, blog }) : res.status(409).json({ success: false, error: "Only draft or failed posts can be approved" });
   } catch (error) {
@@ -78,7 +92,9 @@ router.post("/api/blogs/:id/reject", async (req, res) => {
 
 router.post("/api/blogs/:id/publish-now", async (req, res) => {
   try {
-    const approved = await approveDraft(idOf(req)) ?? (await getBlogDraft(idOf(req)));
+    const current = await getBlogDraft(idOf(req));
+    if (current && imageInProgress(current)) return res.status(409).json({ success: false, error: imageBusyMessage });
+    const approved = await approveDraft(idOf(req)) ?? current;
     if (approved?.status !== "approved") return res.status(409).json({ success: false, error: "Post must be a draft or approved" });
     res.json({ success: true, blog: await publishDraft(approved.id) });
   } catch (error) {

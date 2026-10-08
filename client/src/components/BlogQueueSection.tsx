@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { approveBlog, blogHeroUrl, editBlog, generateBlog, getBlogs, publishBlogNow, regenerateBlogHero, rejectBlog, type BlogDraft, type GenerationState } from "../api/blogs";
+import { approveBlog, blogHeroUrl, editBlog, generateBlog, getBlogStatus, getBlogs, publishBlogNow, regenerateBlogHero, rejectBlog, type BlogDraft, type GenerationState } from "../api/blogs";
 
 const when = (iso?: string) => (iso ? new Date(iso).toLocaleString() : "");
 
@@ -33,7 +33,12 @@ export function BlogQueueSection() {
 
   useEffect(() => {
     if (!generation.running) return;
-    const poll = setInterval(() => void load(), 5000);
+    const poll = setInterval(() => {
+      getBlogStatus().then(({ generation: next }) => {
+        setGeneration(next);
+        if (!next.running) void load();
+      }).catch(() => undefined);
+    }, 5000);
     const tick = setInterval(() => setNow(Date.now()), 1000);
     return () => {
       clearInterval(poll);
@@ -57,6 +62,7 @@ export function BlogQueueSection() {
     }
   };
 
+  const imageBusy = (blog: BlogDraft) => generation.running && !!generation.startedAt && blog.createdAt >= generation.startedAt;
   const awaiting = blogs.filter((b) => b.status === "draft" || b.status === "failed").length;
 
   return (
@@ -98,11 +104,13 @@ export function BlogQueueSection() {
           {blogs.map((blog) => {
             const editable = blog.status === "draft" || blog.status === "failed";
             const open = openId === blog.id;
+            const makingImage = editable && imageBusy(blog);
             const title = editing[blog.id] ?? blog.title;
             return (
               <article className="campaign-item" key={blog.id} style={{ display: "block" }}>
                 <div className="campaign-meta">
                   <span className={`status status-${blog.status}`}>{blog.status}</span>
+                  {makingImage && <span>making the hero image...</span>}
                   <span>{when(blog.createdAt)}</span>
                   <span>categories: {[blog.categorySlug, blog.secondCategorySlug].filter(Boolean).join(" + ")}</span>
                   <span>{blog.environment}</span>
@@ -115,8 +123,8 @@ export function BlogQueueSection() {
 
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
                   <button className="secondary-button" onClick={() => setOpenId(open ? null : blog.id)}>{open ? "Hide preview" : "Preview / edit"}</button>
-                  {editable && <button className="primary-action-button" disabled={busyId === blog.id} onClick={() => run(blog.id, () => approveBlog(blog.id))}>Approve</button>}
-                  {(editable || blog.status === "approved") && <button className="secondary-button" disabled={busyId === blog.id} onClick={() => window.confirm("Publish this post right now?") && run(blog.id, () => publishBlogNow(blog.id))}>Publish now</button>}
+                  {editable && <button className="primary-action-button" disabled={busyId === blog.id || makingImage} title={makingImage ? "Wait for the hero image to finish" : undefined} onClick={() => run(blog.id, () => approveBlog(blog.id))}>Approve</button>}
+                  {(editable || blog.status === "approved") && <button className="secondary-button" disabled={busyId === blog.id || makingImage} onClick={() => window.confirm("Publish this post right now?") && run(blog.id, () => publishBlogNow(blog.id))}>Publish now</button>}
                   {blog.status !== "published" && blog.status !== "rejected" && <button className="secondary-button" disabled={busyId === blog.id} onClick={() => window.confirm("Reject this draft?") && run(blog.id, () => rejectBlog(blog.id))}>Reject</button>}
                 </div>
 

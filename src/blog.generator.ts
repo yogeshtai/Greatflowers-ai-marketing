@@ -1,7 +1,7 @@
 import { formatOccasionGuidance, getUpcomingOccasions } from "./occasion.calendar.js";
 import { requestHermesJSON } from "./hermes.json.js";
 import { parseModelJSON } from "./model.json.js";
-import { GeneratedPostJsonSchema, GeneratedPostSchema, type GeneratedPost } from "./blog.schema.js";
+import { BLOG_FORMATS, GeneratedPostJsonSchema, GeneratedPostSchema, type BlogFormat, type GeneratedPost } from "./blog.schema.js";
 import { addBlogDraft, getBlogDrafts, updateBlogDraft } from "./blog.store.js";
 import { generateHeroImage, type HeroInput } from "./blog.image.js";
 import { gfApiHost, withGfClient } from "./gf.admin.client.js";
@@ -38,6 +38,18 @@ export function sanitizeEmbeds(html: string, allowedIds: Set<number>): string {
 
 export const storefrontBase = () => (process.env.GF_STOREFRONT_URL || "https://greatflowers.net").replace(/\/+$/, "");
 
+function inferredFormat(title: string): BlogFormat {
+  if (/^(best|top|\d+)\b/i.test(title)) return "CURATED_LIST";
+  if (/^(how|a guide|the guide)|\bguide\b/i.test(title)) return "PRACTICAL_GUIDE";
+  if (/^(what|which|when|why|can|should)\b|\?$/.test(title.toLowerCase())) return "QUESTION_EXPLAINER";
+  return "OCCASION_PLAYBOOK";
+}
+
+export function selectBlogFormat(recent: Array<{ title: string; contentFormat?: BlogFormat }>): BlogFormat {
+  const used = new Set(recent.slice(0, BLOG_FORMATS.length - 1).map((post) => post.contentFormat ?? inferredFormat(post.title)));
+  return BLOG_FORMATS.find((format) => !used.has(format)) ?? BLOG_FORMATS[0];
+}
+
 // The model only writes PRODUCT:<id>, BLOG:<slug> or HOME as link targets; real URLs are built here from catalog data.
 export function resolveLinks(html: string, ctx: { productSlugs: Map<number, string>; blogSlugs: Set<string>; base: string }): string {
   if ((html.match(/href\s*=/gi) ?? []).length !== (html.match(/href="[^"]*"/gi) ?? []).length) throw new Error('every link must use the exact form href="..." with double quotes');
@@ -66,6 +78,7 @@ export function buildBlogPrompt(args: {
   products: CatalogProduct[];
   related: Array<{ slug: string; title: string }>;
   recentHeroConcepts: string[];
+  requiredFormat: BlogFormat;
 }): string {
   const upcoming = getUpcomingOccasions(50).slice(0, 5).map((o) => `${o.name} (${o.daysUntil} days away)`);
   return `You are the SEO content writer for GreatFlowers (greatflowers.net), a US online florist with same-day flower delivery.
@@ -92,10 +105,13 @@ ${args.related.map((r) => `  - ${r.slug}: ${r.title}`).join("\n") || "  (none)"}
 PRODUCT CATALOG (use ONLY these; never invent products, prices, or availability):
 ${args.products.map((p) => `  - id ${p.id}: ${p.name}${p.price ? ` ($${p.price})` : ""}${p.description ? ` | ${p.description}` : " | (no description)"}`).join("\n")}
 
-HOUSE STYLE (measured from our 15 most recent live posts; follow it closely)
-Choose ONE format for the topic:
-A) LISTICLE (default for occasions, recipients and gift ideas; 12 of our 15 posts). Title like "Best 5 ... for ...", "Top 5 ...", "5 ... for ...". 650-900 words. Intro of 2 short paragraphs. Exactly 5 numbered <h2> items written "1. Product Name for/with a short angle" (one catalog product each, 2-3 short paragraphs per item, the first mention linked). Then 2-3 more <h2> sections such as "How to Choose ...", "When Should You Send/Order ...?", "Make ... More Meaningful". No FAQ section.
-B) GUIDE (for "what flowers should I send/mean ..." questions). 1,200-1,450 words, 11-14 <h2> sections, 4-8 product links, 4-8 links to related posts, and a final <h2>Frequently Asked Questions</h2> with 3-4 <h3> questions and short <p> answers.
+REQUIRED CONTENT FORMAT: ${args.requiredFormat}
+Use exactly this format and return the same value in contentFormat:
+- CURATED_LIST: 650-900 words. A genuinely useful selection article with exactly 5 numbered <h2> product picks. A "Best 5", "Top 5" or "5..." title is allowed ONLY for this format.
+- PRACTICAL_GUIDE: 850-1,100 words. A natural "How to..." or "Guide to..." title, 6-9 descriptive <h2> sections organized around decisions and practical advice. Do not number products and do not use "Best 5" or "Top 5".
+- OCCASION_PLAYBOOK: 800-1,050 words. An occasion-led editorial title without a number, 6-8 <h2> sections covering planning, timing, recipient, setting, message and flower choices. Do not use a listicle title.
+- QUESTION_EXPLAINER: 900-1,200 words. A natural customer question as the title, a direct answer in the introduction, 7-10 explanatory <h2> sections, and 3 short FAQs. Do not use a numbered listicle title.
+Across every format, weave 4-6 real products into the relevant sections rather than forcing every section to be a product ranking.
 Style: warm, practical, plain words for US gift buyers. Paragraphs are SHORT: 1-2 sentences, about 15-25 words. No hype, no exclamation marks. Intro starts with the occasion or the reader's situation, never with "Looking for".
 Closing: a short final paragraph in this style, linking HOME: "Explore <a href="HOME">Great Flowers</a> to find a thoughtful bouquet for ... and make ... a little more special." (vary the words, keep it modest).
 Style sample from a live post (links shown as placeholders):
@@ -124,13 +140,14 @@ Return the JSON object only.`;
 
 export function validatePost(
   output: string,
-  ctx: { existingTitles: string[]; existingSlugs: string[]; categories: Set<string>; products: CatalogProduct[]; relatedSlugs: Set<string>; base: string },
+  ctx: { existingTitles: string[]; existingSlugs: string[]; categories: Set<string>; products: CatalogProduct[]; relatedSlugs: Set<string>; base: string; requiredFormat: BlogFormat },
 ): GeneratedPost {
   const productIds = new Set(ctx.products.map((p) => p.id));
   const post = GeneratedPostSchema.parse(parseModelJSON(output));
   const lower = post.title.toLowerCase();
   if (ctx.existingTitles.some((t) => t.toLowerCase() === lower)) throw new Error("title duplicates an existing post");
   if (ctx.existingSlugs.includes(post.slug)) throw new Error("slug is already taken");
+  if (post.contentFormat !== ctx.requiredFormat) throw new Error(`contentFormat must be ${ctx.requiredFormat}`);
   if (post.categorySlug !== NO_CATEGORY && !ctx.categories.has(post.categorySlug)) throw new Error(`categorySlug must be one of: ${[...ctx.categories].join(", ")}, or "none" if nothing fits`);
   if (post.categorySlug === NO_CATEGORY && post.secondCategorySlug) throw new Error('omit secondCategorySlug when categorySlug is "none"');
   if (post.secondCategorySlug && (!ctx.categories.has(post.secondCategorySlug) || post.secondCategorySlug === post.categorySlug)) throw new Error(`secondCategorySlug must be a different one of: ${[...ctx.categories].join(", ")} (or omitted)`);
@@ -161,14 +178,19 @@ export async function generateDailyBlogDraft(signal?: AbortSignal) {
   if (products.length < 4) throw new Error("Not enough catalog products with images to write a post");
 
   const related = context.blogs.filter((b: any) => Number(b.status) === 1).slice(0, 80).map((b: any) => ({ slug: String(b.slug), title: String(b.title) }));
+  const requiredFormat = selectBlogFormat([
+    ...localDrafts.map((draft) => ({ title: draft.title, contentFormat: draft.contentFormat })),
+    ...context.blogs.map((blog: any) => ({ title: String(blog.title) })),
+  ]);
   const base = storefrontBase();
   const prompt = buildBlogPrompt({
     today: new Date().toISOString().slice(0, 10), existingTitles, existingSlugs, categories, products, related,
     recentHeroConcepts: localDrafts.map((draft) => draft.heroConcept).filter((concept): concept is string => !!concept),
+    requiredFormat,
   });
   const post = await requestHermesJSON(
     prompt,
-    (output) => validatePost(output, { existingTitles, existingSlugs, categories: new Set(categories.map((c) => c.slug)), products, relatedSlugs: new Set(related.map((r) => r.slug)), base }),
+    (output) => validatePost(output, { existingTitles, existingSlugs, categories: new Set(categories.map((c) => c.slug)), products, relatedSlugs: new Set(related.map((r) => r.slug)), base, requiredFormat }),
     signal,
     GeneratedPostJsonSchema,
   );

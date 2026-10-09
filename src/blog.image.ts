@@ -12,6 +12,40 @@ export const heroPath = (id: string) => path.join(HERO_DIR, `${id}.png`);
 export const HERO_WIDTH = 1712;
 export const HERO_HEIGHT = 624;
 
+const escapeXml = (value: string) => value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[character]!);
+
+function titleLines(title: string, maxCharacters = 42, maxLines = 3): string[] {
+  const words = title.trim().split(/\s+/);
+  const lines: string[] = [];
+  for (const word of words) {
+    if (!lines.length) {
+      lines.push(word);
+      continue;
+    }
+    const index = lines.length - 1;
+    const candidate = `${lines[index]} ${word}`;
+    if (candidate.length <= maxCharacters || lines.length === maxLines) lines[index] = candidate;
+    else lines.push(word);
+  }
+  return lines;
+}
+
+// Typography is composited after generation so the title is always spelled correctly;
+// the image model still receives a strict no-text prompt to prevent visual gibberish.
+export function buildHeroOverlaySvg(title: string): Buffer {
+  const lines = titleLines(title);
+  const startY = 410 - Math.max(0, lines.length - 2) * 44;
+  const text = lines.map((line, index) => `<text x="76" y="${startY + index * 58}" class="title">${escapeXml(line)}</text>`).join("");
+  return Buffer.from(`<svg width="${HERO_WIDTH}" height="${HERO_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="shade" x1="0" y1="1" x2="0.72" y2="0"><stop offset="0" stop-color="#17120f" stop-opacity="0.92"/><stop offset="0.58" stop-color="#17120f" stop-opacity="0.58"/><stop offset="1" stop-color="#17120f" stop-opacity="0"/></linearGradient></defs>
+    <rect width="1120" height="624" fill="url(#shade)"/>
+    <rect x="76" y="${startY - 75}" width="54" height="5" rx="2.5" fill="#e7b85d"/>
+    <text x="76" y="${startY - 34}" font-family="Arial, sans-serif" font-size="19" font-weight="700" letter-spacing="4" fill="#f0d08d">GREAT FLOWERS JOURNAL</text>
+    <style>.title{font-family:Georgia,serif;font-size:48px;font-weight:700;fill:white;paint-order:stroke;stroke:#17120f;stroke-width:1.2px;stroke-opacity:.18}</style>
+    ${text}
+  </svg>`);
+}
+
 export interface HeroInput {
   title: string;
   topic: string;
@@ -108,7 +142,10 @@ export async function generateHeroImage(id: string, post: HeroInput, productImag
     temporary.push(productPath);
     const generated = await executeCodex(buildHeroPrompt(post), productPath, `blog-hero-${uuid}.png`, signal);
     temporary.push(generated);
-    await writeFile(heroPath(id), await sharp(generated).resize(HERO_WIDTH, HERO_HEIGHT, { fit: "cover", position: sharp.strategy.attention }).png().toBuffer());
+    await writeFile(heroPath(id), await sharp(generated)
+      .resize(HERO_WIDTH, HERO_HEIGHT, { fit: "cover", position: sharp.strategy.attention })
+      .composite([{ input: buildHeroOverlaySvg(post.title), top: 0, left: 0 }])
+      .png().toBuffer());
     return true;
   } catch (error) {
     console.error("Hero image generation failed, falling back to the product photo:", error instanceof Error ? error.message : error);

@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { resolveLinks, sanitizeEmbeds, toCatalogProduct, validatePost } from "./blog.generator.js";
+import { resolveLinks, sanitizeEmbeds, selectBlogFormat, toCatalogProduct, validatePost } from "./blog.generator.js";
 import { nextNewYorkHour } from "./blog.time.js";
 import { publishAfterFor } from "./blog.publisher.js";
-import { buildHeroPrompt, pickComposition } from "./blog.image.js";
+import { buildHeroOverlaySvg, buildHeroPrompt, pickComposition } from "./blog.image.js";
 import { getUpcomingOccasions } from "./occasion.calendar.js";
 
 const para = "<p>" + "Fresh flowers make every gift feel personal and thoughtful. ".repeat(25) + "</p>";
@@ -13,9 +13,10 @@ const base = {
   metaTitle: "Thanksgiving Table Flowers", metaDescription: "Discover thoughtful Thanksgiving table flower ideas for hosts, from warm autumn bouquets to simple centerpieces that fit any dinner.",
   summary: "Simple ideas for choosing flowers that suit a Thanksgiving dinner table.", categorySlug: "gift", productIds: [7], heroProductId: 7,
   heroStrategy: "OCCASION_SCENE", heroProductRole: "supporting", heroConcept: "A host reaches across a candlelit table to place the final arrangement while arriving friends remove their coats in the softly blurred doorway behind her.", html,
+  contentFormat: "CURATED_LIST",
 };
 const products = [{ id: 7, name: "Red Rose Bouquet", slug: "red-rose-bouquet", price: 40, imageUrl: "x", description: "Red roses in a glass vase." }, { id: 8, name: "Other", slug: "other", price: 30, imageUrl: "x", description: "Red roses in a glass vase." }];
-const ctx = { existingTitles: ["Other post title here"], existingSlugs: ["other"], categories: new Set(["gift"]), products, relatedSlugs: new Set(["other-post"]), base: "https://greatflowers.net" };
+const ctx = { existingTitles: ["Other post title here"], existingSlugs: ["other"], categories: new Set(["gift"]), products, relatedSlugs: new Set(["other-post"]), base: "https://greatflowers.net", requiredFormat: "CURATED_LIST" as const };
 
 test("valid post passes and links resolve to real URLs", () => {
   const out = validatePost(JSON.stringify(base), ctx);
@@ -82,6 +83,21 @@ test("occasion heroes require an active event instead of an empty decorated scen
   assert.match(prompt, /REQUIRED: include at least one naturally framed person/);
   assert.match(prompt, /event in progress/);
   assert.match(prompt, /not an empty decorated room/);
+});
+test("hero overlay uses real escaped title text", () => {
+  const overlay = buildHeroOverlaySvg("Flowers & Gifts <Today>").toString();
+  assert.match(overlay, /GREAT FLOWERS JOURNAL/);
+  assert.match(overlay, /Flowers &amp; Gifts &lt;Today&gt;/);
+});
+test("blog formats rotate before repeating", () => {
+  const history: Array<{ title: string; contentFormat?: "CURATED_LIST" | "PRACTICAL_GUIDE" | "OCCASION_PLAYBOOK" | "QUESTION_EXPLAINER" }> = [];
+  const formats = Array.from({ length: 4 }, () => {
+    const format = selectBlogFormat(history);
+    history.unshift({ title: "Generated post", contentFormat: format });
+    return format;
+  });
+  assert.equal(new Set(formats).size, 4);
+  assert.equal(selectBlogFormat(history), formats[0]);
 });
 test("sensitive topics are forced into a respectful scene without people moments", () => {
   const prompt = buildHeroPrompt({ title: "Sympathy Flowers for a Funeral", topic: "sympathy", heroStrategy: "HUMAN_GIFTING_MOMENT" });

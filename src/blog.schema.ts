@@ -2,6 +2,8 @@ import { z } from "zod";
 
 export const BLOG_STATUSES = ["draft", "approved", "published", "rejected", "failed"] as const;
 export type BlogDraftStatus = (typeof BLOG_STATUSES)[number];
+export const BLOG_FORMATS = ["CURATED_LIST", "PRACTICAL_GUIDE", "OCCASION_PLAYBOOK", "QUESTION_EXPLAINER"] as const;
+export type BlogFormat = (typeof BLOG_FORMATS)[number];
 
 const FORBIDDEN_HTML = /<\s*(script|style|iframe|object|embed|form|img)\b|\son[a-z]+\s*=|javascript:/i;
 const wordCount = (html: string) => html.replace(/<[^>]+>/g, " ").split(/\s+/).filter(Boolean).length;
@@ -20,6 +22,7 @@ export const GeneratedPostSchema = z.object({
   heroStrategy: z.enum(["HUMAN_GIFTING_MOMENT", "HUMAN_LIFESTYLE", "OCCASION_SCENE", "EDITORIAL_CONTENT"]),
   heroProductRole: z.enum(["hero", "supporting"]),
   heroConcept: z.string().min(80).max(600),
+  contentFormat: z.enum(BLOG_FORMATS),
   html: z.string().min(1500).refine((h) => !FORBIDDEN_HTML.test(h), "html contains forbidden tags or attributes")
     .refine((h) => wordCount(h) >= 500, "html must be at least 500 words")
     .refine((h) => /<h2[\s>]/i.test(h), "html needs at least one <h2>"),

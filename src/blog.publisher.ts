@@ -21,6 +21,9 @@ export const publishAfterFor = (now: Date = new Date()) => (publishImmediate() ?
 export const storefrontUrl = (slug: string) =>
   process.env.GF_STOREFRONT_URL ? `${process.env.GF_STOREFRONT_URL.replace(/\/+$/, "")}/blogs/${slug}/` : undefined;
 
+const publishingDraftIds = new Set<string>();
+export const isDraftPublishing = (id: string) => publishingDraftIds.has(id);
+
 export function approveDraft(id: string, now: Date = new Date()) {
   return updateBlogDraft(id, (d) =>
     d.status === "draft" || d.status === "failed"
@@ -97,24 +100,32 @@ async function publish(draft: BlogDraft) {
 }
 
 export async function publishDraft(id: string) {
-  const draft = await getBlogDraft(id);
-  if (!draft || draft.status !== "approved") return draft ?? null;
-  const attempts = draft.attempts + 1;
-  await updateBlogDraft(id, (d) => ({ ...d, attempts }));
+  // Claim synchronously, before the first await, so deletion can reliably see an
+  // active remote publish and so two publish triggers cannot run for one draft.
+  if (publishingDraftIds.has(id)) return getBlogDraft(id);
+  publishingDraftIds.add(id);
   try {
-    const result = await publish(draft);
-    const url = storefrontUrl(draft.slug);
-    const updated = await updateBlogDraft(id, (d) => ({
-      ...d, status: "published", publishedAt: new Date().toISOString(), remoteId: result.id, remoteStatus: result.status,
-      ...(url ? { url } : {}),
-    }));
-    if (updated) emitBlogEvent({ type: "published", draft: updated });
-    return updated;
-  } catch (error) {
-    const message = errorDetail(error);
-    console.error(`Blog publish failed (${attempts}/${MAX_ATTEMPTS}) for ${draft.slug}:`, message);
-    const updated = await updateBlogDraft(id, (d) => ({ ...d, error: message, status: attempts >= MAX_ATTEMPTS ? "failed" : "approved" }));
-    if (updated?.status === "failed") emitBlogEvent({ type: "publish-failed", draft: updated });
-    return updated;
+    const draft = await getBlogDraft(id);
+    if (!draft || draft.status !== "approved") return draft ?? null;
+    const attempts = draft.attempts + 1;
+    await updateBlogDraft(id, (d) => ({ ...d, attempts }));
+    try {
+      const result = await publish(draft);
+      const url = storefrontUrl(draft.slug);
+      const updated = await updateBlogDraft(id, (d) => ({
+        ...d, status: "published", publishedAt: new Date().toISOString(), remoteId: result.id, remoteStatus: result.status,
+        ...(url ? { url } : {}),
+      }));
+      if (updated) emitBlogEvent({ type: "published", draft: updated });
+      return updated;
+    } catch (error) {
+      const message = errorDetail(error);
+      console.error(`Blog publish failed (${attempts}/${MAX_ATTEMPTS}) for ${draft.slug}:`, message);
+      const updated = await updateBlogDraft(id, (d) => ({ ...d, error: message, status: attempts >= MAX_ATTEMPTS ? "failed" : "approved" }));
+      if (updated?.status === "failed") emitBlogEvent({ type: "publish-failed", draft: updated });
+      return updated;
+    }
+  } finally {
+    publishingDraftIds.delete(id);
   }
 }

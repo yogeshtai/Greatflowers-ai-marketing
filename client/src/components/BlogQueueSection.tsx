@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { approveBlog, blogHeroUrl, editBlog, generateBlog, getBlogStatus, getBlogs, publishBlogNow, regenerateBlogHero, rejectBlog, type BlogDraft, type GenerationState } from "../api/blogs";
+import { approveBlog, blogHeroUrl, deleteBlog, editBlog, generateBlog, getBlogStatus, getBlogs, publishBlogNow, regenerateBlogHero, rejectBlog, type BlogDraft, type GenerationState } from "../api/blogs";
 
 const when = (iso?: string) => (iso ? new Date(iso).toLocaleString() : "");
 
@@ -66,6 +66,10 @@ export function BlogQueueSection() {
 
   const imageBusy = (blog: BlogDraft) => generation.running && !!generation.startedAt && blog.createdAt >= generation.startedAt;
   const awaiting = blogs.filter((b) => b.status === "draft" || b.status === "failed").length;
+  const confirmDelete = (blog: BlogDraft) => {
+    if (!window.confirm(`Permanently delete “${blog.title}”? This removes the queue entry and its local AI hero file. This cannot be undone.`)) return;
+    void run(blog.id, () => deleteBlog(blog.id));
+  };
 
   return (
     <section className="history-section">
@@ -129,6 +133,16 @@ export function BlogQueueSection() {
                   {editable && <button className="primary-action-button" disabled={busyId === blog.id || makingImage} title={makingImage ? "Wait for the hero image to finish" : undefined} onClick={() => run(blog.id, () => approveBlog(blog.id))}>{publishMode === "immediate" ? "Approve & publish" : "Approve"}</button>}
                   {(blog.status === "approved" || (editable && publishMode === "scheduled")) && <button className="secondary-button" disabled={busyId === blog.id || makingImage} onClick={() => window.confirm("Publish this post right now?") && run(blog.id, () => publishBlogNow(blog.id))}>Publish now</button>}
                   {blog.status !== "published" && blog.status !== "rejected" && <button className="secondary-button" disabled={busyId === blog.id} onClick={() => window.confirm("Reject this draft?") && run(blog.id, () => rejectBlog(blog.id))}>Reject</button>}
+                  {blog.status !== "published" && (
+                    <button
+                      className="delete-button"
+                      disabled={busyId === blog.id || makingImage}
+                      title={makingImage ? "Wait for the hero image to finish" : "Permanently delete this queue entry"}
+                      onClick={() => confirmDelete(blog)}
+                    >
+                      {busyId === blog.id ? "Working..." : "Delete permanently"}
+                    </button>
+                  )}
                 </div>
 
                 {open && (

@@ -49,6 +49,7 @@ export const getBlogs = () => call<{ blogs: BlogDraft[]; liveMode: boolean; publ
 export const getBlogStatus = () => call<{ generation: GenerationState }>(axios.get(url("/status")));
 export const generateBlog = () => call<{ started: boolean }>(axios.post(url("/generate"), {}));
 export const editBlog = (id: string, edit: BlogEdit) => call<{ blog: BlogDraft }>(axios.patch(url(`/${id}`), edit));
+export const deleteBlog = (id: string) => call<{ success: true }>(axios.delete(url(`/${id}`)));
 export const approveBlog = (id: string) => call<{ blog: BlogDraft }>(axios.post(url(`/${id}/approve`)));
 export const rejectBlog = (id: string) => call<{ blog: BlogDraft }>(axios.post(url(`/${id}/reject`)));
 export const publishBlogNow = (id: string) => call<{ blog: BlogDraft }>(axios.post(url(`/${id}/publish-now`), {}, { timeout: 2 * 60_000 }));

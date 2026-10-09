@@ -52,3 +52,16 @@ export const updateBlogDraft = (id: string, update: (draft: BlogDraft) => BlogDr
     await writeAll(all);
     return all[index]!;
   });
+
+// The status check lives inside the file lock so a publish completion and a delete
+// cannot both win based on stale state.
+export const deleteUnpublishedBlogDraft = (id: string) =>
+  locked(async () => {
+    const all = await readAll();
+    const index = all.findIndex((draft) => draft.id === id);
+    if (index === -1) return null;
+    if (all[index]!.status === "published") return null;
+    const [deleted] = all.splice(index, 1);
+    await writeAll(all);
+    return deleted!;
+  });

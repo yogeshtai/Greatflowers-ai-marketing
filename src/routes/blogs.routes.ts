@@ -1,14 +1,15 @@
 import express from "express";
 import { z } from "zod";
 import { BlogEditSchema } from "../blog.schema.js";
-import { approveDraft, approveFlow, publishDraft, publishImmediate, rejectDraft } from "../blog.publisher.js";
+import { approveDraft, approveFlow, isDraftPublishing, publishDraft, publishImmediate, rejectDraft } from "../blog.publisher.js";
 import { getGenerationState, isDraftImagePending, startGeneration } from "../blog.jobs.js";
-import { getBlogDraft, getBlogDrafts, updateBlogDraft } from "../blog.store.js";
+import { deleteUnpublishedBlogDraft, getBlogDraft, getBlogDrafts, updateBlogDraft } from "../blog.store.js";
 import { abortOnDisconnect, errorDetail, singleFlight } from "../http.helpers.js";
 import { attachHeroImage, toCatalogProduct } from "../blog.generator.js";
 import { withGfClient } from "../gf.admin.client.js";
 import { heroPath } from "../blog.image.js";
 import { existsSync } from "node:fs";
+import { unlink } from "node:fs/promises";
 
 const router = express.Router();
 const fail = (res: express.Response, error: unknown, status = 500) => {
@@ -63,6 +64,28 @@ router.patch("/api/blogs/:id", async (req, res) => {
     blog ? res.json({ success: true, blog }) : res.status(409).json({ success: false, error: "Only drafts can be edited" });
   } catch (error) {
     fail(res, error);
+  }
+});
+
+router.delete("/api/blogs/:id", async (req, res) => {
+  try {
+    const id = idOf(req);
+    const current = await getBlogDraft(id);
+    if (!current) return res.status(404).json({ success: false, error: "Blog queue entry not found" });
+    if (current.status === "published") return res.status(409).json({ success: false, error: "Published posts cannot be deleted from the blog queue" });
+    if (isDraftPublishing(id)) return res.status(409).json({ success: false, error: "This post is currently publishing and cannot be deleted" });
+    if (isDraftImagePending(current)) return res.status(409).json({ success: false, error: "Wait for the hero image to finish before deleting this entry" });
+
+    const deleted = await deleteUnpublishedBlogDraft(id);
+    if (!deleted) return res.status(409).json({ success: false, error: "This entry was published or removed before it could be deleted" });
+
+    // Queue deletion is intentionally local. A post already created in Great Flowers stays intact.
+    await unlink(heroPath(id)).catch((error: NodeJS.ErrnoException) => {
+      if (error.code !== "ENOENT") console.error(`Could not remove hero for deleted blog ${id}:`, error);
+    });
+    return res.json({ success: true });
+  } catch (error) {
+    return fail(res, error);
   }
 });
 

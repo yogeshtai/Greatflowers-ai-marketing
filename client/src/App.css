@@ -737,7 +737,8 @@ a {
 }
 
 .approve-button,
-.reject-button {
+.reject-button,
+.delete-button {
   border-radius: 9px;
   padding: 9px 13px;
 
@@ -755,6 +756,23 @@ a {
   color: #943535;
   background: #fff2f2;
   border: 1px solid #f1cccc;
+}
+
+.delete-button {
+  margin-left: auto;
+  color: #943535;
+  background: #fff;
+  border: 1px solid #e7bcbc;
+}
+
+.delete-button:hover:not(:disabled) {
+  background: #fff2f2;
+  border-color: #d58f8f;
+}
+
+.delete-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .empty-state {

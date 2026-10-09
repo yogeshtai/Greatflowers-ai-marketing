@@ -5,7 +5,10 @@ import { getActiveOccasions } from "./occasion.calendar.js";
 
 export const CONTENT_THEMES = [
   "gifting-story", "home-styling", "flower-care", "product-spotlight",
-  "seasonal-inspiration", "conversation-starter",
+  "seasonal-inspiration", "conversation-starter", "recipient-spotlight",
+  "color-story", "hosting-tablescape", "workplace-appreciation",
+  "self-care-ritual", "milestone-moment", "relationship-appreciation",
+  "occasion-planning", "mood-expression", "design-details",
 ] as const;
 export const VISUAL_TREATMENTS = [
   "bouquet-detail", "room-setting", "human-moment", "editorial-flatlay", "educational-layout",
@@ -53,6 +56,66 @@ const themes: Record<ContentTheme, { goal: string; priority: string; guidance: s
     guidance: "An inviting flower preference question or everyday conversation tied to GreatFlowers. No fake polls, testimonials, giveaways or unsupported product comparisons.",
     visuals: ["educational-layout", "human-moment", "bouquet-detail"],
   },
+  "recipient-spotlight": {
+    goal: "Help customers choose confidently",
+    priority: "Consideration",
+    guidance: "Build a practical selection idea around one specific hypothetical recipient type, such as a mentor, host, close friend or new parent. Focus on their context and taste; do not claim demographic behavior or turn it into a generic occasion post.",
+    visuals: ["human-moment", "bouquet-detail", "room-setting"],
+  },
+  "color-story": {
+    goal: "Drive visual discovery",
+    priority: "Awareness",
+    guidance: "Center the campaign on the verified color palette visible in one real arrangement and the atmosphere those colors can create. Do not invent flower varieties, symbolism or color details not supported by the product image and catalog.",
+    visuals: ["bouquet-detail", "editorial-flatlay", "room-setting"],
+  },
+  "hosting-tablescape": {
+    goal: "Inspire occasion hosting",
+    priority: "Consideration",
+    guidance: "Show a concrete hosting or tablescape use for a real arrangement: dinner, brunch, welcome table or small gathering. Make the setting the story and avoid unsupported claims about size, fragrance or longevity.",
+    visuals: ["room-setting", "editorial-flatlay", "bouquet-detail"],
+  },
+  "workplace-appreciation": {
+    goal: "Expand professional gifting consideration",
+    priority: "Consideration",
+    guidance: "Create a specific professional appreciation or workplace moment for a colleague, mentor, team member or client. Keep it warm and appropriate; do not invent corporate services, bulk pricing or delivery guarantees.",
+    visuals: ["human-moment", "room-setting", "editorial-flatlay"],
+  },
+  "self-care-ritual": {
+    goal: "Build an everyday flower habit",
+    priority: "Awareness",
+    guidance: "Frame flowers as part of a grounded personal ritual, reset or small act of self-kindness. Avoid medical, therapeutic or guaranteed mood claims and do not convert it into a gifting story.",
+    visuals: ["human-moment", "room-setting", "bouquet-detail"],
+  },
+  "milestone-moment": {
+    goal: "Generate orders for life moments",
+    priority: "Conversions",
+    guidance: "Choose one specific achievement or transition—new job, graduation, new home, retirement or personal goal—and dramatize the recognition moment. Keep it distinct from birthdays and generic congratulations.",
+    visuals: ["human-moment", "room-setting", "editorial-flatlay"],
+  },
+  "relationship-appreciation": {
+    goal: "Create thoughtful gifting intent",
+    priority: "Conversions",
+    guidance: "Celebrate one clearly defined relationship and an everyday reason for appreciation without relying on a calendar holiday. Make the bond and message specific; do not use a testimonial or repeat a generic gift exchange.",
+    visuals: ["human-moment", "editorial-flatlay", "room-setting"],
+  },
+  "occasion-planning": {
+    goal: "Help customers plan ahead",
+    priority: "Consideration",
+    guidance: "Offer a concise planning angle for choosing flowers for one upcoming moment, covering decisions such as recipient, setting, palette or message. Do not claim delivery windows, availability or policies unless supplied by live evidence.",
+    visuals: ["educational-layout", "editorial-flatlay", "bouquet-detail"],
+  },
+  "mood-expression": {
+    goal: "Connect flowers with personal expression",
+    priority: "Engagement",
+    guidance: "Start with one non-medical emotional tone—joyful, calm, bold, warm or reflective—and use a verified arrangement as a way to express it. Avoid therapy claims, guaranteed emotional outcomes and unsupported symbolism.",
+    visuals: ["bouquet-detail", "human-moment", "editorial-flatlay"],
+  },
+  "design-details": {
+    goal: "Deepen product consideration",
+    priority: "Consideration",
+    guidance: "Invite a closer look at verified visible design elements such as palette, silhouette, contrast, texture or container. Use only catalog facts and visible image evidence; do not invent flower varieties, techniques or florist craftsmanship claims.",
+    visuals: ["bouquet-detail", "editorial-flatlay", "educational-layout"],
+  },
 };
 
 // Callers supply newest-first histories. Legacy records without creative metadata remain useful.
@@ -90,8 +153,14 @@ export function createRotationPlan(
   const history = [...recent, ...published];
   const seasonal = getActiveOccasions(today).seasonal;
   const importantSeason = seasonal.some(o => o.priority === "critical" || o.priority === "high");
-  const coolingThemes = new Set([...recent.slice(0, 2), ...published.slice(0, 2)].map(h => h.contentTheme));
-  const availableThemes = CONTENT_THEMES.filter(t => !coolingThemes.has(t));
+  // Complete a full content-theme cycle before repeating one. Recommendation history
+  // is first because it reflects each click; published history fills gaps for a
+  // fresh/legacy recommendation store. Old entries without theme metadata are ignored.
+  const themeCycleHistory = [...recent, ...published]
+    .map(entry => entry.contentTheme)
+    .filter((theme): theme is ContentTheme => !!theme && CONTENT_THEMES.includes(theme as ContentTheme));
+  const usedInCurrentCycle = new Set(themeCycleHistory.slice(0, CONTENT_THEMES.length - 1));
+  const availableThemes = CONTENT_THEMES.filter(theme => !usedInCurrentCycle.has(theme));
   const contentTheme = weightedPick(availableThemes, t => {
     const seasonalWeight = importantSeason && (t === "seasonal-inspiration" || t === "gifting-story") ? 3 : 1;
     return seasonalWeight / (1 + history.filter(h => h.contentTheme === t).length);

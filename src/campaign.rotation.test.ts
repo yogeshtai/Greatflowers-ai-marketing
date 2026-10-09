@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createRotationPlan, publishedRotationHistory, type RotationEntry } from "./campaign.rotation.js";
+import { CONTENT_THEMES, createRotationPlan, publishedRotationHistory, type RotationEntry } from "./campaign.rotation.js";
 import { getActiveOccasions } from "./occasion.calendar.js";
 import type { MarketingProduct } from "./greatflowers.products.js";
 import type { SavedCampaign } from "./campaign.store.js";
@@ -14,7 +14,7 @@ test("recommendations and published posts both enforce theme, visual and product
   const published = [{ contentTheme: "flower-care", visualTreatment: "room-setting", productId: 3 }, { contentTheme: "product-spotlight", productId: 4 }];
   for (const random of [0, 0.2, 0.5, 0.999]) {
     const plan = createRotationPlan(catalog, recent, published, quietDay, () => random);
-    assert.ok(["seasonal-inspiration", "conversation-starter"].includes(plan.contentTheme));
+    assert.ok(!["gifting-story", "home-styling", "flower-care", "product-spotlight"].includes(plan.contentTheme));
     assert.ok(!["bouquet-detail", "room-setting"].includes(plan.visualTreatment));
     assert.deepEqual(plan.candidates.map(p => p.id), [5, 6, 7]);
   }
@@ -40,7 +40,25 @@ test("legacy history and repeated clicks continue rotating without starving them
     seen.add(plan.contentTheme);
     history.unshift({ contentTheme: plan.contentTheme, visualTreatment: plan.visualTreatment, productId: plan.candidates[0]!.id });
   }
-  assert.equal(seen.size, 6);
+  assert.equal(seen.size, CONTENT_THEMES.length);
+});
+
+test("every content theme is used before any theme repeats", () => {
+  const history: RotationEntry[] = [];
+  const firstCycle: string[] = [];
+  const secondCycle: string[] = [];
+  let seed = 17;
+  const random = () => { seed = (1664525 * seed + 1013904223) >>> 0; return seed / 2 ** 32; };
+
+  for (let index = 0; index < CONTENT_THEMES.length * 2; index++) {
+    const plan = createRotationPlan(catalog, history, [], quietDay, random);
+    (index < CONTENT_THEMES.length ? firstCycle : secondCycle).push(plan.contentTheme);
+    history.unshift({ contentTheme: plan.contentTheme, visualTreatment: plan.visualTreatment });
+  }
+
+  assert.equal(new Set(firstCycle).size, CONTENT_THEMES.length);
+  assert.equal(new Set(secondCycle).size, CONTENT_THEMES.length);
+  assert.notEqual(secondCycle[0], firstCycle.at(-1));
 });
 
 test("important holidays increase seasonal selection while preserving theme cooldowns", () => {

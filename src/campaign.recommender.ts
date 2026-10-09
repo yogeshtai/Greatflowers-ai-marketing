@@ -109,6 +109,8 @@ ${rotation.guidance}
 Choose the strongest eligible product fit within this direction. For non-gifting
 content, occasion may be a topic such as Home Styling or Flower Care; creativeScenario
 must be a specific useful idea, scene or question rather than a forced gifting story.
+Honor the assigned theme's distinct intent and guidance; do not collapse another theme
+back into Home Styling, Flower Care or a generic gifting post.
 For gifting, create a specific hypothetical human situation, never a claimed customer testimonial.
 Naturally promote GreatFlowers. Vary calls to action by goal: shopping for conversions,
 discovery for awareness, saves/shares/comments for engagement.

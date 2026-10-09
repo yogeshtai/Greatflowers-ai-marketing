@@ -23,9 +23,12 @@ import { HistorySection } from "./components/HistorySection";
 import { ScheduleModal } from "./components/ScheduleModal";
 import { LoginScreen } from "./components/LoginScreen";
 
+type DashboardTab = "studio" | "campaigns" | "blogs";
+
 function App() {
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [activeTab, setActiveTab] = useState<DashboardTab>("studio");
   
   // Campaign management state
   const [deletingCampaignId, setDeletingCampaignId] = useState<string | null>(null);
@@ -202,6 +205,7 @@ function App() {
   const handleOpenCampaign = (
     campaign: SavedCampaign
   ) => {
+    setActiveTab("studio");
     setForm({
       campaignGoal: campaign.input.campaignGoal,
       product: campaign.input.product,
@@ -887,35 +891,81 @@ function App() {
 
   return (
     <main className="app">
-      <header className="header" style={{ position: "relative" }}>
+      <header className="header">
+        <div className="brand-mark" aria-hidden="true">GF</div>
+        <div className="header-copy">
+          <span className="eyebrow">GreatFlowers Marketing</span>
+          <h1>AI Marketing Studio</h1>
+          <p>
+            Plan campaigns, review AI recommendations, and publish daily blog
+            content from one focused workspace.
+          </p>
+        </div>
         <button
           onClick={handleLogout}
-          style={{
-            position: "absolute",
-            top: "0",
-            right: "0",
-            padding: "0.5rem 1rem",
-            background: "#667eea",
-            border: "1px solid #667eea",
-            color: "white",
-            borderRadius: "4px",
-            cursor: "pointer",
-            fontSize: "0.875rem",
-            fontWeight: 500
-          }}
+          className="logout-button"
         >
           Logout
         </button>
-        <div>
-          <span className="eyebrow">GreatFlowers</span>
-          <h1>AI Marketing Strategist</h1>
-          <p>
-            Build sales, awareness and engagement campaigns using customer intent,
-            emotional positioning and GreatFlowers brand knowledge.
-          </p>
-        </div>
       </header>
 
+      <nav className="dashboard-tabs" aria-label="Marketing workspace">
+        <div className="tab-list" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "studio"}
+            aria-controls="studio-panel"
+            id="studio-tab"
+            className={`dashboard-tab ${activeTab === "studio" ? "active" : ""}`}
+            onClick={() => setActiveTab("studio")}
+          >
+            <span className="tab-icon" aria-hidden="true">✦</span>
+            <span className="tab-copy">
+              <strong>Campaign Studio</strong>
+              <small>Recommend &amp; create</small>
+            </span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "campaigns"}
+            aria-controls="campaigns-panel"
+            id="campaigns-tab"
+            className={`dashboard-tab ${activeTab === "campaigns" ? "active" : ""}`}
+            onClick={() => setActiveTab("campaigns")}
+          >
+            <span className="tab-icon" aria-hidden="true">▤</span>
+            <span className="tab-copy">
+              <strong>Campaigns</strong>
+              <small>Saved &amp; scheduled</small>
+            </span>
+            {campaigns.length > 0 && <span className="tab-count">{campaigns.length}</span>}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "blogs"}
+            aria-controls="blogs-panel"
+            id="blogs-tab"
+            className={`dashboard-tab ${activeTab === "blogs" ? "active" : ""}`}
+            onClick={() => setActiveTab("blogs")}
+          >
+            <span className="tab-icon" aria-hidden="true">◆</span>
+            <span className="tab-copy">
+              <strong>Blog Queue</strong>
+              <small>Review &amp; publish</small>
+            </span>
+          </button>
+        </div>
+      </nav>
+
+      {activeTab === "studio" && <div
+        className="tab-panel"
+        id="studio-panel"
+        role="tabpanel"
+        aria-labelledby="studio-tab"
+      >
       <section className="panel form-panel">
         <div className="section-heading">
           <div>
@@ -1132,21 +1182,36 @@ function App() {
           />
         </section>
       )}
+      </div>}
 
-      <BlogQueueSection />
+      {activeTab === "blogs" && <div
+        className="tab-panel"
+        id="blogs-panel"
+        role="tabpanel"
+        aria-labelledby="blogs-tab"
+      >
+        <BlogQueueSection />
+      </div>}
 
-      <HistorySection
-        campaigns={campaigns}
-        historyLoading={historyLoading}
-        deleteError={deleteError}
-        deletingCampaignId={deletingCampaignId}
-        loadCampaigns={loadCampaigns}
-        handleDeleteCampaign={handleDeleteCampaign}
-        handleOpenCampaign={handleOpenCampaign}
-        handleStatusChange={handleStatusChange}
-        setScheduleCampaign={setScheduleCampaign}
-        setScheduleForm={setScheduleForm}
-      />
+      {activeTab === "campaigns" && <div
+        className="tab-panel"
+        id="campaigns-panel"
+        role="tabpanel"
+        aria-labelledby="campaigns-tab"
+      >
+        <HistorySection
+          campaigns={campaigns}
+          historyLoading={historyLoading}
+          deleteError={deleteError}
+          deletingCampaignId={deletingCampaignId}
+          loadCampaigns={loadCampaigns}
+          handleDeleteCampaign={handleDeleteCampaign}
+          handleOpenCampaign={handleOpenCampaign}
+          handleStatusChange={handleStatusChange}
+          setScheduleCampaign={setScheduleCampaign}
+          setScheduleForm={setScheduleForm}
+        />
+      </div>}
       <ScheduleModal
         scheduleCampaign={scheduleCampaign}
         scheduleForm={scheduleForm}

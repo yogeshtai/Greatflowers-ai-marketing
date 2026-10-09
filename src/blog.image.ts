@@ -21,18 +21,18 @@ export interface HeroInput {
 }
 
 const SCENE_COMPOSITIONS = [
-  "a candid medium shot at eye level with a shallow depth of field",
-  "a close, intimate framing of the moment with the background softly blurred",
-  "a wide environmental shot where the setting tells the story",
-  "a warm golden-hour backlit shot with long soft shadows",
-  "an over-the-shoulder or three-quarter view that feels like a captured moment",
-  "a slightly low angle with layered foreground props and a blurred background",
+  "a candid medium shot caught mid-action, with an out-of-focus foreground detail and layered activity behind",
+  "an intimate over-the-shoulder view at the emotional peak of the action, with the background softly blurred",
+  "a wide environmental shot with the people and bouquet placed off-center and the setting unfolding across the frame",
+  "a warm backlit shot with visible movement, long soft shadows and foreground elements framing the moment",
+  "a cinematic three-quarter view that feels observed rather than posed, with clear foreground, middle ground and background",
+  "a slightly low asymmetric angle with a person entering or reaching through the frame and atmospheric depth behind",
 ];
 const EDITORIAL_COMPOSITIONS = [
-  "an overhead flat lay on a styled surface with props arranged around the flowers",
-  "a close-up where the flowers fill most of the frame with a creamy blurred background",
-  "a styled shelf or mantel with candles and seasonal decor, shallow depth of field",
-  "a rustic surface with scattered petals and seasonal elements in moody, warm light",
+  "an art-directed overhead composition with an unexpected diagonal layout, layered props and intentional negative space",
+  "an extreme close detail transitioning into the full arrangement across the wide frame, with sculptural light and shadow",
+  "a richly layered editorial setting with foreground objects, the arrangement off-center and atmospheric depth",
+  "a magazine-style still life with a bold tonal palette, tactile surfaces and a surprising asymmetric crop",
 ];
 export const pickComposition = (strategy: HeroInput["heroStrategy"] = "HUMAN_GIFTING_MOMENT", random: () => number = Math.random) => {
   const list = strategy === "EDITORIAL_CONTENT" ? EDITORIAL_COMPOSITIONS : SCENE_COMPOSITIONS;
@@ -45,17 +45,21 @@ const STRATEGY_RULES: Record<NonNullable<HeroInput["heroStrategy"]>, string> = {
   HUMAN_GIFTING_MOMENT: `SCENE STRATEGY: HUMAN_GIFTING_MOMENT (a person giving, receiving or arranging flowers)
 Create a genuine human emotional moment. REQUIRED: include one or more people interacting with the flowers.
 The PEOPLE and the EMOTIONAL MOMENT are the visual story; the flowers support it.
+Show a specific action frozen at its most expressive instant: hands meeting, a door opening, a surprised reaction, or someone finishing the arrangement.
 DO NOT make a centered product shot with a person added. BUILD THE HUMAN MOMENT FIRST.`,
   HUMAN_LIFESTYLE: `SCENE STRATEGY: HUMAN_LIFESTYLE (an authentic lifestyle scene with people)
 REQUIRED: include one or more people in a natural everyday moment where the flowers are present.
 The scene and emotion are the focus; flowers participate naturally but are not the dominant subject.
-It should look like real editorial lifestyle content, NOT catalog photography.`,
+Show a real action in progress rather than a person posing beside the bouquet.
+It should look like cinematic editorial lifestyle content, NOT catalog or generic stock photography.`,
   OCCASION_SCENE: `SCENE STRATEGY: OCCASION_SCENE (the occasion environment dominates)
 The setting, props and atmosphere tell the occasion story. The flowers are part of the scene, not a centered product shot.
-People may appear only when appropriate; if they do, keep them natural and in the background or partially framed.`,
+Unless this is a sensitive sympathy or memorial topic, REQUIRED: include at least one naturally framed person actively preparing, hosting, arriving, reaching, carrying or interacting with the setting.
+Capture an event in progress, not an empty decorated room or a static bouquet on a table.`,
   EDITORIAL_CONTENT: `SCENE STRATEGY: EDITORIAL_CONTENT (magazine-style editorial still life)
 A premium styled editorial composition with themed props and layered depth. People are not required.
-Do not make it look like a catalog product shot on a bare table.`,
+Use a bold visual idea, unusual crop, tactile surfaces, dramatic light or a strong color story.
+Do not make it look like a catalog product shot or an ordinary bouquet on a decorated table.`,
 };
 
 export function buildHeroPrompt(post: HeroInput, composition?: string): string {
@@ -70,6 +74,13 @@ STRATEGIC CONCEPT:
 ${post.heroConcept ?? `A scene that tells the story of "${post.topic}" for someone choosing flowers to send or give.`}
 
 COMPOSITION: ${composition ?? pickComposition(strategy)}.
+
+VISUAL STORY REQUIREMENTS:
+- Create one unmistakable visual event or art-directed idea, not merely a relevant location.
+- Build three layers of depth: a foreground framing element, the main action or subject in the middle ground, and environmental story in the background.
+- Use an asymmetric editorial composition with a strong focal path across the panoramic frame.
+- Include small authentic details that reveal the occasion, but never let props replace the human story.
+- Avoid the default formula of a bouquet centered on a table with decorations behind it. Avoid stiff posing, empty rooms, symmetrical catalog framing and generic stock-photo staging.
 
 PRODUCT ROLE: ${role.toUpperCase()}
 The bouquet in the attached product photo must appear in the scene with its exact flowers, colors, shapes and vase. Do not change, add or remove flowers.${role === "supporting" ? "\nIt is NOT the centered subject: integrate it naturally (held, handed over, on a table or doorstep) and make sure it is clearly visible and recognizable." : "\nIt is the clear hero of the frame."}

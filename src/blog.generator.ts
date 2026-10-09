@@ -65,6 +65,7 @@ export function buildBlogPrompt(args: {
   categories: Array<{ slug: string; name: string }>;
   products: CatalogProduct[];
   related: Array<{ slug: string; title: string }>;
+  recentHeroConcepts: string[];
 }): string {
   const upcoming = getUpcomingOccasions(50).slice(0, 5).map((o) => `${o.name} (${o.daysUntil} days away)`);
   return `You are the SEO content writer for GreatFlowers (greatflowers.net), a US online florist with same-day flower delivery.
@@ -78,6 +79,9 @@ TOPIC RULES
 - Existing post titles (do NOT repeat or closely paraphrase):
 ${args.existingTitles.slice(0, 120).map((t) => `  - ${t}`).join("\n")}
 - Existing slugs already taken: ${args.existingSlugs.slice(0, 200).join(", ")}
+
+RECENT AI HERO CONCEPTS (do not repeat their setting, action, camera idea or composition):
+${args.recentHeroConcepts.length ? args.recentHeroConcepts.slice(0, 8).map((concept) => `  - ${concept}`).join("\n") : "  (none yet)"}
 
 CATEGORIES (categorySlug = the best fit from this list; optionally secondCategorySlug = a different one from this list ONLY when the post genuinely belongs in both, e.g. a birthday gift idea fits "birthday" and "gift". Omit secondCategorySlug otherwise. Never more than two. If NONE of them genuinely fits the post, for example a Halloween post when only "birthday" and "sympathy" exist, set categorySlug to "none" and omit secondCategorySlug; never force an unrelated category):
 ${args.categories.map((c) => `  - ${c.slug} (${c.name})`).join("\n")}
@@ -101,10 +105,10 @@ WRITING RULES
 - html must be plain HTML only: <p>, <h2>, <h3>, <ul>, <li>, <strong>, <em>, <a>. No <h1>, no inline styles, no scripts, no images.
 - Name and link 4 to 6 catalog products in the text (every product you name is linked once). Additionally embed a product card for the 2 to 4 most relevant ones, right after the paragraph about that product, with EXACTLY: <div class="blog-product-embed" data-product-id="PRODUCT_ID"></div>. List only the embedded ids in productIds. Do not use any other product markup.
 - HERO IMAGE (an AI-made photo for this post; plan it like a social campaign creative, from the CONTENT of the post):
-  * heroStrategy: HUMAN_GIFTING_MOMENT (default for gift, birthday, thank-you, host, boss, family posts: a person giving, receiving or arranging the flowers; the person and the emotion are the story), HUMAN_LIFESTYLE (everyday moments at home or work with flowers present), OCCASION_SCENE (holiday or occasion environment dominates: table, doorstep, decor; people optional) or EDITORIAL_CONTENT (guides about meanings, colors or care: styled editorial still life, no people needed).
+  * heroStrategy: HUMAN_GIFTING_MOMENT (default for gift, birthday, thank-you, host, boss and family posts: a person giving or receiving flowers), HUMAN_LIFESTYLE (a person actively using, carrying or arranging flowers in an everyday setting), OCCASION_SCENE (a holiday or event in progress, with a person actively preparing, hosting, arriving or interacting) or EDITORIAL_CONTENT (ONLY for care, meaning, color or educational guides: an art-directed conceptual still life).
   * For sympathy, funeral or condolence topics always use OCCASION_SCENE: quiet, respectful, soft light, no smiling people.
   * heroProductRole: "supporting" when people or the scene lead (the usual choice), "hero" only for EDITORIAL_CONTENT close-ups.
-  * heroConcept: 2 or 3 vivid sentences describing the exact scene that matches THIS post's topic: who is in it (age, relationship), what they are doing, the setting, seasonal props, light and mood. Example for a Boss's Day post: "A team member steps into a sunlit corner office and hands a sunflower bouquet to her manager, who looks up from her laptop with a surprised, genuine smile; autumn light through the window, a thank-you card unopened on the desk." Never a plain table or white background. No text, signs or cards with words in the scene.
+  * heroConcept: 2 or 3 vivid sentences describing a specific VISUAL EVENT: who is present (age and relationship), the exact action caught mid-moment, foreground/middle/background layers, setting, light, camera point of view and mood. For Halloween, show people actively setting the table, welcoming guests or entering the party—not an empty table decorated with pumpkins. Example for a Boss's Day post: "Seen over a coworker's shoulder, a team member steps into a sunlit corner office and extends a sunflower bouquet; her manager turns from the laptop with a surprised smile while two colleagues gather softly out of focus near the doorway." Never use a plain bouquet-on-table setup, empty decorated room, white background or centered catalog composition. No text, signs or cards with words in the scene.
 - heroProductId must be one of the productIds; its photo is the reference the image must match.
 - LINKS: every href must be exactly one of: PRODUCT:<id> (a catalog id), BLOG:<slug> (a slug from the existing posts list) or HOME. Never write a real URL. Format A: link 1 to 3 related posts; format B: 4 to 8${args.related.length ? "" : " (skip BLOG links if none are listed)"}. End with the closing paragraph that links HOME.
 - Write as GreatFlowers speaking to its own customers. Do not give generic advice about "online florists", "looking for a florist", "subscription services" or how to shop elsewhere; every section must help the reader choose or send flowers from GreatFlowers.
@@ -158,7 +162,10 @@ export async function generateDailyBlogDraft(signal?: AbortSignal) {
 
   const related = context.blogs.filter((b: any) => Number(b.status) === 1).slice(0, 80).map((b: any) => ({ slug: String(b.slug), title: String(b.title) }));
   const base = storefrontBase();
-  const prompt = buildBlogPrompt({ today: new Date().toISOString().slice(0, 10), existingTitles, existingSlugs, categories, products, related });
+  const prompt = buildBlogPrompt({
+    today: new Date().toISOString().slice(0, 10), existingTitles, existingSlugs, categories, products, related,
+    recentHeroConcepts: localDrafts.map((draft) => draft.heroConcept).filter((concept): concept is string => !!concept),
+  });
   const post = await requestHermesJSON(
     prompt,
     (output) => validatePost(output, { existingTitles, existingSlugs, categories: new Set(categories.map((c) => c.slug)), products, relatedSlugs: new Set(related.map((r) => r.slug)), base }),

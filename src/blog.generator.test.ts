@@ -11,7 +11,8 @@ const html = `<h2>Why flowers</h2>${para}<p><a href="PRODUCT:7">Red Rose Bouquet
 const base = {
   topic: "Thanksgiving table flowers", title: "Best Thanksgiving Table Flowers for Hosts", slug: "thanksgiving-table-flowers",
   metaTitle: "Thanksgiving Table Flowers", metaDescription: "Discover thoughtful Thanksgiving table flower ideas for hosts, from warm autumn bouquets to simple centerpieces that fit any dinner.",
-  summary: "Simple ideas for choosing flowers that suit a Thanksgiving dinner table.", categorySlug: "gift", productIds: [7], heroProductId: 7, html,
+  summary: "Simple ideas for choosing flowers that suit a Thanksgiving dinner table.", categorySlug: "gift", productIds: [7], heroProductId: 7,
+  heroStrategy: "OCCASION_SCENE", heroProductRole: "supporting", heroConcept: "A host reaches across a candlelit table to place the final arrangement while arriving friends remove their coats in the softly blurred doorway behind her.", html,
 };
 const products = [{ id: 7, name: "Red Rose Bouquet", slug: "red-rose-bouquet", price: 40, imageUrl: "x", description: "Red roses in a glass vase." }, { id: 8, name: "Other", slug: "other", price: 30, imageUrl: "x", description: "Red roses in a glass vase." }];
 const ctx = { existingTitles: ["Other post title here"], existingSlugs: ["other"], categories: new Set(["gift"]), products, relatedSlugs: new Set(["other-post"]), base: "https://greatflowers.net" };
@@ -74,6 +75,13 @@ test("hero prompt follows the scene strategy, keeps the product exact, and forbi
   assert.ok(prompt.includes("HUMAN_GIFTING_MOMENT") && prompt.includes("A colleague hands a sunflower bouquet to her manager."));
   assert.ok(prompt.includes("a candid medium shot") && /exact flowers, colors, shapes and vase/.test(prompt));
   assert.ok(/no text/.test(prompt) && /REQUIRED: include one or more people/.test(prompt));
+  assert.ok(prompt.includes("three layers of depth") && prompt.includes("Avoid the default formula"));
+});
+test("occasion heroes require an active event instead of an empty decorated scene", () => {
+  const prompt = buildHeroPrompt({ title: "Halloween Flower Arrangements", topic: "Halloween party table", heroStrategy: "OCCASION_SCENE", heroProductRole: "supporting", heroConcept: "Friends place candles and flowers as guests arrive." });
+  assert.match(prompt, /REQUIRED: include at least one naturally framed person/);
+  assert.match(prompt, /event in progress/);
+  assert.match(prompt, /not an empty decorated room/);
 });
 test("sensitive topics are forced into a respectful scene without people moments", () => {
   const prompt = buildHeroPrompt({ title: "Sympathy Flowers for a Funeral", topic: "sympathy", heroStrategy: "HUMAN_GIFTING_MOMENT" });

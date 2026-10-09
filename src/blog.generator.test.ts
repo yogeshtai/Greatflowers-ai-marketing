@@ -88,6 +88,11 @@ test("hero overlay uses real escaped title text", () => {
   const overlay = buildHeroOverlaySvg("Flowers & Gifts <Today>").toString();
   assert.match(overlay, /GREAT FLOWERS JOURNAL/);
   assert.match(overlay, /Flowers &amp; Gifts &lt;Today&gt;/);
+  assert.match(overlay, /x="930"/);
+  assert.doesNotMatch(overlay, /linearGradient/);
+  const longOverlay = buildHeroOverlaySvg("How to Choose Thoughtful Flowers for Every Important Celebration and Personal Milestone").toString();
+  assert.ok((longOverlay.match(/class="title"/g) ?? []).length <= 4);
+  assert.doesNotMatch(longOverlay, /<text[^>]*class="title"[^>]*>[^<]{50}/);
 });
 test("blog formats rotate before repeating", () => {
   const history: Array<{ title: string; contentFormat?: "CURATED_LIST" | "PRACTICAL_GUIDE" | "OCCASION_PLAYBOOK" | "QUESTION_EXPLAINER" }> = [];

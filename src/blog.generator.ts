@@ -81,6 +81,10 @@ export function buildBlogPrompt(args: {
   requiredFormat: BlogFormat;
 }): string {
   const upcoming = getUpcomingOccasions(50).slice(0, 5).map((o) => `${o.name} (${o.daysUntil} days away)`);
+  const structureSample = args.requiredFormat === "CURATED_LIST"
+    ? '<h2>1. Sunflower Bouquet for a Cheerful Thank You</h2><p>Sunflowers bring a bright, welcoming presence to an appreciation gift.</p><p>Consider the <a href="PRODUCT:<id>">Sunflower Sunshine Bouquet</a> for a warm and straightforward gesture.</p>'
+    : '<h2>Choose a Palette That Fits the Moment</h2><p>Begin with the recipient and setting, then choose colors that support the feeling you want to express.</p><p>A real option such as the <a href="PRODUCT:<id>">Product Name</a> can be introduced naturally when its verified details fit the advice.</p>';
+  const relatedLinkRange = args.requiredFormat === "CURATED_LIST" ? "1 to 3" : "2 to 5";
   return `You are the SEO content writer for GreatFlowers (greatflowers.net), a US online florist with same-day flower delivery.
 Write ONE new blog post for today (${args.today}).
 
@@ -114,8 +118,8 @@ Use exactly this format and return the same value in contentFormat:
 Across every format, weave 4-6 real products into the relevant sections rather than forcing every section to be a product ranking.
 Style: warm, practical, plain words for US gift buyers. Paragraphs are SHORT: 1-2 sentences, about 15-25 words. No hype, no exclamation marks. Intro starts with the occasion or the reader's situation, never with "Looking for".
 Closing: a short final paragraph in this style, linking HOME: "Explore <a href="HOME">Great Flowers</a> to find a thoughtful bouquet for ... and make ... a little more special." (vary the words, keep it modest).
-Style sample from a live post (links shown as placeholders):
-<h2>1. Sunflower Bouquet</h2><p>Sunflowers are a cheerful choice for Boss's Day. Their bright appearance can bring positive energy to an office while expressing appreciation and good wishes.</p><p>A sunflower bouquet works particularly well for a boss who has an upbeat personality or creates a positive team environment.</p><p>Consider the <a href="PRODUCT:<id>">Sunflower Sunshine Bouquet</a> when you want to send something bright and welcoming.</p>
+Structure sample for the REQUIRED format (links shown as placeholders):
+${structureSample}
 
 WRITING RULES
 - html must be plain HTML only: <p>, <h2>, <h3>, <ul>, <li>, <strong>, <em>, <a>. No <h1>, no inline styles, no scripts, no images.
@@ -126,7 +130,7 @@ WRITING RULES
   * heroProductRole: "supporting" when people or the scene lead (the usual choice), "hero" only for EDITORIAL_CONTENT close-ups.
   * heroConcept: 2 or 3 vivid sentences describing a specific VISUAL EVENT: who is present (age and relationship), the exact action caught mid-moment, foreground/middle/background layers, setting, light, camera point of view and mood. For Halloween, show people actively setting the table, welcoming guests or entering the party—not an empty table decorated with pumpkins. Example for a Boss's Day post: "Seen over a coworker's shoulder, a team member steps into a sunlit corner office and extends a sunflower bouquet; her manager turns from the laptop with a surprised smile while two colleagues gather softly out of focus near the doorway." Never use a plain bouquet-on-table setup, empty decorated room, white background or centered catalog composition. No text, signs or cards with words in the scene.
 - heroProductId must be one of the productIds; its photo is the reference the image must match.
-- LINKS: every href must be exactly one of: PRODUCT:<id> (a catalog id), BLOG:<slug> (a slug from the existing posts list) or HOME. Never write a real URL. Format A: link 1 to 3 related posts; format B: 4 to 8${args.related.length ? "" : " (skip BLOG links if none are listed)"}. End with the closing paragraph that links HOME.
+- LINKS: every href must be exactly one of: PRODUCT:<id> (a catalog id), BLOG:<slug> (a slug from the existing posts list) or HOME. Never write a real URL. Link ${relatedLinkRange} relevant existing posts${args.related.length ? "" : " (skip BLOG links if none are listed)"}. End with the closing paragraph that links HOME.
 - Write as GreatFlowers speaking to its own customers. Do not give generic advice about "online florists", "looking for a florist", "subscription services" or how to shop elsewhere; every section must help the reader choose or send flowers from GreatFlowers.
 - Do not state historical, scientific or cultural origin claims (for example "dates back to ancient Rome") unless they are common, well-established knowledge; if unsure, leave them out and describe meanings as "traditionally associated with".
 - PRODUCT FACTS: describe a product's flowers, colors, vase or style ONLY from its catalog description above. Never infer looks from the product name (a name like "Black Velvet" does not mean black flowers). If a product has no description, name and link it but add no claims about how it looks. Prefer products whose description fits the topic.

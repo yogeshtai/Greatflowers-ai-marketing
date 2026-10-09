@@ -14,7 +14,7 @@ export const HERO_HEIGHT = 624;
 
 const escapeXml = (value: string) => value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[character]!);
 
-function titleLines(title: string, maxCharacters = 42, maxLines = 3): string[] {
+function titleLines(title: string, maxCharacters = 30, maxLines = 4): string[] {
   const words = title.trim().split(/\s+/);
   const lines: string[] = [];
   for (const word of words) {
@@ -34,14 +34,18 @@ function titleLines(title: string, maxCharacters = 42, maxLines = 3): string[] {
 // the image model still receives a strict no-text prompt to prevent visual gibberish.
 export function buildHeroOverlaySvg(title: string): Buffer {
   const lines = titleLines(title);
-  const startY = 410 - Math.max(0, lines.length - 2) * 44;
-  const text = lines.map((line, index) => `<text x="76" y="${startY + index * 58}" class="title">${escapeXml(line)}</text>`).join("");
+  const panelX = 930;
+  const panelWidth = 710;
+  const panelHeight = 250 + Math.max(0, lines.length - 2) * 38;
+  const panelY = HERO_HEIGHT - panelHeight - 42;
+  const textX = panelX + 46;
+  const startY = panelY + 126;
+  const text = lines.map((line, index) => `<text x="${textX}" y="${startY + index * 48}" class="title">${escapeXml(line)}</text>`).join("");
   return Buffer.from(`<svg width="${HERO_WIDTH}" height="${HERO_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
-    <defs><linearGradient id="shade" x1="0" y1="1" x2="0.72" y2="0"><stop offset="0" stop-color="#17120f" stop-opacity="0.92"/><stop offset="0.58" stop-color="#17120f" stop-opacity="0.58"/><stop offset="1" stop-color="#17120f" stop-opacity="0"/></linearGradient></defs>
-    <rect width="1120" height="624" fill="url(#shade)"/>
-    <rect x="76" y="${startY - 75}" width="54" height="5" rx="2.5" fill="#e7b85d"/>
-    <text x="76" y="${startY - 34}" font-family="Arial, sans-serif" font-size="19" font-weight="700" letter-spacing="4" fill="#f0d08d">GREAT FLOWERS JOURNAL</text>
-    <style>.title{font-family:Georgia,serif;font-size:48px;font-weight:700;fill:white;paint-order:stroke;stroke:#17120f;stroke-width:1.2px;stroke-opacity:.18}</style>
+    <rect x="${panelX}" y="${panelY}" width="${panelWidth}" height="${panelHeight}" rx="24" fill="#17120f" fill-opacity="0.76" stroke="#ffffff" stroke-opacity="0.16"/>
+    <rect x="${textX}" y="${panelY + 38}" width="46" height="4" rx="2" fill="#e7b85d"/>
+    <text x="${textX}" y="${panelY + 78}" font-family="Arial, sans-serif" font-size="16" font-weight="700" letter-spacing="3.5" fill="#f0d08d">GREAT FLOWERS JOURNAL</text>
+    <style>.title{font-family:Georgia,serif;font-size:38px;font-weight:700;fill:white}</style>
     ${text}
   </svg>`);
 }
@@ -113,6 +117,7 @@ VISUAL STORY REQUIREMENTS:
 - Create one unmistakable visual event or art-directed idea, not merely a relevant location.
 - Build three layers of depth: a foreground framing element, the main action or subject in the middle ground, and environmental story in the background.
 - Use an asymmetric editorial composition with a strong focal path across the panoramic frame.
+- Keep the people, bouquet and primary action within the LEFT two-thirds. Reserve the RIGHT third as calm negative space with no faces, hands, flowers or essential details; a title card will be added there after generation.
 - Include small authentic details that reveal the occasion, but never let props replace the human story.
 - Avoid the default formula of a bouquet centered on a table with decorations behind it. Avoid stiff posing, empty rooms, symmetrical catalog framing and generic stock-photo staging.
 

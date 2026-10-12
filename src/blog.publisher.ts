@@ -1,8 +1,7 @@
-import sharp from "sharp";
 import { withGfClient } from "./gf.admin.client.js";
 import { NO_CATEGORY, toCatalogProduct } from "./blog.generator.js";
 import { getBlogDraft, updateBlogDraft } from "./blog.store.js";
-import { HERO_HEIGHT, HERO_WIDTH, readHeroImage } from "./blog.image.js";
+import { HERO_FILE_EXTENSION, HERO_MIME_TYPE, optimizeHeroImage, readHeroImage } from "./blog.image.js";
 import { isDraftImagePending } from "./blog.jobs.js";
 import { emitBlogEvent } from "./blog.notify.js";
 import { errorDetail } from "./http.helpers.js";
@@ -57,7 +56,7 @@ export async function approveFlow(id: string): Promise<ApproveResult> {
 async function heroImage(imageUrl: string): Promise<Buffer> {
   const res = await fetch(imageUrl, { signal: AbortSignal.timeout(30_000) });
   if (!res.ok) throw new Error(`hero image download failed (${res.status})`);
-  return sharp(Buffer.from(await res.arrayBuffer())).resize(HERO_WIDTH, HERO_HEIGHT, { fit: "cover" }).png().toBuffer();
+  return optimizeHeroImage(Buffer.from(await res.arrayBuffer()));
 }
 
 async function publish(draft: BlogDraft) {
@@ -75,7 +74,7 @@ async function publish(draft: BlogDraft) {
     const existing = (await client.listBlogs()).find((b: any) => b.slug === draft.slug || b.title === draft.title);
     if (existing) return { id: Number(existing.id), status: Number(existing.status) as 0 | 1, reused: true };
 
-    const imageId = await client.uploadAttachment(aiHero ?? await heroImage(hero!.imageUrl!), `${draft.slug}.png`, "image/png");
+    const imageId = await client.uploadAttachment(aiHero ?? await heroImage(hero!.imageUrl!), `${draft.slug}.${HERO_FILE_EXTENSION}`, HERO_MIME_TYPE);
     const status: 0 | 1 = liveMode() ? 1 : 0;
     const created = await client.createBlog({
       title: draft.title,

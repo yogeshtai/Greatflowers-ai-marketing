@@ -1,10 +1,9 @@
-import sharp from "sharp";
 import { withGfClient } from "./gf.admin.client.js";
 import { toCatalogProduct } from "./blog.generator.js";
 import { nextNewYorkHour } from "./blog.time.js";
 import { errorDetail } from "./http.helpers.js";
 import { isWikiDraftImagePending } from "./wiki.jobs.js";
-import { readWikiImage, WIKI_IMAGE_HEIGHT, WIKI_IMAGE_WIDTH } from "./wiki.image.js";
+import { optimizeWikiImage, readWikiImage, WIKI_IMAGE_FILE_EXTENSION, WIKI_IMAGE_MIME_TYPE } from "./wiki.image.js";
 import type { WikiDraft } from "./wiki.schema.js";
 import { getWikiDraft, updateWikiDraft } from "./wiki.store.js";
 
@@ -56,9 +55,7 @@ export async function approveWikiFlow(id: string): Promise<WikiApproveResult> {
 async function productImage(imageUrl: string): Promise<Buffer> {
   const response = await fetch(imageUrl, { signal: AbortSignal.timeout(30_000) });
   if (!response.ok) throw new Error(`wiki fallback image download failed (${response.status})`);
-  return sharp(Buffer.from(await response.arrayBuffer()))
-    .resize(WIKI_IMAGE_WIDTH, WIKI_IMAGE_HEIGHT, { fit: "cover", position: sharp.strategy.attention })
-    .png().toBuffer();
+  return optimizeWikiImage(Buffer.from(await response.arrayBuffer()));
 }
 
 async function publish(draft: WikiDraft) {
@@ -78,7 +75,7 @@ async function publish(draft: WikiDraft) {
     const aiImage = await readWikiImage(draft.id);
     const hero = products.find((product) => product.id === draft.heroProductId);
     if (!aiImage && !hero?.imageUrl) throw new Error(`wiki hero product ${draft.heroProductId} has no image on the target environment`);
-    const imageId = await client.uploadAttachment(aiImage ?? await productImage(hero!.imageUrl!), `${draft.slug}.png`, "image/png");
+    const imageId = await client.uploadAttachment(aiImage ?? await productImage(hero!.imageUrl!), `${draft.slug}.${WIKI_IMAGE_FILE_EXTENSION}`, WIKI_IMAGE_MIME_TYPE);
     const status: 0 | 1 = liveMode() ? 1 : 0;
     const created = await client.createWiki({
       title: draft.title,

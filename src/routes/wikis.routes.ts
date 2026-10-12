@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import { unlink } from "node:fs/promises";
 import express from "express";
 import { z } from "zod";
@@ -7,7 +6,7 @@ import { withGfClient } from "../gf.admin.client.js";
 import { abortOnDisconnect, errorDetail, singleFlight } from "../http.helpers.js";
 import { attachWikiImage } from "../wiki.generator.js";
 import { beginWikiImageRegeneration, endWikiImageRegeneration, getWikiGenerationState, isWikiDraftImagePending, startWikiGeneration } from "../wiki.jobs.js";
-import { wikiImagePath } from "../wiki.image.js";
+import { existingWikiImagePath, wikiImagePaths } from "../wiki.image.js";
 import { approveWikiDraft, approveWikiFlow, isWikiDraftPublishing, publishWikiDraft, publishWikiImmediate, rejectWikiDraft } from "../wiki.publisher.js";
 import { WikiEditSchema } from "../wiki.schema.js";
 import { deleteUnpublishedWikiDraft, getWikiDraft, getWikiDrafts, updateWikiDraft } from "../wiki.store.js";
@@ -48,8 +47,8 @@ router.post("/api/wikis/generate", (_req, res) => {
 
 router.get("/api/wikis/:id/image", (req, res) => {
   try {
-    const file = wikiImagePath(idOf(req));
-    existsSync(file) ? res.sendFile(file) : res.status(404).json({ success: false, error: "No AI wiki image" });
+    const file = existingWikiImagePath(idOf(req));
+    file ? res.sendFile(file) : res.status(404).json({ success: false, error: "No AI wiki image" });
   } catch (error) {
     fail(res, error);
   }
@@ -99,9 +98,9 @@ router.delete("/api/wikis/:id", async (req, res) => {
     if (isWikiDraftImagePending(current)) return res.status(409).json({ success: false, error: "Wait for the wiki image to finish before deleting this entry" });
     const deleted = await deleteUnpublishedWikiDraft(id);
     if (!deleted) return res.status(409).json({ success: false, error: "This entry was published or removed before it could be deleted" });
-    await unlink(wikiImagePath(id)).catch((error: NodeJS.ErrnoException) => {
+    await Promise.all(wikiImagePaths(id).map((file) => unlink(file).catch((error: NodeJS.ErrnoException) => {
       if (error.code !== "ENOENT") console.error(`Could not remove image for deleted wiki ${id}:`, error);
-    });
+    })));
     return res.json({ success: true });
   } catch (error) {
     return fail(res, error);

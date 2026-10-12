@@ -7,8 +7,7 @@ import { deleteUnpublishedBlogDraft, getBlogDraft, getBlogDrafts, updateBlogDraf
 import { abortOnDisconnect, errorDetail, singleFlight } from "../http.helpers.js";
 import { attachHeroImage, toCatalogProduct } from "../blog.generator.js";
 import { withGfClient } from "../gf.admin.client.js";
-import { heroPath } from "../blog.image.js";
-import { existsSync } from "node:fs";
+import { existingHeroPath, heroImagePaths } from "../blog.image.js";
 import { unlink } from "node:fs/promises";
 
 const router = express.Router();
@@ -41,8 +40,8 @@ router.post("/api/blogs/generate", (_req, res) => {
 });
 
 router.get("/api/blogs/:id/hero", (req, res) => {
-  const file = heroPath(idOf(req));
-  existsSync(file) ? res.sendFile(file) : res.status(404).json({ success: false, error: "No AI hero image" });
+  const file = existingHeroPath(idOf(req));
+  file ? res.sendFile(file) : res.status(404).json({ success: false, error: "No AI hero image" });
 });
 
 router.post("/api/blogs/:id/hero/regenerate", singleFlight("blog", async (req, res) => {
@@ -80,9 +79,9 @@ router.delete("/api/blogs/:id", async (req, res) => {
     if (!deleted) return res.status(409).json({ success: false, error: "This entry was published or removed before it could be deleted" });
 
     // Queue deletion is intentionally local. A post already created in Great Flowers stays intact.
-    await unlink(heroPath(id)).catch((error: NodeJS.ErrnoException) => {
+    await Promise.all(heroImagePaths(id).map((file) => unlink(file).catch((error: NodeJS.ErrnoException) => {
       if (error.code !== "ENOENT") console.error(`Could not remove hero for deleted blog ${id}:`, error);
-    });
+    })));
     return res.json({ success: true });
   } catch (error) {
     return fail(res, error);

@@ -1,9 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import sharp from "sharp";
 import { resolveLinks, sanitizeEmbeds, selectBlogFormat, toCatalogProduct, validatePost } from "./blog.generator.js";
 import { nextNewYorkHour } from "./blog.time.js";
 import { publishAfterFor } from "./blog.publisher.js";
-import { buildHeroOverlaySvg, buildHeroPrompt, pickComposition } from "./blog.image.js";
+import { buildHeroOverlaySvg, buildHeroPrompt, HERO_HEIGHT, HERO_MIME_TYPE, HERO_WIDTH, optimizeHeroImage, pickComposition } from "./blog.image.js";
 import { getUpcomingOccasions } from "./occasion.calendar.js";
 
 const para = "<p>" + "Fresh flowers make every gift feel personal and thoughtful. ".repeat(25) + "</p>";
@@ -93,6 +94,16 @@ test("hero overlay uses real escaped title text", () => {
   const longOverlay = buildHeroOverlaySvg("How to Choose Thoughtful Flowers for Every Important Celebration and Personal Milestone").toString();
   assert.ok((longOverlay.match(/class="title"/g) ?? []).length <= 4);
   assert.doesNotMatch(longOverlay, /<text[^>]*class="title"[^>]*>[^<]{50}/);
+});
+test("blog heroes are encoded as correctly sized progressive JPEGs", async () => {
+  const source = await sharp({ create: { width: 80, height: 80, channels: 3, background: "#7b174f" } }).png().toBuffer();
+  const output = await optimizeHeroImage(source, "A Flower Guide");
+  const metadata = await sharp(output).metadata();
+  assert.equal(HERO_MIME_TYPE, "image/jpeg");
+  assert.equal(metadata.format, "jpeg");
+  assert.equal(metadata.width, HERO_WIDTH);
+  assert.equal(metadata.height, HERO_HEIGHT);
+  assert.equal(metadata.isProgressive, true);
 });
 test("blog formats rotate before repeating", () => {
   const history: Array<{ title: string; contentFormat?: "CURATED_LIST" | "PRACTICAL_GUIDE" | "OCCASION_PLAYBOOK" | "QUESTION_EXPLAINER" }> = [];

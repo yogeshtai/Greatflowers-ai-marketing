@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import sharp from "sharp";
 import { buildWikiPrompt, resolveWikiLinks, selectWikiSubject, validateWiki, WIKI_SUBJECTS } from "./wiki.generator.js";
-import { buildWikiImagePrompt } from "./wiki.image.js";
+import { buildWikiImagePrompt, optimizeWikiImage, WIKI_IMAGE_HEIGHT, WIKI_IMAGE_MIME_TYPE, WIKI_IMAGE_WIDTH } from "./wiki.image.js";
 import { beginWikiImageRegeneration, endWikiImageRegeneration, isWikiDraftImagePending } from "./wiki.jobs.js";
 import { wikiPublishAfterFor } from "./wiki.publisher.js";
 
@@ -74,6 +75,16 @@ test("wiki image prompt uses the storefront's 4:3 slot and forbids text", () => 
   assert.match(prompt, /4:3/);
   assert.match(prompt, /botanically recognizable/);
   assert.match(prompt, /no text/);
+});
+test("wiki images are encoded as correctly sized progressive JPEGs", async () => {
+  const source = await sharp({ create: { width: 80, height: 80, channels: 3, background: "#f3eadc" } }).png().toBuffer();
+  const output = await optimizeWikiImage(source);
+  const metadata = await sharp(output).metadata();
+  assert.equal(WIKI_IMAGE_MIME_TYPE, "image/jpeg");
+  assert.equal(metadata.format, "jpeg");
+  assert.equal(metadata.width, WIKI_IMAGE_WIDTH);
+  assert.equal(metadata.height, WIKI_IMAGE_HEIGHT);
+  assert.equal(metadata.isProgressive, true);
 });
 
 test("manual image regeneration is exposed as pending to approval and publishing", () => {

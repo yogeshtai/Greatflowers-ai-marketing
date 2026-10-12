@@ -119,6 +119,7 @@ export function WikiQueueSection() {
                   <span className={`status status-${wiki.status}`}>{wiki.status}</span>
                   {makingImage && <span>making the wiki image...</span>}
                   <span>{when(wiki.createdAt)}</span>
+                  <span>by {wiki.authorName}</span>
                   <span>{wiki.botanicalName}</span>
                   <span>{wiki.productIds.length} related product{wiki.productIds.length === 1 ? "" : "s"}</span>
                   <span>{wiki.environment}</span>
@@ -152,6 +153,8 @@ export function WikiQueueSection() {
                         <input value={value(wiki, "title")} onChange={(event) => change(wiki.id, "title", event.target.value)} style={{ padding: 8 }} />
                         <label style={{ fontSize: 12, color: "#70706a" }}>Botanical name</label>
                         <input value={value(wiki, "botanicalName")} onChange={(event) => change(wiki.id, "botanicalName", event.target.value)} style={{ padding: 8 }} />
+                        <label style={{ fontSize: 12, color: "#70706a" }}>Author</label>
+                        <input value={value(wiki, "authorName")} onChange={(event) => change(wiki.id, "authorName", event.target.value)} style={{ padding: 8 }} />
                         <label style={{ fontSize: 12, color: "#70706a" }}>Description</label>
                         <textarea value={value(wiki, "description")} onChange={(event) => change(wiki.id, "description", event.target.value)} rows={3} style={{ padding: 8 }} />
                         <label style={{ fontSize: 12, color: "#70706a" }}>SEO title</label>

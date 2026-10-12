@@ -19,7 +19,7 @@ const base = {
   title: "Roses",
   slug: "roses",
   botanicalName: "Rosa",
-  authorName: "Great Flowers Editorial Team",
+  authorName: "Mason Thomas",
   description: "Roses are layered flowering plants valued in gardens, floral design and gifts, with forms and colors suited to many different settings.",
   metaTitle: "Roses: Meanings, Varieties and Care",
   metaDescription: "Learn how to recognize roses, understand their traditional color meanings, care for cut stems and choose them for arrangements and thoughtful gifts.",

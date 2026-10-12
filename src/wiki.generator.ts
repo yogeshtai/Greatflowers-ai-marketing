@@ -1,4 +1,5 @@
 import { gfApiHost, withGfClient } from "./gf.admin.client.js";
+import { DEFAULT_WIKI_AUTHOR, isWikiAuthor, selectWikiAuthor } from "./wiki.authors.js";
 import { requestHermesJSON } from "./hermes.json.js";
 import { parseModelJSON } from "./model.json.js";
 import { toCatalogProduct, type CatalogProduct } from "./blog.generator.js";
@@ -96,7 +97,7 @@ export function resolveWikiLinks(html: string, products: CatalogProduct[], base:
   });
 }
 
-export function buildWikiPrompt(subject: WikiSubject, products: CatalogProduct[], existingTitles: string[]): string {
+export function buildWikiPrompt(subject: WikiSubject, products: CatalogProduct[], existingTitles: string[], authorName: string = DEFAULT_WIKI_AUTHOR): string {
   return `You are writing one factual evergreen entry for the Great Flowers A-Z Flower & Plant Wiki.
 
 ASSIGNED SUBJECT (do not change it)
@@ -135,7 +136,7 @@ IMAGE
 SEO
 - title must be exactly "${subject.title}".
 - botanicalName must be exactly "${subject.botanicalName}".
-- authorName must be "Great Flowers Editorial Team".
+- authorName must be exactly "${authorName}".
 - metaTitle is 35-55 characters without "Great Flowers".
 - metaDescription is 120-165 characters.
 - Return JSON only.`;
@@ -147,7 +148,7 @@ export function validateWiki(output: string, context: { subject: WikiSubject; ex
   if (wiki.title !== context.subject.title) throw new Error(`title must be exactly ${context.subject.title}`);
   if (wiki.botanicalName !== context.subject.botanicalName) throw new Error(`botanicalName must be exactly ${context.subject.botanicalName}`);
   if (wiki.slug !== expectedSlug) throw new Error(`slug must be exactly ${expectedSlug}`);
-  if (wiki.authorName !== "Great Flowers Editorial Team") throw new Error("authorName must be Great Flowers Editorial Team");
+  if (!isWikiAuthor(wiki.authorName)) throw new Error("authorName must be an approved Great Flowers wiki author");
   if (/great\s*flowers/i.test(wiki.metaTitle)) throw new Error("metaTitle must not contain the Great Flowers brand name");
   if (context.existingTitles.some((title) => normalized(title) === normalized(wiki.title))) throw new Error("title duplicates an existing wiki entry");
   if (context.existingSlugs.includes(wiki.slug)) throw new Error("slug duplicates an existing wiki entry");
@@ -175,6 +176,7 @@ export async function generateDailyWikiDraft(signal?: AbortSignal, onDraftSaved?
   if (!context.products.length) throw new Error("No catalog products with images are available for the wiki entry");
 
   const localDrafts = (await getWikiDrafts()).filter((draft) => draft.environment === environment && draft.status !== "rejected");
+  const authorName = selectWikiAuthor(localDrafts.map((draft) => draft.authorName));
   const existingTitles = [...context.wikis.map((wiki: any) => String(wiki.title)), ...localDrafts.map((draft) => draft.title)];
   const existingSlugs = [...context.wikis.map((wiki: any) => String(wiki.slug)), ...localDrafts.map((draft) => draft.slug)];
   const existingBotanicalNames = [...context.wikis.map((wiki: any) => String(wiki.botanical_name ?? "")), ...localDrafts.map((draft) => draft.botanicalName)];
@@ -185,12 +187,12 @@ export async function generateDailyWikiDraft(signal?: AbortSignal, onDraftSaved?
   const promptProducts = matching.slice(0, 50);
   const base = storefrontBase();
   const wiki = await requestHermesJSON(
-    buildWikiPrompt(subject, promptProducts, existingTitles),
+    buildWikiPrompt(subject, promptProducts, existingTitles, authorName),
     (output) => validateWiki(output, { subject, existingTitles, existingSlugs, products: promptProducts, base }),
     signal,
     GeneratedWikiJsonSchema,
   );
-  const draft = await addWikiDraft({ ...wiki, environment });
+  const draft = await addWikiDraft({ ...wiki, authorName, environment });
   onDraftSaved?.();
   return attachWikiImage(draft.id, wiki, promptProducts.find((product) => product.id === wiki.heroProductId)?.imageUrl, signal);
 }

@@ -4,6 +4,7 @@ import { generateDailyWikiDraft } from "./wiki.generator.js";
 
 export interface WikiGenerationState {
   running: boolean;
+  phase?: "article" | "image";
   trigger?: "manual" | "schedule";
   startedAt?: string;
   finishedAt?: string;
@@ -27,8 +28,12 @@ export function startWikiGeneration(trigger: "manual" | "schedule"): boolean {
   const release = tryAcquire("wiki");
   if (!release) return false;
   const startedAt = new Date().toISOString();
-  state = { running: true, trigger, startedAt };
-  generateDailyWikiDraft()
+  state = { running: true, phase: "article", trigger, startedAt };
+  generateDailyWikiDraft(undefined, () => {
+    // The article is already in the queue at this point; only its image remains.
+    // Keep the same run identity so a stale callback cannot overwrite a newer job.
+    if (state.running && state.startedAt === startedAt) state = { ...state, phase: "image" };
+  })
     .then((draft) => {
       console.log(`📚 Wiki draft ready for approval: ${draft.title}`);
       state = { running: false, trigger, startedAt, finishedAt: new Date().toISOString() };

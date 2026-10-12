@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { GenerationState } from "../api/blogs";
-import { approveWiki, deleteWiki, editWiki, generateWiki, getWikis, getWikiStatus, publishWikiNow, regenerateWikiImage, rejectWiki, wikiImageUrl, type WikiDraft, type WikiEdit } from "../api/wikis";
+import { approveWiki, deleteWiki, editWiki, generateWiki, getWikis, getWikiStatus, publishWikiNow, regenerateWikiImage, rejectWiki, wikiImageUrl, type WikiDraft, type WikiEdit, type WikiGenerationState } from "../api/wikis";
 
 const when = (iso?: string) => (iso ? new Date(iso).toLocaleString() : "");
 
@@ -10,7 +9,7 @@ export function WikiQueueSection() {
   const [publishMode, setPublishMode] = useState<"immediate" | "scheduled">("immediate");
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [generation, setGeneration] = useState<GenerationState>({ running: false });
+  const [generation, setGeneration] = useState<WikiGenerationState>({ running: false });
   const [openId, setOpenId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Record<string, WikiEdit>>({});
   const [error, setError] = useState("");
@@ -84,17 +83,20 @@ export function WikiQueueSection() {
         <div style={{ display: "flex", gap: 10 }}>
           <button className="secondary-button" onClick={load} disabled={loading}>{loading ? "Loading..." : "Refresh"}</button>
           <button className="primary-action-button" disabled={generation.running} onClick={() => run(null, generateWiki)}>
-            {generation.running ? "Writing wiki draft..." : "Generate wiki draft now"}
+            {generation.running ? (generation.phase === "image" ? "Creating wiki image..." : "Writing wiki article...") : "Generate wiki draft now"}
           </button>
         </div>
       </div>
 
       {generation.running && (
         <div role="status" style={{ margin: "0 0 16px", padding: "14px 18px", borderRadius: 12, background: "#eef7ed", border: "1px solid #c9dfc5", color: "#275b2a" }}>
-          <strong>Writing a new wiki draft... {elapsedLabel}</strong>
+          <strong>{generation.phase === "image" ? "Article ready — creating its wiki image" : "Writing a new wiki article"}... {elapsedLabel}</strong>
           <div style={{ fontSize: 13, marginTop: 4 }}>
             {generation.trigger === "schedule" ? "Started by the daily 7:00 PM IST run. " : "Started from this page. "}
-            The article is written first, followed by its 4:3 botanical image. You may leave this page while it runs.
+            {generation.phase === "image"
+              ? "The draft is saved below. Approval becomes available when its 4:3 botanical image finishes or the product-photo fallback is selected. "
+              : "The article is written first, followed by its 4:3 botanical image. "}
+            You may leave this page while it runs.
             {elapsedSeconds > 15 * 60 && " It is taking unusually long; check the server logs if it does not finish soon."}
           </div>
         </div>

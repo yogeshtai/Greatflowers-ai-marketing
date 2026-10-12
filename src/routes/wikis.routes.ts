@@ -21,11 +21,13 @@ const fail = (res: express.Response, error: unknown, status = 500) => {
 const imageBusyMessage = "The wiki image is still being made for this draft. Try again in a minute.";
 
 router.get("/api/wikis/status", (_req, res) => {
+  res.set("Cache-Control", "no-store");
   res.json({ success: true, generation: getWikiGenerationState() });
 });
 
 router.get("/api/wikis", async (_req, res) => {
   try {
+    res.set("Cache-Control", "no-store");
     res.json({
       success: true,
       wikis: await getWikiDrafts(),

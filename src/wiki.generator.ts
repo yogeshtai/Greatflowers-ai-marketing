@@ -166,7 +166,7 @@ export function validateWiki(output: string, context: { subject: WikiSubject; ex
 
 const storefrontBase = () => (process.env.GF_STOREFRONT_URL || "https://greatflowers.net").replace(/\/+$/, "");
 
-export async function generateDailyWikiDraft(signal?: AbortSignal) {
+export async function generateDailyWikiDraft(signal?: AbortSignal, onDraftSaved?: () => void) {
   const environment = gfApiHost();
   const context = await withGfClient(async (client) => {
     const [wikis, rawProducts] = await Promise.all([client.listWikis(), client.searchProducts("", 100)]);
@@ -191,6 +191,7 @@ export async function generateDailyWikiDraft(signal?: AbortSignal) {
     GeneratedWikiJsonSchema,
   );
   const draft = await addWikiDraft({ ...wiki, environment });
+  onDraftSaved?.();
   return attachWikiImage(draft.id, wiki, promptProducts.find((product) => product.id === wiki.heroProductId)?.imageUrl, signal);
 }
 

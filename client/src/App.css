@@ -105,7 +105,7 @@ select {
 
 .tab-list {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
   padding: 6px;
   border: 1px solid #dfdfd9;
@@ -697,6 +697,7 @@ a {
 .campaign-meta {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
 
   color: #85857f;
@@ -728,6 +729,16 @@ a {
 .status-rejected {
   background: #fff0f0;
   color: #9a3333;
+}
+
+.status-published {
+  background: #edf3ff;
+  color: #28549a;
+}
+
+.status-failed {
+  background: #fff4e5;
+  color: #945b13;
 }
 
 .campaign-actions {

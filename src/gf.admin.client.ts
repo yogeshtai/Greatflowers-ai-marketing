@@ -60,6 +60,9 @@ export function createGfClient(token: string) {
     async listBlogs() {
       return rows(await get("/blog", { paginate: 500 }));
     },
+    async listWikis() {
+      return rows(await get("/wiki", { paginate: 500 }));
+    },
     async listBlogCategories() {
       return rows(await get("/category", { type: "post", paginate: 200 }));
     },
@@ -81,8 +84,18 @@ export function createGfClient(token: string) {
         body: JSON.stringify(payload),
       });
     },
+    async createWiki(payload: Json) {
+      return http(`${baseUrl}/wiki`, {
+        method: "POST",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    },
     async setBlogStatus(id: number, status: 0 | 1) {
       return http(`${baseUrl}/blog/${id}/${status}`, { method: "PUT", headers: auth });
+    },
+    async setWikiStatus(id: number, status: 0 | 1) {
+      return http(`${baseUrl}/wiki/${id}/${status}`, { method: "PUT", headers: auth });
     },
   };
 }

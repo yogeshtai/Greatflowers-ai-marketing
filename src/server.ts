@@ -4,6 +4,8 @@ import express from "express";
 import { startCampaignScheduler } from "./campaign.scheduler.js";
 import { startBlogScheduler } from "./blog.scheduler.js";
 import blogsRoutes from "./routes/blogs.routes.js";
+import wikisRoutes from "./routes/wikis.routes.js";
+import { startWikiScheduler } from "./wiki.scheduler.js";
 import campaignsRoutes from "./routes/campaigns.routes.js";
 import recommendationsRoutes from "./routes/recommendations.routes.js";
 import creativesRoutes from "./routes/creatives.routes.js";
@@ -49,11 +51,13 @@ app.use(creativesRoutes);
 app.use(infoRoutes);
 app.use(publishingRoutes);
 app.use(blogsRoutes);
+app.use(wikisRoutes);
 
 const PORT = process.env.PORT || 3000;
 
 startCampaignScheduler();
 startBlogScheduler();
+startWikiScheduler();
 
 app.listen(PORT, () => {
   console.log(

@@ -19,11 +19,12 @@ import { CampaignCreativesSection } from "./components/CampaignCreativesSection"
 import { StoryCreativesSection } from "./components/StoryCreativesSection";
 import { StrategyDetails } from "./components/StrategyDetails";
 import { BlogQueueSection } from "./components/BlogQueueSection";
+import { WikiQueueSection } from "./components/WikiQueueSection";
 import { HistorySection } from "./components/HistorySection";
 import { ScheduleModal } from "./components/ScheduleModal";
 import { LoginScreen } from "./components/LoginScreen";
 
-type DashboardTab = "studio" | "campaigns" | "blogs";
+type DashboardTab = "studio" | "campaigns" | "blogs" | "wikis";
 
 function App() {
   // Authentication state
@@ -898,7 +899,7 @@ function App() {
           <h1>AI Marketing Studio</h1>
           <p>
             Plan campaigns, review AI recommendations, and publish daily blog
-            content from one focused workspace.
+            and flower-wiki content from one focused workspace.
           </p>
         </div>
         <button
@@ -955,6 +956,21 @@ function App() {
             <span className="tab-copy">
               <strong>Blog Queue</strong>
               <small>Review &amp; publish</small>
+            </span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "wikis"}
+            aria-controls="wikis-panel"
+            id="wikis-tab"
+            className={`dashboard-tab ${activeTab === "wikis" ? "active" : ""}`}
+            onClick={() => setActiveTab("wikis")}
+          >
+            <span className="tab-icon" aria-hidden="true">❧</span>
+            <span className="tab-copy">
+              <strong>Wiki Queue</strong>
+              <small>Review encyclopedia</small>
             </span>
           </button>
         </div>
@@ -1191,6 +1207,15 @@ function App() {
         aria-labelledby="blogs-tab"
       >
         <BlogQueueSection />
+      </div>}
+
+      {activeTab === "wikis" && <div
+        className="tab-panel"
+        id="wikis-panel"
+        role="tabpanel"
+        aria-labelledby="wikis-tab"
+      >
+        <WikiQueueSection />
       </div>}
 
       {activeTab === "campaigns" && <div

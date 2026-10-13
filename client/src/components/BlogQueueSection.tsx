@@ -5,6 +5,7 @@ const when = (iso?: string) => (iso ? new Date(iso).toLocaleString() : "");
 
 export function BlogQueueSection() {
   const [blogs, setBlogs] = useState<BlogDraft[]>([]);
+  const [authors, setAuthors] = useState<string[]>([]);
   const [liveMode, setLiveMode] = useState(false);
   const [publishMode, setPublishMode] = useState<"immediate" | "scheduled">("immediate");
   const [loading, setLoading] = useState(false);
@@ -20,6 +21,7 @@ export function BlogQueueSection() {
     try {
       const data = await getBlogs();
       setBlogs(data.blogs);
+      setAuthors(data.authors);
       setLiveMode(data.liveMode);
       setPublishMode(data.publishMode ?? "immediate");
       setGeneration(data.generation);
@@ -113,12 +115,15 @@ export function BlogQueueSection() {
             const open = openId === blog.id;
             const makingImage = editable && imageBusy(blog);
             const title = editing[blog.id] ?? blog.title;
+            const authorKey = `${blog.id}:author`;
+            const authorName = editing[authorKey] ?? blog.authorName;
             return (
               <article className="campaign-item" key={blog.id} style={{ display: "block" }}>
                 <div className="campaign-meta">
                   <span className={`status status-${blog.status}`}>{blog.status}</span>
                   {makingImage && <span>making the hero image...</span>}
                   <span>{when(blog.createdAt)}</span>
+                  <span>by {blog.authorName}</span>
                   <span>categories: {blog.categorySlug === "none" ? "none (no category fits)" : [blog.categorySlug, blog.secondCategorySlug].filter(Boolean).join(" + ")}</span>
                   <span>{blog.environment}</span>
                 </div>
@@ -170,6 +175,16 @@ export function BlogQueueSection() {
                             await editBlog(blog.id, { title });
                             setEditing((current) => Object.fromEntries(Object.entries(current).filter(([key]) => key !== blog.id)));
                           })}>Save title</button>
+                        </div>
+                        <label style={{ fontSize: 12, color: "#70706a" }}>Author</label>
+                        <select value={authorName} onChange={(e) => setEditing({ ...editing, [authorKey]: e.target.value })} style={{ padding: 8 }}>
+                          {authors.map((author) => <option key={author} value={author}>{author}</option>)}
+                        </select>
+                        <div>
+                          <button className="secondary-button" disabled={busyId === blog.id || authorName === blog.authorName} onClick={() => run(blog.id, async () => {
+                            await editBlog(blog.id, { authorName });
+                            setEditing((current) => Object.fromEntries(Object.entries(current).filter(([key]) => key !== authorKey)));
+                          })}>Save author</button>
                         </div>
                         <div style={{ fontSize: 12, color: "#70706a" }}>SEO: {blog.metaTitle} | Great Flowers - {blog.metaDescription}</div>
                       </div>

@@ -7,6 +7,7 @@ import { emitBlogEvent } from "./blog.notify.js";
 import { errorDetail } from "./http.helpers.js";
 import { nextNewYorkHour } from "./blog.time.js";
 import type { BlogDraft } from "./blog.schema.js";
+import { DEFAULT_CONTENT_AUTHOR } from "./content.authors.js";
 
 export const PUBLISH_HOUR_ET = Number(process.env.BLOG_PUBLISH_HOUR_ET ?? 10);
 const MAX_ATTEMPTS = 3;
@@ -79,6 +80,7 @@ async function publish(draft: BlogDraft) {
     const created = await client.createBlog({
       title: draft.title,
       slug: draft.slug,
+      author_name: draft.authorName ?? DEFAULT_CONTENT_AUTHOR,
       description: draft.summary,
       content: draft.html,
       meta_title: `${draft.metaTitle}${BRAND_SUFFIX}`,

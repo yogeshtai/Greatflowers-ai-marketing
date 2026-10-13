@@ -9,6 +9,7 @@ import { attachHeroImage, toCatalogProduct } from "../blog.generator.js";
 import { withGfClient } from "../gf.admin.client.js";
 import { existingHeroPath, heroImagePaths } from "../blog.image.js";
 import { unlink } from "node:fs/promises";
+import { CONTENT_AUTHORS, DEFAULT_CONTENT_AUTHOR } from "../content.authors.js";
 
 const router = express.Router();
 const fail = (res: express.Response, error: unknown, status = 500) => {
@@ -27,7 +28,8 @@ const imageBusyMessage = "The hero image is still being made for this draft. Try
 
 router.get("/api/blogs", async (_req, res) => {
   try {
-    res.json({ success: true, blogs: await getBlogDrafts(), liveMode: process.env.BLOG_PUBLISH_LIVE === "true", publishMode: publishImmediate() ? "immediate" : "scheduled", generation: getGenerationState() });
+    const blogs = (await getBlogDrafts()).map((blog) => ({ ...blog, authorName: blog.authorName ?? DEFAULT_CONTENT_AUTHOR }));
+    res.json({ success: true, blogs, authors: CONTENT_AUTHORS, liveMode: process.env.BLOG_PUBLISH_LIVE === "true", publishMode: publishImmediate() ? "immediate" : "scheduled", generation: getGenerationState() });
   } catch (error) {
     fail(res, error);
   }

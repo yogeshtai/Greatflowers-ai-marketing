@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CONTENT_AUTHORS } from "./content.authors.js";
 
 export const BLOG_STATUSES = ["draft", "approved", "published", "rejected", "failed"] as const;
 export type BlogDraftStatus = (typeof BLOG_STATUSES)[number];
@@ -32,6 +33,7 @@ export type GeneratedPost = z.infer<typeof GeneratedPostSchema>;
 export const GeneratedPostJsonSchema = z.toJSONSchema(GeneratedPostSchema, { io: "input", unrepresentable: "any" });
 
 export const BlogEditSchema = z.object({
+  authorName: z.enum(CONTENT_AUTHORS),
   title: z.string().min(10).max(120),
   metaTitle: z.string().min(10).max(70),
   metaDescription: z.string().min(80).max(170),
@@ -41,6 +43,8 @@ export const BlogEditSchema = z.object({
 }).partial();
 
 export interface BlogDraft extends GeneratedPost {
+  /** Optional only for queue entries created before blog bylines were added. */
+  authorName?: string;
   id: string;
   status: BlogDraftStatus;
   createdAt: string;

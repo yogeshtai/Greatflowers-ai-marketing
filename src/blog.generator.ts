@@ -5,6 +5,7 @@ import { BLOG_FORMATS, GeneratedPostJsonSchema, GeneratedPostSchema, type BlogFo
 import { addBlogDraft, getBlogDrafts, updateBlogDraft } from "./blog.store.js";
 import { generateHeroImage, type HeroInput } from "./blog.image.js";
 import { gfApiHost, withGfClient } from "./gf.admin.client.js";
+import { selectContentAuthor } from "./content.authors.js";
 
 // The model may say no category fits; the post is then published without a category instead of a wrong one.
 export const NO_CATEGORY = "none";
@@ -174,6 +175,7 @@ export async function generateDailyBlogDraft(signal?: AbortSignal) {
   });
 
   const localDrafts = (await getBlogDrafts()).filter((d) => d.environment === environment && d.status !== "rejected");
+  const authorName = selectContentAuthor(localDrafts.map((draft) => draft.authorName));
   const existingTitles = [...context.blogs.map((b: any) => String(b.title)), ...localDrafts.map((d) => d.title)];
   const existingSlugs = [...context.blogs.map((b: any) => String(b.slug)), ...localDrafts.map((d) => d.slug)];
   const categories = context.categories.map((c: any) => ({ slug: String(c.slug), name: String(c.name) }));
@@ -198,7 +200,7 @@ export async function generateDailyBlogDraft(signal?: AbortSignal) {
     signal,
     GeneratedPostJsonSchema,
   );
-  const draft = await addBlogDraft({ ...post, environment });
+  const draft = await addBlogDraft({ ...post, authorName, environment });
   return attachHeroImage(draft.id, post, products.find((p) => p.id === post.heroProductId)?.imageUrl, signal);
 }
 

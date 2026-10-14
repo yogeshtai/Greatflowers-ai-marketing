@@ -16,7 +16,7 @@ import fetch from "node-fetch";
 import sharp from "sharp";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { CODEX_SPAWN_OPTIONS, codexLimitArgs, guardCodexProcess } from "./ai.limits.js";
-import { addCreativeText, type CreativeTextSide } from "./creative.text.js";
+import { addCreativeText, buildCreativeTextOverlay, type CreativeTextSide } from "./creative.text.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CODEX_GENERATED_IMAGES_DIR =
@@ -108,6 +108,7 @@ export interface CreativeVariant {
   concept: string;
   headline: string;
   subheadline: string;
+  contentPoints?: string[];
   cta: string;
   visualDirection: string;
   productRole: "hero" | "supporting" | "optional" | "none";
@@ -360,6 +361,7 @@ Generate from the strategic concept.`;
 
   const logoPosition = resolveLogoPosition(creativeBrief.logoPlacement);
   const textSide: CreativeTextSide = logoPosition === "top-left" ? "right" : "left";
+  const hasContentPoints = (variant.contentPoints?.length || 0) > 0;
 
   return `Create a TEXT-FREE 1:1 premium social media campaign base image for GreatFlowers.
 
@@ -392,10 +394,11 @@ The official GreatFlowers logo will be overlaid here after generation.
 Do not generate, spell, draw, or recreate GreatFlowers branding.
 
 TYPOGRAPHY SAFE AREA (CRITICAL):
-Reserve the outer ${textSide} 42% of the upper half as calm, light-toned photographic negative space.
+Reserve the outer ${textSide} ${hasContentPoints ? "46% of the upper 72%" : "42% of the upper half"} as calm, light-toned photographic negative space.
 Keep faces, flowers and important objects out of that zone, but continue natural scene texture and light through it.
 Do not create a white rectangle, translucent card, blank paper panel or fake text box.
-The application will typeset the approved headline and subheadline in this zone after generation.
+The application will typeset the approved headline, subheadline${hasContentPoints ? " and numbered content points" : ""} in this zone after generation.
+${hasContentPoints ? "Do not draw empty circles, unlabeled icons, arrows, process diagrams or step placeholders." : ""}
 
 WEBSITE CTA SAFE AREA:
 Keep the lower-center 12% clear of faces, flowers and important objects for the website pill added later.
@@ -781,6 +784,12 @@ export async function generateCreativeVariant(
 ): Promise<CreativeResult> {
   const tempFiles = new Set<string>();
   try {
+    const logoPosition = resolveLogoPosition(creativeBrief.logoPlacement);
+    const textSide: CreativeTextSide = logoPosition === "top-left" ? "right" : "left";
+
+    // Validate all deterministic typography before starting the slow image-generation step.
+    buildCreativeTextOverlay(variant, textSide);
+
     await mkdir(OUTPUT_DIR, { recursive: true });
 
     const timestamp = Date.now();
@@ -823,8 +832,6 @@ export async function generateCreativeVariant(
     tempFiles.add(generatedPath);
 
     // Step 2: Typeset exact approved copy with purpose-specific typography.
-    const logoPosition = resolveLogoPosition(creativeBrief.logoPlacement);
-    const textSide: CreativeTextSide = logoPosition === "top-left" ? "right" : "left";
     const textOutputPath = join(OUTPUT_DIR, `text-${outputFilename}`);
     tempFiles.add(textOutputPath);
     await addCreativeText(generatedPath, textOutputPath, variant, textSide);

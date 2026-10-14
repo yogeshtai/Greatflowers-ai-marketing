@@ -286,6 +286,7 @@ Use exactly this structure:
         "concept": "string",
         "headline": "string",
         "subheadline": "string",
+        "contentPoints": ["2-4 short meaningful actions; REQUIRED when copy promises steps, a routine, checklist, cheat sheet or guide; otherwise omit"],
         "cta": "string",
         "visualDirection": "string",
         "productRole": "hero | supporting | optional | none",
@@ -308,6 +309,7 @@ Use exactly this structure:
         "concept": "string",
         "headline": "string",
         "subheadline": "string",
+        "contentPoints": ["2-4 short meaningful actions; REQUIRED when copy promises steps, a routine, checklist, cheat sheet or guide; otherwise omit"],
         "cta": "string",
         "visualDirection": "string",
         "productRole": "hero | supporting | optional | none",
@@ -330,6 +332,7 @@ Use exactly this structure:
         "concept": "string",
         "headline": "string",
         "subheadline": "string",
+        "contentPoints": ["2-4 short meaningful actions; REQUIRED when copy promises steps, a routine, checklist, cheat sheet or guide; otherwise omit"],
         "cta": "string",
         "visualDirection": "string",
         "productRole": "hero | supporting | optional | none",
@@ -352,6 +355,7 @@ Use exactly this structure:
         "concept": "string",
         "headline": "string",
         "subheadline": "string",
+        "contentPoints": ["2-4 short meaningful actions; REQUIRED when copy promises steps, a routine, checklist, cheat sheet or guide; otherwise omit"],
         "cta": "string",
         "visualDirection": "string",
         "productRole": "hero | supporting | optional | none",
@@ -462,6 +466,18 @@ subheadline:
 
 One short supporting sentence.
 Must not invent unsupported claims.
+
+contentPoints:
+
+For independent creatives, this field is REQUIRED whenever the headline or subheadline promises
+steps, checks, tips, a routine, checklist, cheat sheet or guide. Supply the actual 2-4 concise
+customer-facing actions that will be printed on the image. If the copy says "three" or "3",
+in reference to the promised steps/checks/tips, provide exactly 3 items; likewise for 2 or 4.
+Do not treat unrelated numbers such as delivery timing or product quantity as the item count.
+Each item must be a meaningful action of no more
+than 72 characters, never an empty label such as "Step 1". Use only supplied facts or safe,
+general flower-care guidance. If the creative does not promise a list or process, omit this field.
+Never promise useful content that is absent from contentPoints.
 
 cta:
 

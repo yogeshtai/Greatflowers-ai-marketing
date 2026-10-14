@@ -67,14 +67,64 @@ test("headline typography applies controlled pink emphasis to a meaningful phras
   assert.match(svg, /A thoughtful surprise for their[\s\S]*day\./);
 });
 
+test("promised care steps are rendered as visible numbered actions", () => {
+  const svg = buildCreativeTextOverlay(variant({
+    creativeType: "informational",
+    sceneStrategy: "INFORMATIONAL_GRAPHIC",
+    headline: "Three Simple Care Steps",
+    subheadline: "Start with the basics.",
+    contentPoints: ["Trim stems at an angle", "Use a clean vase", "Refresh the water"],
+  }), "left").toString();
+
+  assert.match(svg, /<circle/);
+  assert.match(svg, />1<\/text>/);
+  assert.match(svg, />2<\/text>/);
+  assert.match(svg, />3<\/text>/);
+  assert.match(svg, /Trim stems at an angle/);
+  assert.match(svg, /Use a clean vase/);
+  assert.match(svg, /Refresh the water/);
+});
+
+test("maximum-length content remains renderable on either text side", () => {
+  const creative = variant({
+    creativeType: "informational",
+    sceneStrategy: "INFORMATIONAL_GRAPHIC",
+    headline: "Four Essential Care Steps",
+    subheadline: "Help the bouquet stay fresh.",
+    contentPoints: [
+      "Trim every stem diagonally with clean sharp scissors before placing it",
+      "Remove every leaf that would otherwise rest below the vase waterline",
+      "Fill a freshly cleaned vase with cool water and flower food",
+      "Refresh the water regularly and remove any fading flowers promptly",
+    ],
+  });
+
+  assert.doesNotThrow(() => buildCreativeTextOverlay(creative, "left"));
+  assert.doesNotThrow(() => buildCreativeTextOverlay(creative, "right"));
+});
+
 test("image generation reserves clear zones and never renders its own text", () => {
-  const creative = variant({ headline: "Exact approved copy" });
+  const creative = variant({
+    headline: "Three exact care steps",
+    contentPoints: ["Trim the stems", "Use a clean vase", "Refresh the water"],
+  });
   const prompt = buildCodexPrompt(creative, brief(creative));
 
   assert.match(prompt, /TEXT-FREE 1:1 premium social media campaign base image/);
-  assert.match(prompt, /outer left 42%/);
+  assert.match(prompt, /outer left 46% of the upper 72%/);
   assert.match(prompt, /lower-center 12%/);
   assert.match(prompt, /Do NOT render any text, letters, numbers/);
+  assert.match(prompt, /Do not draw empty circles, unlabeled icons/);
   assert.doesNotMatch(prompt, /TEXT OVERLAY \(verbatim\)/);
-  assert.doesNotMatch(prompt, /Exact approved copy/);
+  assert.doesNotMatch(prompt, /Three exact care steps/);
+});
+
+test("existing creatives without content points retain the original safe area", () => {
+  const creative = variant({ headline: "A Beautiful Way to Show You Care" });
+  const prompt = buildCodexPrompt(creative, brief(creative));
+
+  assert.match(prompt, /outer left 42% of the upper half/);
+  assert.doesNotMatch(prompt, /numbered content points/);
+  assert.doesNotMatch(prompt, /empty circles, unlabeled icons/);
+  assert.doesNotThrow(() => buildCreativeTextOverlay(creative, "left"));
 });

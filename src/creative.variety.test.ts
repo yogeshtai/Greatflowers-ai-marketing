@@ -44,3 +44,56 @@ test("independent campaigns require four genuinely varied creative directions", 
   assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map(v => ({ ...v, compositionStyle: "Same composition", sceneType: "Same scene" })) }).success, false);
   assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map(v => ({ ...v, productRole: "hero" })) }).success, false);
 });
+
+test("copy that promises a process must include every meaningful content point", () => {
+  const variants = [1, 2, 3, 4].map(variant);
+  const withFirst = (changes: Record<string, unknown>) => [
+    { ...variants[0], headline: "Three simple care steps", subheadline: "A quick routine for fresh flowers.", ...changes },
+    ...variants.slice(1),
+  ];
+
+  assert.equal(creativeBriefSchema.safeParse({ ...base, variants: withFirst({}) }).success, false);
+  assert.equal(creativeBriefSchema.safeParse({
+    ...base,
+    variants: withFirst({ contentPoints: ["Trim the stems", "Use a clean vase"] }),
+  }).success, false);
+  assert.equal(creativeBriefSchema.safeParse({
+    ...base,
+    variants: withFirst({ contentPoints: ["Trim the stems", "Use a clean vase", "Refresh the water"] }),
+  }).success, true);
+  assert.equal(creativeBriefSchema.safeParse({
+    ...base,
+    variants: withFirst({ contentPoints: ["Step 1", "Use a clean vase", "Refresh the water"] }),
+  }).success, false);
+  assert.equal(creativeBriefSchema.safeParse({
+    ...base,
+    variants: withFirst({ contentPoints: ["One", "Two", "Three"] }),
+  }).success, false);
+});
+
+test("content promises do not mistake ordinary copy or unrelated numbers for list counts", () => {
+  const variants = [1, 2, 3, 4].map(variant);
+  const withFirst = (changes: Record<string, unknown>) => [
+    { ...variants[0], ...changes },
+    ...variants.slice(1),
+  ];
+
+  assert.equal(creativeBriefSchema.safeParse({
+    ...base,
+    variants: withFirst({ headline: "A Beautiful Way to Show You Care" }),
+  }).success, true);
+  assert.equal(creativeBriefSchema.safeParse({
+    ...base,
+    variants: withFirst({
+      headline: "2-day delivery with three simple care steps",
+      contentPoints: ["Trim the stems", "Use a clean vase", "Refresh the water"],
+    }),
+  }).success, true);
+  assert.equal(creativeBriefSchema.safeParse({
+    ...base,
+    variants: withFirst({
+      headline: "A simple three-step routine",
+      contentPoints: ["Trim the stems", "Use a clean vase", "Refresh the water"],
+    }),
+  }).success, true);
+});

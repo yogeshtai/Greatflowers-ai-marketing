@@ -161,6 +161,7 @@ export type CreativeVariant = {
   concept: string;
   headline: string;
   subheadline: string;
+  contentPoints?: string[];
   cta: string;
   visualDirection: string;
   productRole: "hero" | "supporting" | "optional" | "none";

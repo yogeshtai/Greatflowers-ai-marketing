@@ -25,6 +25,7 @@ export const creativeVariantSchema = z.object({
   concept: z.string().min(1),
   headline: z.string().min(1),
   subheadline: z.string(),
+  contentPoints: z.array(z.string().trim().min(3).max(72)).min(2).max(4).optional(),
   cta: z.string().min(1),
   visualDirection: z.string().min(1),
   productRole: z.enum(["hero", "supporting", "optional", "none"]),
@@ -42,6 +43,15 @@ export const creativeVariantSchema = z.object({
 });
 
 const HUMAN_SCENE_STRATEGIES = new Set(["HUMAN_GIFTING_MOMENT", "HUMAN_LIFESTYLE"]);
+
+const CONTENT_PROMISE_PATTERN = /\b(?:steps|checks|tips|ways|routine|checklist|cheat\s*sheet)\b|\b(?:a|the|your|our|quick|simple|complete|essential|care|flower|buying|selection)\s+guide\b|\bguide\s+(?:to|for)\b/i;
+const PROMISED_COUNT_PATTERN = /\b(2|two|3|three|4|four)\b(?:[\s-]+[a-z][a-z'-]*){0,3}[\s-]+(?:steps?|checks?|tips?|ways?|points?|items?)\b/i;
+const CONTENT_COUNT: Record<string, number> = { "2": 2, two: 2, "3": 3, three: 3, "4": 4, four: 4 };
+
+function promisedContentCount(copy: string): number | undefined {
+  const match = copy.match(PROMISED_COUNT_PATTERN);
+  return match ? CONTENT_COUNT[match[1]!.toLowerCase()] : undefined;
+}
 
 // Who is giving flowers to whom. Every story must answer this before any image is made.
 export const giftingRelationshipSchema = z.object({
@@ -160,6 +170,36 @@ export const creativeBriefSchema = z.object({
 
     brief.variants.forEach((v, i) => {
       if (!v.cta.length) ctx.addIssue({ code: "custom", path: ["variants", i, "cta"], message: "CTA required" });
+      const copy = `${v.headline} ${v.subheadline}`;
+      const promisesContent = CONTENT_PROMISE_PATTERN.test(copy) || PROMISED_COUNT_PATTERN.test(copy);
+      const points = v.contentPoints || [];
+      if (promisesContent && points.length < 2) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["variants", i, "contentPoints"],
+          message: "Copy that promises steps, a routine, checklist, cheat sheet or guide must include the actual content points",
+        });
+      }
+      const promisedCount = promisesContent ? promisedContentCount(copy) : undefined;
+      if (promisedCount && points.length !== promisedCount) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["variants", i, "contentPoints"],
+          message: `Copy promises ${promisedCount} items, so exactly ${promisedCount} content points are required`,
+        });
+      }
+      if (points.length && new Set(points.map(normalized)).size !== points.length) {
+        ctx.addIssue({ code: "custom", path: ["variants", i, "contentPoints"], message: "Content points must be distinct" });
+      }
+      points.forEach((point, pointIndex) => {
+        if (/^(?:(?:step|tip|item|point|check)\s*\d*|\d+|one|two|three|four|first|second|third|fourth)[:.]?$/i.test(point.trim())) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["variants", i, "contentPoints", pointIndex],
+            message: "Content points must be meaningful actions, not empty labels",
+          });
+        }
+      });
     });
   }
 });

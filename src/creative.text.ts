@@ -7,6 +7,7 @@ type TypographyCreative = {
   sceneStrategy: string;
   headline: string;
   subheadline: string;
+  contentPoints?: string[];
 };
 
 export const CREATIVE_TEXT_PURPLE = "#32105f";
@@ -185,6 +186,41 @@ export function buildCreativeTextOverlay(
     `<tspan x="${x}" y="${subFirstY + index * subLineHeight}">${escapeXml(line)}</tspan>`
   ).join("");
 
+  const contentPoints = (creative.contentPoints || []).map(point => point.trim()).filter(Boolean);
+  const pointSize = Math.max(19, Math.round(width * 0.021));
+  const pointLineHeight = Math.round(pointSize * 1.24);
+  const pointGap = Math.round(height * 0.018);
+  const numberRadius = Math.round(pointSize * 0.68);
+  const numberX = side === "left" ? x + numberRadius : x - numberRadius;
+  const pointTextX = side === "left" ? x + numberRadius * 2 + 12 : x - numberRadius * 2 - 12;
+  const pointAnchor = side === "left" ? "start" : "end";
+  let pointY = subLines.length
+    ? subFirstY + subLines.length * subLineHeight + Math.round(height * 0.025)
+    : firstY + fitted.lines.length * lineHeight + Math.round(height * 0.035);
+  const pointMaxChars = Math.max(18, Math.floor((usableWidth - numberRadius * 2 - 16) / (pointSize * 0.52)));
+  const pointSvg: string[] = [];
+  let contentBottom = 0;
+
+  contentPoints.forEach((point, index) => {
+    const lines = wrapPlainText(point, pointMaxChars);
+    if (lines.length > 3) {
+      throw new Error(`Creative content point is too long to fit clearly: "${point}"`);
+    }
+    const firstBaseline = pointY + pointSize;
+    pointSvg.push(`<circle cx="${numberX}" cy="${firstBaseline - Math.round(pointSize * 0.35)}" r="${numberRadius}" fill="${CREATIVE_TEXT_PINK}"/>`);
+    pointSvg.push(`<text x="${numberX}" y="${firstBaseline - Math.round(pointSize * 0.13)}" text-anchor="middle" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${Math.round(pointSize * 0.72)}" font-weight="700" fill="#ffffff">${index + 1}</text>`);
+    pointSvg.push(`<text x="${pointTextX}" text-anchor="${pointAnchor}" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${pointSize}" font-weight="600" fill="${CREATIVE_TEXT_PURPLE}" filter="url(#text-shadow)">${lines.map((line, lineIndex) =>
+      `<tspan x="${pointTextX}" y="${firstBaseline + lineIndex * pointLineHeight}">${escapeXml(line)}</tspan>`
+    ).join("")}</text>`);
+    const pointHeight = Math.max(numberRadius * 2, lines.length * pointLineHeight);
+    contentBottom = pointY + pointHeight;
+    pointY += pointHeight + pointGap;
+  });
+
+  if (contentPoints.length && contentBottom > height * 0.74) {
+    throw new Error("Creative content points are too long to fit without overlapping the website CTA");
+  }
+
   return Buffer.from(`<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <filter id="text-shadow" x="-20%" y="-20%" width="140%" height="140%">
@@ -193,6 +229,7 @@ export function buildCreativeTextOverlay(
     </defs>
     <text font-family="${typography.family}" font-size="${fitted.size}" font-weight="${typography.weight}" letter-spacing="-1.2" filter="url(#text-shadow)">${headlineSvg}</text>
     ${subLines.length ? `<text x="${x}" text-anchor="${anchor}" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${subSize}" font-weight="400" fill="#3f3a44" filter="url(#text-shadow)">${subSvg}</text>` : ""}
+    ${pointSvg.join("")}
   </svg>`);
 }
 

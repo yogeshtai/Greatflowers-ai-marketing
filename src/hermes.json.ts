@@ -39,9 +39,14 @@ export async function requestHermesJSON<T>(
       const detail = error instanceof Error ? error.message : String(error);
       if (attempt === 1) throw new HermesOutputError(`Hermes output remained invalid after one repair: ${detail.slice(0, 1500)}`);
       requestSignal.throwIfAborted();
-      console.warn("Hermes output failed validation; requesting one JSON repair:", detail.slice(0, 500));
+      const syntaxFailure = error instanceof SyntaxError
+        && typeof output === "string"
+        && /^[\s\uFEFF]*(?:```(?:json)?\s*)?[\[{]/i.test(output);
+      console.warn(`Hermes output failed validation; requesting one ${syntaxFailure ? "syntax" : "schema/content"} repair:`, detail.slice(0, 500));
       if (typeof output === "string" && output.trim()) messages.push({ role: "assistant", content: output.slice(0, 24000) });
-      messages.push({ role: "user", content: `${prompt}\n\nJSON REPAIR INSTRUCTION:\nYour previous response did not satisfy the backend JSON contract. Validation error: ${detail.slice(0, 1500)}\nReturn the COMPLETE required JSON object now, with every required field and the assigned content theme and visual treatment. Use the original supplied catalog, website, GA4 and history as the only evidence; your previous response is not evidence. Do not invent facts to fill missing fields. Do not run research, tools or skills again, write files, or produce a report. Correct formatting/schema errors and any invalid selections. Return JSON only.${contract}` });
+      messages.push({ role: "user", content: syntaxFailure
+        ? `JSON SYNTAX REPAIR:\nCorrect only the syntax of your immediately preceding JSON response. Preserve every value and field; do not rethink or regenerate the strategy. Ensure commas separate every array item and object property and close every bracket, brace and quote. Return the complete corrected JSON object only.\nValidation error: ${detail.slice(0, 1500)}`
+        : `${prompt}\n\nJSON CONTRACT REPAIR:\nYour previous response did not satisfy the backend JSON contract. Validation error: ${detail.slice(0, 1500)}\nReturn the COMPLETE required JSON object now, with every required field and the assigned content theme and visual treatment. Use the original supplied catalog, website, GA4 and history as the only evidence; your previous response is not evidence. Do not invent facts to fill missing fields. Do not run research, tools or skills again, write files, or produce a report. Correct formatting/schema errors and any invalid selections. Return JSON only.${contract}` });
     }
   }
   throw new HermesOutputError("Hermes returned no valid JSON");

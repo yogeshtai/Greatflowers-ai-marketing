@@ -185,6 +185,11 @@ and reasonForSelection, and do not omit the audience or evidence fields.
     )) {
       throw new Error("Recommendation repeated a recent creative scenario");
     }
+    if ([...rotation.recent, ...rotation.published].some(entry =>
+      entry.marketingAngle && normalize(entry.marketingAngle) === normalize(recommendation.marketingAngle)
+    )) {
+      throw new Error("Recommendation repeated a recent marketing angle");
+    }
     recommendation.campaignGoal = rotation.campaignGoal;
     recommendation.priority = rotation.priority;
 

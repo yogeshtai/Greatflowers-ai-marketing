@@ -319,24 +319,24 @@ Preserve the bouquet/product identity as closely as possible.`;
     case "supporting":
       productInstructions = `
 PRODUCT ROLE: SUPPORTING
-The supplied product participates naturally in the scene but is NOT the main subject.
-DO NOT recreate the reference product at the same size and position as a hero/product variant.
+Flowers participate naturally in the scene but are NOT the main subject.
+Do not recreate a catalog-style product composition.
 BUILD THE SCENE FIRST, then integrate flowers naturally into it.`;
       break;
       
     case "optional":
       productInstructions = `
 PRODUCT ROLE: OPTIONAL
-You may include the product if it improves the concept.
+You may include natural flowers if they improve the concept.
 Do NOT force it to dominate.
-The product may be minimal or absent.`;
+Flowers may be minimal or absent.`;
       break;
       
     case "none":
       productInstructions = `
 PRODUCT ROLE: NONE
-Do NOT visually reproduce the supplied catalog product.
-Do NOT include it merely because a reference image is available.
+Do NOT visually reproduce a catalog product.
+Do NOT add a bouquet merely to make the image feel commercial.
 Generate from the strategic concept.`;
       break;
   }
@@ -443,7 +443,7 @@ Use image generation. Do not create SVG, HTML, or CSS.`;
 
 export async function executeCodex(
   prompt: string,
-  productImagePath: string,
+  productImagePath: string | null,
   outputFilename: string,
   signal?: AbortSignal
 ): Promise<string> {
@@ -462,8 +462,7 @@ export async function executeCodex(
     const args = [
       "exec",
       ...codexLimitArgs(),
-      "-i",
-      productImagePath,
+      ...(productImagePath ? ["-i", productImagePath] : []),
       "--ephemeral",
       "--cd",
       OUTPUT_DIR,
@@ -819,9 +818,13 @@ export async function generateCreativeVariant(
     );
 
     // Step 1: Codex generates the creative (no logo)
+    // Supplying the catalog image strongly anchors generation to that bouquet.
+    // Only the single product-hero concept receives it; other concepts build
+    // genuinely independent lifestyle, editorial or occasion scenes.
+    const generationReference = variant.productRole === "hero" ? productImagePath : null;
     const generatedPath = await executeCodex(
       prompt,
-      productImagePath,
+      generationReference,
       outputFilename,
       signal
     );

@@ -39,6 +39,9 @@ test("recommendation preserves evidence inputs and rejects outputs that bypass r
   output.creativeScenario = "Already used scene!";
   await assert.rejects(run, /repeated a recent creative scenario/);
   output.creativeScenario = "A fresh scene";
+  output.marketingAngle = "Previously published angle!";
+  await assert.rejects(run, /repeated a recent marketing angle/);
+  output.marketingAngle = "A fresh campaign angle";
   output.contentTheme = "gifting-story";
   await assert.rejects(run, /selected content rotation/);
 });

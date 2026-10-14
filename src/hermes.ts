@@ -585,6 +585,9 @@ Do NOT hard-code creative types (e.g. always product + lifestyle + location + oc
 Instead, strategically choose the 4 best creative concepts from the available evidence and campaign objective.
 
 The 4 concepts should be meaningfully different marketing approaches, not just visual variations of the same advertisement.
+Use at least 3 different creativeType values and at least 3 different sceneStrategy values.
+Only one variant may use productRole "hero". At least one must use "optional" or "none" so the campaign is not four versions of the same bouquet shot.
+All four concepts and headlines must be unique. Use at least 3 materially different compositionStyle and sceneType values.
 
 FOR STORY-CAROUSEL MODE:
 

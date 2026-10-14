@@ -99,7 +99,7 @@ export const storyCreativePlanSchema = z.object({
 export type StoryCreativePlan = z.infer<typeof storyCreativePlanSchema>;
 export type StoryCreativeSlide = StoryCreativePlan["slides"][number];
 
-const creativeBriefSchema = z.object({
+export const creativeBriefSchema = z.object({
   creativeMode: z.enum(["independent", "story-carousel"]),
   headline: z.string().min(1),
   subheadline: z.string(),
@@ -120,7 +120,7 @@ const creativeBriefSchema = z.object({
     colorContinuity: z.string().optional(),
     stylingContinuity: z.string().optional(),
   }).optional(),
-  variants: z.array(creativeVariantSchema.extend({ cta: z.string() })).min(3).max(4),
+  variants: z.array(creativeVariantSchema.extend({ cta: z.string() })).length(4),
 }).superRefine((brief, ctx) => {
   if (brief.creativeMode === "story-carousel") {
     const result = storyCreativePlanSchema.safeParse({ ...brief, slides: brief.variants });
@@ -128,13 +128,34 @@ const creativeBriefSchema = z.object({
       ctx.addIssue({ code: "custom", path: issue.path.map(p => p === "slides" ? "variants" : p), message: issue.message });
     }
   } else {
+    const normalized = (value: string) => value.toLowerCase().replace(/\s+/g, " ").trim();
+    const uniqueCount = (values: string[]) => new Set(values.map(normalized)).size;
     const types = brief.variants.map((variant) => variant.creativeType);
-    if (new Set(types).size < 2) {
+    if (new Set(types).size < 3) {
       ctx.addIssue({
         code: "custom",
         path: ["variants"],
-        message: "Must have at least 2 different creative types among the variants",
+        message: "Independent creatives require at least 3 different creative types",
       });
+    }
+
+    if (new Set(brief.variants.map(v => v.order)).size !== 4) {
+      ctx.addIssue({ code: "custom", path: ["variants"], message: "Independent creatives require unique orders 1–4" });
+    }
+    if (new Set(brief.variants.map(v => v.sceneStrategy)).size < 3) {
+      ctx.addIssue({ code: "custom", path: ["variants"], message: "Independent creatives require at least 3 different scene strategies" });
+    }
+    if (uniqueCount(brief.variants.map(v => v.concept)) !== 4 || uniqueCount(brief.variants.map(v => v.headline)) !== 4) {
+      ctx.addIssue({ code: "custom", path: ["variants"], message: "Every independent creative requires a distinct concept and headline" });
+    }
+    if (uniqueCount(brief.variants.map(v => v.compositionStyle)) < 3 || uniqueCount(brief.variants.map(v => v.sceneType)) < 3) {
+      ctx.addIssue({ code: "custom", path: ["variants"], message: "Independent creatives require at least 3 different compositions and scene types" });
+    }
+    if (brief.variants.filter(v => v.productRole === "hero").length > 1) {
+      ctx.addIssue({ code: "custom", path: ["variants"], message: "Only one independent creative may use the catalog product as the hero" });
+    }
+    if (!brief.variants.some(v => v.productRole === "none" || v.productRole === "optional")) {
+      ctx.addIssue({ code: "custom", path: ["variants"], message: "At least one independent creative must work without the catalog product" });
     }
 
     brief.variants.forEach((v, i) => {

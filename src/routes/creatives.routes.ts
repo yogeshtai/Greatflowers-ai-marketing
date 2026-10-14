@@ -324,7 +324,7 @@ router.post(
 router.post(
   "/api/creatives/generate/variant",
   singleFlight("codex", async (req, res) => {
-    const { productImageUrl, creativeBrief, variantType } =
+    const { productImageUrl, creativeBrief, variantOrder, variantType } =
       req.body;
 
     if (
@@ -350,21 +350,27 @@ router.post(
       });
     }
 
-    if (!variantType || typeof variantType !== "string") {
+    if (
+      !(typeof variantOrder === "number" && Number.isInteger(variantOrder)) &&
+      !(typeof variantType === "string" && variantType)
+    ) {
       return res.status(400).json({
         success: false,
-        error: "variantType is required and must be a string",
+        error: "variantOrder is required and must be an integer",
       });
     }
 
     const variant = creativeBrief.variants.find(
-      (v: { type: string }) => v.type === variantType
+      (v: { order?: number; creativeType?: string }) =>
+        typeof variantOrder === "number"
+          ? v.order === variantOrder
+          : v.creativeType === variantType
     );
 
     if (!variant) {
       return res.status(400).json({
         success: false,
-        error: `Variant ${variantType} not found in creativeBrief`,
+        error: `Variant ${variantOrder ?? variantType} not found in creativeBrief`,
       });
     }
 

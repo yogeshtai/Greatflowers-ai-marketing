@@ -461,17 +461,22 @@ function App() {
       : (creativeFallbackImage || recommendedProduct?.image || '');
 
     setSelectedCreatives(prev => {
-      const existing = prev.find(c => c.type === creative.type);
+      const isSameCreative = (selected: SelectedCreative) =>
+        creative.variantOrder !== undefined
+          ? selected.variantOrder === creative.variantOrder
+          : selected.variantOrder === undefined && selected.type === creative.type;
+      const existing = prev.find(isSameCreative);
       
       if (existing) {
         // Deselect: remove and reorder remaining
         return prev
-          .filter(c => c.type !== creative.type)
+          .filter(c => !isSameCreative(c))
           .map((c, index) => ({ ...c, order: index + 1 }));
       } else {
         // Select: add with next order number
         const nextOrder = prev.length + 1;
         return [...prev, {
+          variantOrder: creative.variantOrder,
           type: creative.type,
           imageUrl,
           headline: creative.headline,
@@ -484,7 +489,7 @@ function App() {
     });
   };
 
-  const handleRegenerateVariant = async (variantType: string) => {
+  const handleRegenerateVariant = async (variantOrder: number) => {
     if (!strategy?.creativeBrief || !recommendedProduct?.image) {
       return;
     }
@@ -492,8 +497,8 @@ function App() {
     try {
       // Mark this variant as loading by updating its state
       setCreatives(prev => 
-        prev.map(c => 
-          c.type === variantType 
+        prev.map((c, index) =>
+          (c.variantOrder ?? index + 1) === variantOrder
             ? { ...c, success: false, error: 'Regenerating...', localPath: '' }
             : c
         )
@@ -502,31 +507,31 @@ function App() {
       const result = await regenerateCreativeVariant(
         recommendedProduct.image,
         strategy.creativeBrief,
-        variantType
+        variantOrder
       );
 
       if (result.success && result.creative) {
         // Update the specific creative
         setCreatives(prev =>
-          prev.map(c =>
-            c.type === variantType ? result.creative : c
+          prev.map((c, index) =>
+            (c.variantOrder ?? index + 1) === variantOrder ? result.creative : c
           )
         );
       } else {
         // Keep the error state
         setCreatives(prev =>
-          prev.map(c =>
-            c.type === variantType
+          prev.map((c, index) =>
+            (c.variantOrder ?? index + 1) === variantOrder
               ? { ...c, success: false, error: result.error || 'Regeneration failed' }
               : c
           )
         );
       }
     } catch (error) {
-      console.error(`Failed to regenerate ${variantType}:`, error);
+      console.error(`Failed to regenerate creative ${variantOrder}:`, error);
       setCreatives(prev =>
-        prev.map(c =>
-          c.type === variantType
+        prev.map((c, index) =>
+          (c.variantOrder ?? index + 1) === variantOrder
             ? { ...c, success: false, error: 'Regeneration failed' }
             : c
         )
@@ -606,7 +611,11 @@ function App() {
               // Add or update the creative immediately
               setCreatives(prev => {
                 const newCreatives = [...prev];
-                const existingIndex = newCreatives.findIndex(c => c.type === data.creative.type);
+                const existingIndex = newCreatives.findIndex(c =>
+                  data.creative.variantOrder !== undefined
+                    ? c.variantOrder === data.creative.variantOrder
+                    : c.variantOrder === undefined && c.type === data.creative.type
+                );
                 
                 if (existingIndex >= 0) {
                   newCreatives[existingIndex] = data.creative;

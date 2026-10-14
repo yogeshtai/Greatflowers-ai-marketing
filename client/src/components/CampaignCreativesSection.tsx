@@ -28,9 +28,15 @@ export function CampaignCreativesSection({
   handleGenerateStoryCreatives: () => void | Promise<void>;
   handleStopGeneration: () => void;
   handleSelectCreative: (creative: Creative) => void;
-  handleRegenerateVariant: (variantType: string) => void | Promise<void>;
+  handleRegenerateVariant: (variantOrder: number) => void | Promise<void>;
 }) {
   if (!(strategy?.creativeBrief && recommendedProduct)) return null;
+  const totalCreatives = strategy.creativeBrief.variants.length;
+  const selectedFor = (creative: Creative) => selectedCreatives.find(selected =>
+    creative.variantOrder !== undefined
+      ? selected.variantOrder === creative.variantOrder
+      : selected.variantOrder === undefined && selected.type === creative.type
+  );
 
   return (
     <section className="campaign-creatives-section">
@@ -63,7 +69,7 @@ export function CampaignCreativesSection({
             </button>
           </div>
           <p className="creatives-hint">
-            Generate 3 AI creative variants with strategic concepts, or scroll down for a connected 4-slide Story Creative
+            Generate {totalCreatives} AI creative variants with strategic concepts, or scroll down for a connected 4-slide Story Creative
           </p>
         </div>
       )}
@@ -73,7 +79,7 @@ export function CampaignCreativesSection({
           <p className="loading-message">
             🎨 AI creatives are being generated. This may take several minutes.
             <br />
-            <strong>{creatives.length} of 3 completed</strong>
+            <strong>{creatives.length} of {totalCreatives} completed</strong>
           </p>
 
           {creatives.length > 0 && (
@@ -89,11 +95,11 @@ export function CampaignCreativesSection({
           {creatives.length > 0 && (
             <div className="creatives-grid">
               {creatives.map((creative, index) => {
-                const selectedItem = selectedCreatives.find(c => c.type === creative.type);
+                const selectedItem = selectedFor(creative);
                 const isSelected = !!selectedItem;
                 return (
                   <div 
-                    key={`creative-${index}`} 
+                    key={`creative-${creative.variantOrder ?? index + 1}`}
                     className={`creative-card selectable ${isSelected ? 'selected' : ''}`}
                     onClick={() => handleSelectCreative(creative)}
                   >
@@ -169,7 +175,7 @@ export function CampaignCreativesSection({
                               className="retry-button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleRegenerateVariant(creative.type);
+                                handleRegenerateVariant(creative.variantOrder ?? index + 1);
                               }}
                             >
                               🔄 Retry
@@ -186,7 +192,7 @@ export function CampaignCreativesSection({
 
           {/* Show placeholders for remaining variants */}
           <div className="creatives-placeholders" style={{ marginTop: creatives.length > 0 ? '24px' : '0' }}>
-            {Array.from({ length: 3 - creatives.length }).map((_, index) => {
+            {Array.from({ length: Math.max(0, totalCreatives - creatives.length) }).map((_, index) => {
               const placeholderIndex = creatives.length + index;
               const isGenerating = placeholderIndex === creatives.length;
               return (
@@ -215,11 +221,11 @@ export function CampaignCreativesSection({
         <>
           <div className="creatives-grid">
             {creatives.map((creative, index) => {
-              const selectedItem = selectedCreatives.find(c => c.type === creative.type);
+              const selectedItem = selectedFor(creative);
               const isSelected = !!selectedItem;
               return (
                 <div 
-                  key={`creative-${index}`} 
+                  key={`creative-${creative.variantOrder ?? index + 1}`}
                   className={`creative-card selectable ${isSelected ? 'selected' : ''}`}
                   onClick={() => handleSelectCreative(creative)}
                 >
@@ -267,7 +273,7 @@ export function CampaignCreativesSection({
                             className="retry-button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleRegenerateVariant(creative.type);
+                              handleRegenerateVariant(creative.variantOrder ?? index + 1);
                             }}
                           >
                             🔄 Retry
@@ -285,8 +291,8 @@ export function CampaignCreativesSection({
           {selectedCreatives.length > 0 && (
             <div className="creative-selection-summary">
               <h3>Selected Creative{selectedCreatives.length > 1 ? 's' : ''} ({selectedCreatives.length})</h3>
-              {selectedCreatives.sort((a, b) => a.order - b.order).map((selected) => (
-                <div key={selected.type} className="selection-info">
+              {[...selectedCreatives].sort((a, b) => a.order - b.order).map((selected) => (
+                <div key={`${selected.variantOrder ?? selected.type}-${selected.order}`} className="selection-info">
                   <p className="selection-type">
                     <strong>{selected.order}. {selected.type.toUpperCase().replace(/-/g, ' ')}</strong>
                   </p>

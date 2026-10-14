@@ -59,6 +59,7 @@ export interface SavedCampaign {
     image: string | null;
   };
   creatives?: Array<{
+    variantOrder?: number;
     type: string;
     localPath: string;
     headline: string;
@@ -68,6 +69,7 @@ export interface SavedCampaign {
     error?: string;
   }>;
   selectedCreative?: {
+    variantOrder?: number;
     type: string;
     imageUrl: string;
     headline: string;
@@ -76,6 +78,7 @@ export interface SavedCampaign {
     isFallback: boolean;
   };
   selectedCreatives?: Array<{
+    variantOrder?: number;
     type: string;
     imageUrl: string;
     headline: string;
@@ -174,6 +177,7 @@ export async function saveCampaign(
     image: string | null;
   },
   creatives?: Array<{
+    variantOrder?: number;
     type: string;
     localPath: string;
     headline: string;
@@ -183,6 +187,7 @@ export async function saveCampaign(
     error?: string;
   }>,
   selectedCreative?: {
+    variantOrder?: number;
     type: string;
     imageUrl: string;
     headline: string;
@@ -191,6 +196,7 @@ export async function saveCampaign(
     isFallback: boolean;
   },
   selectedCreatives?: Array<{
+    variantOrder?: number;
     type: string;
     imageUrl: string;
     headline: string;

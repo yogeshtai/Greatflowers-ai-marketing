@@ -85,6 +85,7 @@ const s3 = new S3Client({
 });
 
 export interface CreativeVariant {
+  order: number;
   creativeType:
     | "product"
     | "lifestyle"
@@ -131,6 +132,7 @@ export interface CreativeBrief {
 }
 
 export interface CreativeResult {
+  variantOrder: number;
   type: string;
   localPath: string;
   headline: string;
@@ -142,6 +144,9 @@ export interface CreativeResult {
 
 const GREATFLOWERS_LOGO_URL =
   "https://greatflowers.net/assets/svg/greatflowers-logo.svg";
+
+export const CREATIVE_LOGO_WIDTH_RATIO = 0.2;
+export const CREATIVE_CTA_PURPLE = "#32105f";
 
 const OUTPUT_DIR = join(process.cwd(), "test-creatives");
 
@@ -643,15 +648,17 @@ async function addOfficialLogo(
   const imageWidth = baseMetadata.width || 1024;
   const imageHeight = baseMetadata.height || 1024;
 
-  // Consistent logo size: ~16% of image width, aspect ratio preserved
+  // Match the reference branding: a clearly visible wordmark occupying 20%
+  // of the canvas width, with transparent SVG whitespace removed first.
   const logoWidth = Math.max(
-    120,
-    Math.round(imageWidth * 0.16)
+    144,
+    Math.round(imageWidth * CREATIVE_LOGO_WIDTH_RATIO)
   );
 
   const logoBuffer = await sharp(logoPath, {
     density: 300,
   })
+    .trim()
     .resize({ width: logoWidth })
     .png()
     .toBuffer();
@@ -714,74 +721,66 @@ async function addCTAButton(
   const imageWidth = baseMetadata.width || 1024;
   const imageHeight = baseMetadata.height || 1024;
 
-  // CTA button dimensions
-  const buttonWidth = Math.round(imageWidth * 0.5); // 50% of image width
-  const buttonHeight = Math.round(imageHeight * 0.08); // 8% of image height
-  const fontSize = Math.round(buttonHeight * 0.45); // Font size relative to button height
-  const borderRadius = Math.round(buttonHeight * 0.5); // Rounded corners
-
-  // Position at bottom center
-  const margin = Math.max(24, Math.round(imageWidth * 0.04));
-  const left = Math.round((imageWidth - buttonWidth) / 2);
-  const top = imageHeight - buttonHeight - margin;
-
-  // Create SVG for CTA button
-  const buttonSvg = `
-    <svg width="${buttonWidth}" height="${buttonHeight}">
-      <defs>
-        <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur in="SourceAlpha" stdDeviation="3"/>
-          <feOffset dx="0" dy="2" result="offsetblur"/>
-          <feComponentTransfer>
-            <feFuncA type="linear" slope="0.3"/>
-          </feComponentTransfer>
-          <feMerge>
-            <feMergeNode/>
-            <feMergeNode in="SourceGraphic"/>
-          </feMerge>
-        </filter>
-      </defs>
-      <rect 
-        x="0" 
-        y="0" 
-        width="${buttonWidth}" 
-        height="${buttonHeight}" 
-        rx="${borderRadius}" 
-        ry="${borderRadius}" 
-        fill="#4A148C" 
-        filter="url(#shadow)"
-      />
-      <text 
-        x="50%" 
-        y="50%" 
-        dominant-baseline="middle" 
-        text-anchor="middle" 
-        fill="white" 
-        font-family="Arial, sans-serif" 
-        font-size="${fontSize}" 
-        font-weight="700"
-      >${ctaUrl}</text>
-    </svg>
-  `;
-
-  const buttonBuffer = Buffer.from(buttonSvg);
+  const websiteCta = buildWebsiteCta(imageWidth, imageHeight, ctaUrl);
 
   await baseImage
-    .composite([
-      {
-        input: buttonBuffer,
-        left,
-        top,
-      },
-    ])
+    .composite([websiteCta])
     .png()
     .toFile(outputPath);
 
   console.log(
-    `🔗 CTA button overlaid: "${ctaUrl}" at bottom center (${buttonWidth}x${buttonHeight})`
+    `🔗 CTA button overlaid: "${ctaUrl}" at bottom center (${websiteCta.width}x${websiteCta.height})`
   );
 
   return outputPath;
+}
+
+export function buildWebsiteCta(
+  imageWidth: number,
+  imageHeight: number,
+  ctaUrl = "www.greatflowers.net"
+): { input: Buffer; left: number; top: number; width: number; height: number } {
+  // Reference-matched website pill: compact width, generous horizontal
+  // padding, dark GreatFlowers purple, and high-contrast white text.
+  const width = Math.round(imageWidth * 0.42);
+  const height = Math.round(imageHeight * 0.066);
+  const fontSize = Math.round(imageWidth * 0.03);
+  const borderRadius = Math.round(height * 0.5);
+  const margin = Math.max(24, Math.round(imageHeight * 0.035));
+  const left = Math.round((imageWidth - width) / 2);
+  const top = imageHeight - height - margin;
+  const escapedUrl = ctaUrl
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+  const input = Buffer.from(`
+    <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+      <rect
+        x="1"
+        y="1"
+        width="${width - 2}"
+        height="${height - 2}"
+        rx="${borderRadius}"
+        ry="${borderRadius}"
+        fill="${CREATIVE_CTA_PURPLE}"
+        stroke="#ffffff"
+        stroke-width="2"
+      />
+      <text
+        x="50%"
+        y="67%"
+        text-anchor="middle"
+        fill="white"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="${fontSize}"
+        font-weight="700"
+      >${escapedUrl}</text>
+    </svg>
+  `);
+
+  return { input, left, top, width, height };
 }
 
 export async function generateCreativeVariant(
@@ -874,6 +873,7 @@ export async function generateCreativeVariant(
     }
 
     return {
+      variantOrder: variant.order,
       type: variant.creativeType,
       localPath: s3Url, // Now contains S3 URL instead of local path
       headline: variant.headline,
@@ -888,6 +888,7 @@ export async function generateCreativeVariant(
     );
 
     return {
+      variantOrder: variant.order,
       type: variant.creativeType,
       localPath: "",
       headline: variant.headline,

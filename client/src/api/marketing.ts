@@ -134,14 +134,14 @@ export async function generateCreatives(
 export async function regenerateCreativeVariant(
   productImageUrl: string,
   creativeBrief: unknown,
-  variantType: string
+  variantOrder: number
 ) {
   const response = await axios.post(
     `${API_URL}/api/creatives/generate/variant`,
     {
       productImageUrl,
       creativeBrief,
-      variantType,
+      variantOrder,
     }
   );
 

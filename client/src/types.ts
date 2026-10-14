@@ -193,6 +193,7 @@ export type StorySlideResult = {
 };
 
 export type Creative = {
+  variantOrder?: number;
   type: string;
   localPath: string;
   headline: string;
@@ -252,6 +253,7 @@ export type SavedCampaign = {
   
   creatives?: Creative[];
   selectedCreative?: {
+    variantOrder?: number;
     type: string;
     imageUrl: string;
     headline: string;
@@ -260,6 +262,7 @@ export type SavedCampaign = {
     isFallback: boolean;
   };
   selectedCreatives?: Array<{
+    variantOrder?: number;
     type: string;
     imageUrl: string;
     headline: string;
@@ -291,6 +294,7 @@ export type ScheduleForm = {
 };
 
 export type SelectedCreative = {
+  variantOrder?: number;
   type: string;
   imageUrl: string;
   headline: string;

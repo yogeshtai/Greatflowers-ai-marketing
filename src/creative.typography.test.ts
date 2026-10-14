@@ -67,6 +67,32 @@ test("headline typography applies controlled pink emphasis to a meaningful phras
   assert.match(svg, /A thoughtful surprise for their[\s\S]*day\./);
 });
 
+test("headline and subheadline keep compact spacing and preserve color-boundary spaces", () => {
+  const cases = [
+    { side: "left" as const, x: 56, anchor: "start", creativeType: "lifestyle", sceneStrategy: "HUMAN_LIFESTYLE" },
+    { side: "right" as const, x: 968, anchor: "end", creativeType: "informational", sceneStrategy: "INFORMATIONAL_GRAPHIC" },
+  ];
+
+  for (const current of cases) {
+    const svg = buildCreativeTextOverlay(variant({
+      creativeType: current.creativeType as CreativeVariant["creativeType"],
+      sceneStrategy: current.sceneStrategy as CreativeVariant["sceneStrategy"],
+      headline: "The spare key that started it all",
+      subheadline: "Some debts are too big for a generic thank you.",
+    }), current.side).toString();
+
+    assert.match(svg, /that<\/tspan><tspan fill="#[a-f0-9]+" dx="0\.22em">started/);
+
+    const headlinePattern = new RegExp(`<tspan x="${current.x}" y="(\\d+)" text-anchor="${current.anchor}">`, "g");
+    const headlineYs = [...svg.matchAll(headlinePattern)].map(match => Number(match[1]));
+    const subheadingY = Number(svg.match(new RegExp(`<tspan x="${current.x}" y="(\\d+)">Some debts`))?.[1]);
+    const lastHeadlineY = headlineYs.at(-1)!;
+
+    assert.ok(subheadingY - lastHeadlineY <= 60);
+    assert.ok(subheadingY - lastHeadlineY >= 40);
+  }
+});
+
 test("promised care steps are rendered as visible numbered actions", () => {
   const svg = buildCreativeTextOverlay(variant({
     creativeType: "informational",

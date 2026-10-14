@@ -150,7 +150,7 @@ function renderHeadlineLine(
   }
 
   return `<tspan x="${x}" y="${y}" text-anchor="${anchor}">${chunks.map((chunk, index) =>
-    `<tspan fill="${chunk.accented ? CREATIVE_TEXT_PINK : CREATIVE_TEXT_PURPLE}">${index ? " " : ""}${escapeXml(chunk.text)}</tspan>`
+    `<tspan fill="${chunk.accented ? CREATIVE_TEXT_PINK : CREATIVE_TEXT_PURPLE}"${index ? ' dx="0.22em"' : ""}>${escapeXml(chunk.text)}</tspan>`
   ).join("")}</tspan>`;
 }
 
@@ -180,7 +180,12 @@ export function buildCreativeTextOverlay(
   if (subLines.length > 4) {
     throw new Error("Creative subheadline is too long to fit without truncation");
   }
-  const subFirstY = firstY + fitted.lines.length * lineHeight + Math.round(height * 0.025);
+  const lastHeadlineY = firstY + (fitted.lines.length - 1) * lineHeight;
+  const headlineToSubBaseline = Math.max(
+    Math.round(fitted.size * 0.65),
+    Math.round(subSize * 1.35)
+  ) + Math.round(height * 0.01);
+  const subFirstY = lastHeadlineY + headlineToSubBaseline;
   const subLineHeight = Math.round(subSize * 1.28);
   const subSvg = subLines.map((line, index) =>
     `<tspan x="${x}" y="${subFirstY + index * subLineHeight}">${escapeXml(line)}</tspan>`

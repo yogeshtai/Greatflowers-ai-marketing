@@ -1,0 +1,212 @@
+import sharp from "sharp";
+
+export type CreativeTextSide = "left" | "right";
+
+type TypographyCreative = {
+  creativeType: string;
+  sceneStrategy: string;
+  headline: string;
+  subheadline: string;
+};
+
+export const CREATIVE_TEXT_PURPLE = "#32105f";
+export const CREATIVE_TEXT_PINK = "#d61572";
+
+export type CreativeTypography = {
+  mode: "editorial-serif" | "modern-sans";
+  family: string;
+  weight: number;
+};
+
+const SANS_TYPES = new Set(["informational", "feature"]);
+const SANS_SCENES = new Set(["INFORMATIONAL_GRAPHIC", "FEATURE_DEMO"]);
+
+export function typographyForCreative(
+  creative: Pick<TypographyCreative, "creativeType" | "sceneStrategy">
+): CreativeTypography {
+  const isStructuredGraphic = SANS_SCENES.has(creative.sceneStrategy);
+  const hasExplicitEditorialDirection = creative.sceneStrategy === "EDITORIAL_CONTENT";
+  if (isStructuredGraphic || (!hasExplicitEditorialDirection && SANS_TYPES.has(creative.creativeType))) {
+    return {
+      mode: "modern-sans",
+      family: "Avenir Next, Avenir, Montserrat, Arial, Liberation Sans, sans-serif",
+      weight: 800,
+    };
+  }
+
+  return {
+    mode: "editorial-serif",
+    family: "Bodoni 72, Didot, Georgia, Times New Roman, Liberation Serif, serif",
+    weight: 700,
+  };
+}
+
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+type HeadlineWord = { text: string; accented: boolean };
+
+function accentStartIndex(headline: string): number {
+  const words = headline.trim().split(/\s+/).filter(Boolean);
+  if (words.length <= 1) return words.length;
+
+  const delimiterIndex = words.findLastIndex(word => /[,—–:]$/.test(word));
+  const wordsAfterDelimiter = words.length - delimiterIndex - 1;
+  if (delimiterIndex >= 0 && wordsAfterDelimiter >= 1 && wordsAfterDelimiter <= 5) {
+    return delimiterIndex + 1;
+  }
+
+  const numericPhrase = words.findIndex((word, index) =>
+    index > 0 && /^(?:in|with|for)$/i.test(word) && /\d/.test(words[index + 1] || "")
+  );
+  if (numericPhrase >= 0) return numericPhrase;
+
+  const accentLength = Math.min(4, Math.max(2, Math.ceil(words.length * 0.4)));
+  return Math.max(1, words.length - accentLength);
+}
+
+export function headlineWords(headline: string): HeadlineWord[] {
+  const words = headline.trim().split(/\s+/).filter(Boolean);
+  const start = accentStartIndex(headline);
+  return words.map((text, index) => ({ text, accented: index >= start }));
+}
+
+function wrapWords(words: HeadlineWord[], maxChars: number): HeadlineWord[][] {
+  const lines: HeadlineWord[][] = [];
+  let line: HeadlineWord[] = [];
+  let length = 0;
+
+  for (const word of words) {
+    const nextLength = length + (line.length ? 1 : 0) + word.text.length;
+    if (line.length && nextLength > maxChars) {
+      lines.push(line);
+      line = [];
+      length = 0;
+    }
+    line.push(word);
+    length += (line.length > 1 ? 1 : 0) + word.text.length;
+  }
+  if (line.length) lines.push(line);
+  return lines;
+}
+
+function fitHeadline(words: HeadlineWord[], usableWidth: number, mode: CreativeTypography["mode"]) {
+  const preferred = mode === "modern-sans" ? 72 : 66;
+  const widthFactor = mode === "modern-sans" ? 0.56 : 0.52;
+  const preferredLines = words.length <= 6 ? 2 : 3;
+
+  for (let size = preferred; size >= 42; size -= 2) {
+    const lines = wrapWords(words, Math.max(8, Math.floor(usableWidth / (size * widthFactor))));
+    if (lines.length <= preferredLines) return { lines, size };
+  }
+
+  for (let size = preferred; size >= 42; size -= 2) {
+    const lines = wrapWords(words, Math.max(8, Math.floor(usableWidth / (size * widthFactor))));
+    if (lines.length <= 3) return { lines, size };
+  }
+
+  for (let size = preferred; size >= 40; size -= 2) {
+    const lines = wrapWords(words, Math.max(8, Math.floor(usableWidth / (size * widthFactor))));
+    if (lines.length <= 4) return { lines, size };
+  }
+
+  throw new Error("Creative headline is too long to fit without truncation");
+}
+
+function wrapPlainText(text: string, maxChars: number): string[] {
+  const lines: string[] = [];
+  let current = "";
+  for (const word of text.trim().split(/\s+/).filter(Boolean)) {
+    const next = current ? `${current} ${word}` : word;
+    if (current && next.length > maxChars) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = next;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+function renderHeadlineLine(
+  words: HeadlineWord[],
+  x: number,
+  y: number,
+  anchor: "start" | "end"
+): string {
+  const chunks: Array<{ text: string; accented: boolean }> = [];
+  for (const word of words) {
+    const previous = chunks.at(-1);
+    if (previous?.accented === word.accented) previous.text += ` ${word.text}`;
+    else chunks.push({ text: word.text, accented: word.accented });
+  }
+
+  return `<tspan x="${x}" y="${y}" text-anchor="${anchor}">${chunks.map((chunk, index) =>
+    `<tspan fill="${chunk.accented ? CREATIVE_TEXT_PINK : CREATIVE_TEXT_PURPLE}">${index ? " " : ""}${escapeXml(chunk.text)}</tspan>`
+  ).join("")}</tspan>`;
+}
+
+export function buildCreativeTextOverlay(
+  creative: TypographyCreative,
+  side: CreativeTextSide,
+  width = 1024,
+  height = 1024
+): Buffer {
+  const typography = typographyForCreative(creative);
+  const margin = Math.round(width * 0.055);
+  const usableWidth = Math.round(width * 0.42);
+  const x = side === "left" ? margin : width - margin;
+  const anchor = side === "left" ? "start" : "end";
+  const fitted = fitHeadline(headlineWords(creative.headline), usableWidth, typography.mode);
+  const lineHeight = Math.round(fitted.size * (typography.mode === "modern-sans" ? 0.94 : 1.02));
+  const firstY = Math.round(height * 0.12);
+  const headlineSvg = fitted.lines.map((line, index) =>
+    renderHeadlineLine(line, x, firstY + index * lineHeight, anchor)
+  ).join("");
+
+  const subheadline = creative.subheadline.trim();
+  const subSize = Math.max(20, Math.round(width * 0.024));
+  const subLines = subheadline
+    ? wrapPlainText(subheadline, Math.max(18, Math.floor(usableWidth / (subSize * 0.52))))
+    : [];
+  if (subLines.length > 4) {
+    throw new Error("Creative subheadline is too long to fit without truncation");
+  }
+  const subFirstY = firstY + fitted.lines.length * lineHeight + Math.round(height * 0.025);
+  const subLineHeight = Math.round(subSize * 1.28);
+  const subSvg = subLines.map((line, index) =>
+    `<tspan x="${x}" y="${subFirstY + index * subLineHeight}">${escapeXml(line)}</tspan>`
+  ).join("");
+
+  return Buffer.from(`<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <filter id="text-shadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="#ffffff" flood-opacity="0.8"/>
+      </filter>
+    </defs>
+    <text font-family="${typography.family}" font-size="${fitted.size}" font-weight="${typography.weight}" letter-spacing="-1.2" filter="url(#text-shadow)">${headlineSvg}</text>
+    ${subLines.length ? `<text x="${x}" text-anchor="${anchor}" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${subSize}" font-weight="400" fill="#3f3a44" filter="url(#text-shadow)">${subSvg}</text>` : ""}
+  </svg>`);
+}
+
+export async function addCreativeText(
+  imagePath: string,
+  outputPath: string,
+  creative: TypographyCreative,
+  side: CreativeTextSide
+): Promise<void> {
+  const metadata = await sharp(imagePath).metadata();
+  const width = metadata.width || 1024;
+  const height = metadata.height || 1024;
+  await sharp(imagePath)
+    .composite([{ input: buildCreativeTextOverlay(creative, side, width, height), left: 0, top: 0 }])
+    .png()
+    .toFile(outputPath);
+}

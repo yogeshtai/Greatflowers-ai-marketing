@@ -16,6 +16,7 @@ import fetch from "node-fetch";
 import sharp from "sharp";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { CODEX_SPAWN_OPTIONS, codexLimitArgs, guardCodexProcess } from "./ai.limits.js";
+import { addCreativeText, type CreativeTextSide } from "./creative.text.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CODEX_GENERATED_IMAGES_DIR =
@@ -194,7 +195,7 @@ async function uploadToS3(
   return `https://${BUCKET}.s3.${REGION}.amazonaws.com/${key}`;
 }
 
-function buildCodexPrompt(
+export function buildCodexPrompt(
   variant: CreativeVariant,
   creativeBrief: CreativeBrief
 ): string {
@@ -357,7 +358,10 @@ Generate from the strategic concept.`;
     contextInstructions += `\n\nLOCATION CONTEXT:\n${variant.locationContext}\nIncorporate this verified location/service area naturally.`;
   }
 
-  return `Create a 1:1 premium social media campaign creative for GreatFlowers.
+  const logoPosition = resolveLogoPosition(creativeBrief.logoPlacement);
+  const textSide: CreativeTextSide = logoPosition === "top-left" ? "right" : "left";
+
+  return `Create a TEXT-FREE 1:1 premium social media campaign base image for GreatFlowers.
 
 ⚠️ CRITICAL COMPOSITION REQUIREMENT ⚠️
 
@@ -383,9 +387,18 @@ LOGO SAFE AREA (CRITICAL):
 Reserve a clear zone at:
 ${creativeBrief.logoPlacement}
 
-This area MUST remain completely empty - no text, no graphics, no decorative elements.
+This area MUST remain free of faces, flowers, important objects and decorative details.
 The official GreatFlowers logo will be overlaid here after generation.
 Do not generate, spell, draw, or recreate GreatFlowers branding.
+
+TYPOGRAPHY SAFE AREA (CRITICAL):
+Reserve the outer ${textSide} 42% of the upper half as calm, light-toned photographic negative space.
+Keep faces, flowers and important objects out of that zone, but continue natural scene texture and light through it.
+Do not create a white rectangle, translucent card, blank paper panel or fake text box.
+The application will typeset the approved headline and subheadline in this zone after generation.
+
+WEBSITE CTA SAFE AREA:
+Keep the lower-center 12% clear of faces, flowers and important objects for the website pill added later.
 
 BACKGROUND & ENVIRONMENT:
 ${creativeBrief.backgroundDirection}
@@ -408,36 +421,13 @@ ${variant.lightingStyle}
 SCENE TYPE:
 ${variant.sceneType}
 
-TEXT OVERLAY (verbatim):
-Headline: "${variant.headline}"
-Subheadline: "${variant.subheadline}"
-
-IMPORTANT IMAGE CONTENT RULES:
-- Do not render buttons, CTA buttons, links, website URLs, or clickable-looking UI elements inside the image.
-- The CTA will be added separately to the social media post.
-- Keep the creative visually clean and editorial.
-- Text may include only the campaign headline and a short supporting line when appropriate.
-- Do not put CTA text such as "Shop Now", "Send Flowers", "Buy Now", "View Flowers", or similar action phrases inside the image.
-
-TEXT PLACEMENT:
-${creativeBrief.textPlacement}
-
-CRITICAL TEXT RULES:
-- Text MUST NOT overlap or touch the logo safe area at ${creativeBrief.logoPlacement}
-- Keep all text away from the logo zone with generous spacing
-- Text must have high contrast against its background for readability
-- Use text color that stands out clearly (dark text on light backgrounds, light text on dark backgrounds)
-- Add subtle text shadows or background overlays if needed for legibility
-- Ensure headline and subheadline are easily readable at social media sizes
-
 CREATIVE GOAL:
 ${creativeBrief.creativeGoal}
 
 CONSTRAINTS:
-- Do NOT include any logo, brand mark, or brand text in the image
-- Use exact text as provided (verbatim)
+- Do NOT render any text, letters, numbers, handwriting, labels, prices, signs, buttons, UI, logo, brand mark, URL or watermark
+- Do NOT pre-build a text panel; typography, logo and website CTA are composited programmatically
 - Create a clean, professional social media image
-- No watermarks
 - Output format: PNG
 - Aspect ratio: 1:1 (square)
 
@@ -789,6 +779,7 @@ export async function generateCreativeVariant(
   creativeBrief: CreativeBrief,
   signal?: AbortSignal
 ): Promise<CreativeResult> {
+  const tempFiles = new Set<string>();
   try {
     await mkdir(OUTPUT_DIR, { recursive: true });
 
@@ -803,11 +794,13 @@ export async function generateCreativeVariant(
       productImageUrl,
       `product-${uuid}.${productImageExt}`
     );
+    tempFiles.add(productImagePath);
 
     const logoPath = await downloadToTemp(
       GREATFLOWERS_LOGO_URL,
       `logo-${uuid}.svg`
     );
+    tempFiles.add(logoPath);
 
     const outputFilename = `${variant.creativeType}-${timestamp}-${uuid}.png`;
 
@@ -827,21 +820,31 @@ export async function generateCreativeVariant(
       outputFilename,
       signal
     );
+    tempFiles.add(generatedPath);
 
-    // Step 2: Programmatically overlay the official GreatFlowers logo
+    // Step 2: Typeset exact approved copy with purpose-specific typography.
+    const logoPosition = resolveLogoPosition(creativeBrief.logoPlacement);
+    const textSide: CreativeTextSide = logoPosition === "top-left" ? "right" : "left";
+    const textOutputPath = join(OUTPUT_DIR, `text-${outputFilename}`);
+    tempFiles.add(textOutputPath);
+    await addCreativeText(generatedPath, textOutputPath, variant, textSide);
+
+    // Step 3: Programmatically overlay the official GreatFlowers logo
     console.log(`🎨 Adding GreatFlowers logo to ${variant.creativeType}...`);
     const logoOutputPath = join(OUTPUT_DIR, `logo-${outputFilename}`);
+    tempFiles.add(logoOutputPath);
     await addOfficialLogo(
-      generatedPath,
+      textOutputPath,
       logoPath,
       creativeBrief.logoPlacement,
       logoOutputPath
     );
     console.log(`✅ Logo added to ${variant.creativeType}`);
 
-    // Step 3: Add CTA button overlay
+    // Step 4: Add CTA button overlay
     console.log(`🔗 Adding CTA button to ${variant.creativeType}...`);
     const finalPath = join(OUTPUT_DIR, outputFilename);
+    tempFiles.add(finalPath);
     await addCTAButton(
       logoOutputPath,
       "www.greatflowers.net",
@@ -849,28 +852,10 @@ export async function generateCreativeVariant(
     );
     console.log(`✅ CTA button added to ${variant.creativeType}`);
 
-    // Step 4: Upload the final composed image to S3
+    // Step 5: Upload the final composed image to S3
     console.log(`📤 Uploading ${variant.creativeType} to S3...`);
     const s3Url = await uploadToS3(finalPath, outputFilename);
     console.log(`✅ Uploaded to: ${s3Url}`);
-
-    // Clean up all temporary/intermediate files
-    const tempFiles = [
-      generatedPath,
-      logoOutputPath,
-      finalPath,
-      productImagePath,
-      logoPath,
-    ];
-
-    for (const tempFile of tempFiles) {
-      try {
-        await unlink(tempFile);
-        console.log(`🗑️  Cleaned up: ${tempFile}`);
-      } catch {
-        console.warn(`⚠️  Could not delete: ${tempFile}`);
-      }
-    }
 
     return {
       variantOrder: variant.order,
@@ -900,6 +885,15 @@ export async function generateCreativeVariant(
           ? error.message
           : String(error),
     };
+  } finally {
+    for (const tempFile of tempFiles) {
+      try {
+        await unlink(tempFile);
+        console.log(`🗑️  Cleaned up: ${tempFile}`);
+      } catch {
+        // The file may not have been created yet or may already be gone.
+      }
+    }
   }
 }
 

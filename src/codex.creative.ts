@@ -144,6 +144,12 @@ export interface CreativeResult {
   error?: string;
 }
 
+export function shouldUseProductReference(
+  variant: Pick<CreativeVariant, "productRole">
+): boolean {
+  return variant.productRole === "hero" || variant.productRole === "supporting";
+}
+
 const GREATFLOWERS_LOGO_URL =
   "https://greatflowers.net/assets/svg/greatflowers-logo.svg";
 
@@ -326,7 +332,9 @@ Preserve the bouquet/product identity as closely as possible.`;
     case "supporting":
       productInstructions = `
 PRODUCT ROLE: SUPPORTING
-Flowers participate naturally in the scene but are NOT the main subject.
+Use the supplied product image as the actual bouquet shown in the scene.
+Preserve its recognizable flower mix, colors, arrangement and container.
+The product must be clearly visible, but it is NOT the main subject.
 Do not recreate a catalog-style product composition.
 BUILD THE SCENE FIRST, then integrate flowers naturally into it.`;
       break;
@@ -819,10 +827,10 @@ export async function generateCreativeVariant(
     );
 
     // Step 1: Codex generates the creative (no logo)
-    // Supplying the catalog image strongly anchors generation to that bouquet.
-    // Only the single product-hero concept receives it; other concepts build
-    // genuinely independent lifestyle, editorial or occasion scenes.
-    const generationReference = variant.productRole === "hero" ? productImagePath : null;
+    // Hero and supporting concepts use the catalog image so product-linked
+    // messaging cannot drift into a generic or invented bouquet. Optional and
+    // product-free concepts remain unconstrained for genuine campaign variety.
+    const generationReference = shouldUseProductReference(variant) ? productImagePath : null;
     const generatedPath = await executeCodex(
       prompt,
       generationReference,

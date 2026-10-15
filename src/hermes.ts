@@ -687,7 +687,8 @@ Available creative types:
 
 6. creativeType: "informational"
    Educational/content creative providing value (flower care tips, occasion guides, calendar content).
-   productRole: "optional" or "none"
+   productRole: "supporting" when the concept uses the selected product's flowers, colors,
+   arrangement, container or other product facts; otherwise "optional" or "none"
    Use when: Building brand authority or providing helpful content is the goal.
 
 7. creativeType: "brand-awareness"
@@ -719,12 +720,12 @@ Choose the sceneStrategy that best matches the creativeType and concept:
 
 5. EDITORIAL_CONTENT
    Editorial/social content composition (occasion guides, flower stories, seasonal content, care tips).
-   Use with: creativeType "informational" + productRole "optional" or "none"
+   Use with: creativeType "informational" + productRole "supporting", "optional" or "none"
    CRITICAL: Product should NOT dominate. This is NOT a product advertisement.
 
 6. INFORMATIONAL_GRAPHIC
    Structured useful-content design. Product should not dominate the canvas.
-   Use with: creativeType "informational" + productRole "optional" or "none"
+   Use with: creativeType "informational" + productRole "supporting", "optional" or "none"
 
 7. LOCATION_STORY
    Location/environment/story leads the composition.
@@ -871,6 +872,14 @@ Describes how the actual GreatFlowers product participates in this creative:
 - "supporting": Product is visible but not the primary focus
 - "optional": Product may or may not appear
 - "none": Creative does not feature the product
+
+PRODUCT REFERENCE RULE:
+If the concept, headline, subheadline, content points or visual direction uses facts from the
+selected product — including its product name, flower varieties, colors, arrangement or
+container — productRole MUST be "hero" or "supporting", never "optional" or "none".
+Use "supporting" for informational, lifestyle and occasion compositions where the real product
+must be visible without dominating the scene. Only genuinely general brand, engagement or
+educational concepts that do not describe the selected product may omit it.
 
 Do NOT force a product into every creative when it doesn't fit the concept.
 

@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildCodexPrompt, type CreativeBrief, type CreativeVariant } from "./codex.creative.js";
+import {
+  buildCodexPrompt,
+  shouldUseProductReference,
+  type CreativeBrief,
+  type CreativeVariant,
+} from "./codex.creative.js";
 import {
   buildCreativeTextOverlay,
   CREATIVE_TEXT_PINK,
@@ -143,6 +148,18 @@ test("image generation reserves clear zones and never renders its own text", () 
   assert.match(prompt, /Do not draw empty circles, unlabeled icons/);
   assert.doesNotMatch(prompt, /TEXT OVERLAY \(verbatim\)/);
   assert.doesNotMatch(prompt, /Three exact care steps/);
+});
+
+test("hero and supporting creatives use the real product reference", () => {
+  assert.equal(shouldUseProductReference(variant({ productRole: "hero" })), true);
+  assert.equal(shouldUseProductReference(variant({ productRole: "supporting" })), true);
+  assert.equal(shouldUseProductReference(variant({ productRole: "optional" })), false);
+  assert.equal(shouldUseProductReference(variant({ productRole: "none" })), false);
+
+  const supporting = variant({ productRole: "supporting" });
+  const prompt = buildCodexPrompt(supporting, brief(supporting));
+  assert.match(prompt, /Use the supplied product image as the actual bouquet/);
+  assert.match(prompt, /Preserve its recognizable flower mix, colors, arrangement and container/);
 });
 
 test("existing creatives without content points retain the original safe area", () => {

@@ -97,3 +97,27 @@ test("content promises do not mistake ordinary copy or unrelated numbers for lis
     }),
   }).success, true);
 });
+
+test("unclear copy cannot use a physical prop as the person or message", () => {
+  const variants = [1, 2, 3, 4].map(variant);
+  const withFirst = (headline: string, subheadline: string) => [
+    { ...variants[0], headline, subheadline },
+    ...variants.slice(1),
+  ];
+
+  assert.equal(creativeBriefSchema.safeParse({
+    ...base,
+    variants: withFirst("The review is over. The red pen isn't.", "Petals sit beside six weeks of notes."),
+  }).success, false);
+  assert.equal(creativeBriefSchema.safeParse({
+    ...base,
+    variants: withFirst("'Thanks, that was helpful' isn't enough.", "Name the red pen. Name the practice runs."),
+  }).success, false);
+  assert.equal(creativeBriefSchema.safeParse({
+    ...base,
+    variants: withFirst(
+      "For the teammate who made your work better",
+      "Thank the person whose thoughtful feedback made a difference.",
+    ),
+  }).success, true);
+});

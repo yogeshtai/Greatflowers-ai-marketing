@@ -47,6 +47,7 @@ const HUMAN_SCENE_STRATEGIES = new Set(["HUMAN_GIFTING_MOMENT", "HUMAN_LIFESTYLE
 const CONTENT_PROMISE_PATTERN = /\b(?:steps|checks|tips|ways|routine|checklist|cheat\s*sheet)\b|\b(?:a|the|your|our|quick|simple|complete|essential|care|flower|buying|selection)\s+guide\b|\bguide\s+(?:to|for)\b/i;
 const PROMISED_COUNT_PATTERN = /\b(2|two|3|three|4|four)\b(?:[\s-]+[a-z][a-z'-]*){0,3}[\s-]+(?:steps?|checks?|tips?|ways?|points?|items?)\b/i;
 const CONTENT_COUNT: Record<string, number> = { "2": 2, two: 2, "3": 3, three: 3, "4": 4, four: 4 };
+const PROP_AS_PERSON_PATTERN = /\b(?:(?:name|thank|celebrate|honor|appreciate|recognize)\s+(?:the|a|an|this|that|your)\s+(?:red\s+|spare\s+)?(?:pen|key|desk|mug|tool|card)|(?:the|a|an|this|that|your)\s+(?:red\s+|spare\s+)?(?:pen|key|desk|mug|tool|card)\s+(?:(?:that|which)\s+)?(?:is|isn't|was|wasn't|deserves|needs|says|speaks|remembers|made|started))\b/i;
 
 function promisedContentCount(copy: string): number | undefined {
   const match = copy.match(PROMISED_COUNT_PATTERN);
@@ -171,6 +172,13 @@ export const creativeBriefSchema = z.object({
     brief.variants.forEach((v, i) => {
       if (!v.cta.length) ctx.addIssue({ code: "custom", path: ["variants", i, "cta"], message: "CTA required" });
       const copy = `${v.headline} ${v.subheadline}`;
+      if (PROP_AS_PERSON_PATTERN.test(copy)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["variants", i, "headline"],
+          message: "Copy must address the person or benefit directly; a prop cannot replace or impersonate the recipient",
+        });
+      }
       const promisesContent = CONTENT_PROMISE_PATTERN.test(copy) || PROMISED_COUNT_PATTERN.test(copy);
       const points = v.contentPoints || [];
       if (promisesContent && points.length < 2) {

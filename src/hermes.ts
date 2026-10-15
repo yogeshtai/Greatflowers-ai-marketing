@@ -86,7 +86,27 @@ slide; the image itself is generated text-free. Keep headlines under 45 characte
 subheadlines under 110 characters so they fit cleanly.
 These additional fields belong in the JSON even though the generic example omits them.`;
 
-function buildPrompt(input: CampaignInput): string {
+export const CREATIVE_COPY_CLARITY_RULES = `COPY CLARITY AND FLOWER CONNECTION RULES:
+Every headline and subheadline must make immediate sense on first read, without requiring the
+viewer to decode the image, caption or an unexplained metaphor.
+- State the person, occasion, customer need, useful benefit or flower idea directly.
+- Physical props such as pens, keys, cards, desks, mugs and tools may support the scene, but
+  must never replace the person or become the subject being thanked, celebrated or addressed.
+- For gratitude concepts, identify who is being thanked and what their help meant. Connect the
+  flowers to that appreciation naturally.
+- Headline, subheadline and content points must express one coherent message.
+- Prefer plain, emotionally clear language over clever wordplay that needs explanation.
+
+PROHIBITED unclear copy:
+- "The review is over. The red pen isn't."
+- "Name the red pen."
+- Any headline where an inanimate prop stands in for the recipient without explaining the person.
+
+CLEAR alternative:
+- Headline: "For the person who made your work better."
+- Subheadline: "Thank the mentor or teammate whose thoughtful feedback made a difference."`;
+
+export function buildPrompt(input: CampaignInput): string {
   return `
 Campaign Goal: ${input.campaignGoal}
 
@@ -140,6 +160,8 @@ Return ONLY valid JSON.
 Do not use Markdown.
 Do not use markdown code fences.
 Do not add any explanation before or after the JSON.
+
+${CREATIVE_COPY_CLARITY_RULES}
 
 FACT VS HYPOTHESIS RULE:
 
@@ -478,6 +500,8 @@ Each item must be a meaningful action of no more
 than 72 characters, never an empty label such as "Step 1". Use only supplied facts or safe,
 general flower-care guidance. If the creative does not promise a list or process, omit this field.
 Never promise useful content that is absent from contentPoints.
+For gratitude content, every item must describe the person's action, its impact or a concrete
+way to thank them. Never refer to a pen, key, desk or another prop as a substitute for the person.
 
 cta:
 

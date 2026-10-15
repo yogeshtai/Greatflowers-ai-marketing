@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { requestHermesJSON, HermesOutputError } from "./hermes.json.js";
+import { requestHermesJSON, HermesOutputError, HermesUpstreamError } from "./hermes.json.js";
+import { withRetry } from "./http.helpers.js";
 import { parseModelJSON } from "./model.json.js";
 
 test("repairs Markdown with original evidence, validates JSON, and shares the deadline", async (t) => {
@@ -55,6 +56,78 @@ test("an aborted request does not start a repair", async (t) => {
   });
   await assert.rejects(() => requestHermesJSON("Return JSON", JSON.parse, controller.signal), { name: "AbortError" });
   assert.equal(calls, 1);
+});
+
+test("an upstream timeout response does not start a JSON repair", async (t) => {
+  const oldKey = process.env.HERMES_API_KEY;
+  process.env.HERMES_API_KEY = "test-only";
+  t.after(() => { if (oldKey === undefined) delete process.env.HERMES_API_KEY; else process.env.HERMES_API_KEY = oldKey; });
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async () => {
+    calls++;
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: "API call failed after 3 retries: Request timed out." } }],
+    }), { status: 200 });
+  });
+
+  await assert.rejects(
+    () => requestHermesJSON("Return JSON", JSON.parse),
+    HermesUpstreamError,
+  );
+  assert.equal(calls, 1, "a timeout sentence cannot be repaired into recommendation JSON");
+});
+
+test("an aborted-due-to-timeout response does not start a JSON repair", async (t) => {
+  const oldKey = process.env.HERMES_API_KEY;
+  process.env.HERMES_API_KEY = "test-only";
+  t.after(() => { if (oldKey === undefined) delete process.env.HERMES_API_KEY; else process.env.HERMES_API_KEY = oldKey; });
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async () => {
+    calls++;
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: "The operation was aborted due to timeout" } }],
+    }), { status: 200 });
+  });
+
+  await assert.rejects(
+    () => requestHermesJSON("Return JSON", JSON.parse),
+    HermesUpstreamError,
+  );
+  assert.equal(calls, 1);
+});
+
+test("a structured upstream error does not start a JSON repair", async (t) => {
+  const oldKey = process.env.HERMES_API_KEY;
+  process.env.HERMES_API_KEY = "test-only";
+  t.after(() => { if (oldKey === undefined) delete process.env.HERMES_API_KEY; else process.env.HERMES_API_KEY = oldKey; });
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async () => {
+    calls++;
+    return new Response(JSON.stringify({ error: { message: "Request timed out" } }), { status: 200 });
+  });
+
+  await assert.rejects(
+    () => requestHermesJSON("Return JSON", JSON.parse),
+    HermesUpstreamError,
+  );
+  assert.equal(calls, 1);
+});
+
+test("an HTTP gateway timeout bypasses repair and outer retries", async (t) => {
+  const oldKey = process.env.HERMES_API_KEY;
+  process.env.HERMES_API_KEY = "test-only";
+  t.after(() => { if (oldKey === undefined) delete process.env.HERMES_API_KEY; else process.env.HERMES_API_KEY = oldKey; });
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async () => {
+    calls++;
+    return new Response("Gateway Timeout", { status: 504 });
+  });
+
+  await assert.rejects(
+    () => withRetry(() => requestHermesJSON("Return JSON", JSON.parse)),
+    HermesUpstreamError,
+  );
+  assert.equal(calls, 1, "the JSON repair and route-level retry must both be skipped");
 });
 
 test("repairs missing JSON array and object separators locally without another Hermes call", async (t) => {

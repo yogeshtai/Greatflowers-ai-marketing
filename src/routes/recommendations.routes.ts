@@ -7,6 +7,7 @@ import { generateMarketingStrategy } from "../hermes.js";
 import { getGreatFlowersWebsiteContext } from "../website.context.js";
 import { getRecentRecommendations, recordRecommendation } from "../recommendation.store.js";
 import { singleFlight, abortOnDisconnect, withRetry } from "../http.helpers.js";
+import { HermesUpstreamError } from "../hermes.json.js";
 import express from "express";
 
 const router = express.Router();
@@ -284,7 +285,7 @@ ${recommendation.additionalContext}
         error
       );
 
-      return res.status(500).json({
+      return res.status(error instanceof HermesUpstreamError ? 504 : 500).json({
         success: false,
 
         error:

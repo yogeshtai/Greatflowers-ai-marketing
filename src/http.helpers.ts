@@ -45,6 +45,7 @@ export async function withRetry<T>(
       error instanceof SyntaxError ||
       (error instanceof Error &&
         (error.name === "HermesOutputError" ||
+          error.name === "HermesUpstreamError" ||
           error.name === "TimeoutError" ||
           error.name === "AbortError" ||
           error.message.includes("did not return")));

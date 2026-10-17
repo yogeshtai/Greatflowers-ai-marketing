@@ -31,6 +31,8 @@ test("article prompt fixes topic, format and distinct editorial direction", () =
   assert.match(prompt, /Required editorial format \(use exactly\): STYLE_PLAYBOOK/);
   assert.match(prompt, /Fresh angle: texture and movement/);
   assert.match(prompt, /Avoid repeatedly using listicle titles/);
+  assert.match(prompt, /Return this object itself at the top level/);
+  assert.match(prompt, /"topic":"Floral Design"/);
 });
 
 test("article links resolve only verified products, articles and home", () => {
@@ -60,6 +62,14 @@ test("valid article output enforces its assigned taxonomy, format, author and ve
   assert.match(result.html, /product\/rose-garden\//);
   assert.match(result.html, /href="https:\/\/greatflowers\.net\/"/);
   assert.throws(() => validateArticle(output, { topic: "Seasonal", format: "HOW_TO", authorName: "Mason Thomas", existingTitles: [], existingSlugs: [], products, relatedSlugs: new Set(), base: "https://greatflowers.net" }), /topic must be exactly/);
+});
+
+test("wrong Hermes root produces a concise repair instruction instead of a raw validation array", () => {
+  const context = { topic: "Gift Guides", format: "HOW_TO" as const, authorName: "Mason Thomas" as const, existingTitles: [], existingSlugs: [], products, relatedSlugs: new Set<string>(), base: "https://greatflowers.net" };
+  assert.throws(
+    () => validateArticle(JSON.stringify({ success: true, report: "Article saved elsewhere" }), context),
+    (error: unknown) => error instanceof Error && /top-level object must contain: title, slug, topic/.test(error.message) && !/invalid_type/.test(error.message),
+  );
 });
 
 test("article image prompt is text-free 16:9 and output is optimized JPEG", async () => {

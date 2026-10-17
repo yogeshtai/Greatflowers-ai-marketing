@@ -133,8 +133,14 @@ SEO
 - description: a useful 1-2 sentence summary.
 - metaTitle: 35-55 characters without "Great Flowers".
 - metaDescription: 140-165 characters.
-- Return the complete JSON object only.`;
+- Return the complete JSON object only.
+
+OUTPUT CONTRACT
+Return this object itself at the top level—never a validation report, summary, wrapper, file or status object:
+{"title":"...","slug":"...","topic":"${args.topic}","format":"${args.format}","authorName":"${args.authorName}","description":"...","metaTitle":"...","metaDescription":"...","productIds":[1,2],"heroProductId":1,"imageConcept":"...","html":"<p>...</p>"}`;
 }
+
+const ARTICLE_KEYS = ["title", "slug", "topic", "format", "authorName", "description", "metaTitle", "metaDescription", "productIds", "heroProductId", "imageConcept", "html"] as const;
 
 export function validateArticle(output: string, context: {
   topic: string;
@@ -161,11 +167,28 @@ export function validateArticle(output: string, context: {
     }
   }
   let article: GeneratedArticle | undefined;
+  let bestFailure: { matches: number; keys: string[]; issues: string[] } | undefined;
   for (const candidate of candidates) {
     const result = GeneratedArticleSchema.safeParse(candidate);
     if (result.success) { article = result.data; break; }
+    if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+      const keys = Object.keys(candidate as Record<string, unknown>);
+      const matches = ARTICLE_KEYS.filter((key) => keys.includes(key)).length;
+      if (!bestFailure || matches > bestFailure.matches) {
+        bestFailure = {
+          matches,
+          keys,
+          issues: result.error.issues.slice(0, 8).map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`),
+        };
+      }
+    }
   }
-  if (!article) article = GeneratedArticleSchema.parse(roots.at(-1));
+  if (!article) {
+    if (!bestFailure?.matches) {
+      throw new Error(`No complete Article JSON object was returned. The top-level object must contain: ${ARTICLE_KEYS.join(", ")}. Received keys: ${bestFailure?.keys.join(", ") || "none"}. Do not return a report or validation errors.`);
+    }
+    throw new Error(`Article JSON is incomplete or invalid (${bestFailure.matches}/${ARTICLE_KEYS.length} required fields found). Fix: ${bestFailure.issues.join("; ")}`);
+  }
   if (article.topic !== context.topic) throw new Error(`topic must be exactly ${context.topic}`);
   if (article.format !== context.format) throw new Error(`format must be exactly ${context.format}`);
   if (article.authorName !== context.authorName) throw new Error(`authorName must be exactly ${context.authorName}`);
@@ -198,7 +221,7 @@ export async function generateDailyArticleDraft(signal?: AbortSignal, onDraftSav
   const authorName = selectContentAuthor(local.map((draft) => draft.authorName));
   const direction = selectDirection(topic, recentTopics.filter((item) => normalize(item) === normalize(topic)).length);
   const related = context.articles.filter((article: any) => Number(article.status) === 1).slice(0, 80).map((article: any) => ({ slug: String(article.slug), title: String(article.title) }));
-  const promptProducts = context.products.slice(0, 70);
+  const promptProducts = context.products.slice(0, 45);
   const article = await requestHermesJSON(
     buildArticlePrompt({ topic, direction, format, authorName, existingTitles, products: promptProducts, related }),
     (output) => validateArticle(output, { topic, format, authorName, existingTitles, existingSlugs, products: promptProducts, relatedSlugs: new Set(related.map((item) => item.slug)), base: storefrontBase() }),

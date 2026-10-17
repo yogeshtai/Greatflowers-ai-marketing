@@ -116,6 +116,10 @@ test("hero overlay uses real escaped title text", () => {
   const longOverlay = buildHeroOverlaySvg("How to Choose Thoughtful Flowers for Every Important Celebration and Personal Milestone").toString();
   assert.ok((longOverlay.match(/class="title"/g) ?? []).length <= 4);
   assert.doesNotMatch(longOverlay, /<text[^>]*class="title"[^>]*>[^<]{50}/);
+  const halloweenOverlay = buildHeroOverlaySvg("How to Choose Halloween Flower Colors for Any Room").toString();
+  assert.doesNotMatch(halloweenOverlay, />How to Choose Halloween Flower</);
+  assert.match(halloweenOverlay, />How to Choose Halloween</);
+  assert.match(halloweenOverlay, />Flower Colors for Any Room</);
 });
 test("blog heroes are encoded as correctly sized progressive JPEGs", async () => {
   const source = await sharp({ create: { width: 80, height: 80, channels: 3, background: "#7b174f" } }).png().toBuffer();

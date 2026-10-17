@@ -21,7 +21,7 @@ const HERO_JPEG_QUALITY = 86;
 
 const escapeXml = (value: string) => value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[character]!);
 
-function titleLines(title: string, maxCharacters = 30, maxLines = 4): string[] {
+function wrapTitle(title: string, maxCharacters: number): string[] {
   const words = title.trim().split(/\s+/);
   const lines: string[] = [];
   for (const word of words) {
@@ -31,28 +31,49 @@ function titleLines(title: string, maxCharacters = 30, maxLines = 4): string[] {
     }
     const index = lines.length - 1;
     const candidate = `${lines[index]} ${word}`;
-    if (candidate.length <= maxCharacters || lines.length === maxLines) lines[index] = candidate;
+    if (candidate.length <= maxCharacters) lines[index] = candidate;
     else lines.push(word);
   }
   return lines;
 }
 
+function titleLayout(title: string): { lines: string[]; fontSize: number; lineHeight: number } {
+  // Character limits are deliberately conservative because Georgia is
+  // proportional: words with wide capitals can overflow even when their raw
+  // character count looks safe. Longer titles get a smaller font before they
+  // are allowed wider lines, keeping a maximum of four readable lines.
+  const layouts = [
+    { fontSize: 36, lineHeight: 46, maxCharacters: 26 },
+    { fontSize: 34, lineHeight: 44, maxCharacters: 28 },
+    { fontSize: 32, lineHeight: 42, maxCharacters: 30 },
+    { fontSize: 30, lineHeight: 40, maxCharacters: 33 },
+    { fontSize: 28, lineHeight: 38, maxCharacters: 36 },
+  ];
+  for (const layout of layouts) {
+    const lines = wrapTitle(title, layout.maxCharacters);
+    if (lines.length <= 4) return { lines, fontSize: layout.fontSize, lineHeight: layout.lineHeight };
+  }
+  const fallback = layouts.at(-1)!;
+  const lines = wrapTitle(title, fallback.maxCharacters);
+  return { lines: [...lines.slice(0, 3), lines.slice(3).join(" ")], fontSize: fallback.fontSize, lineHeight: fallback.lineHeight };
+}
+
 // Typography is composited after generation so the title is always spelled correctly;
 // the image model still receives a strict no-text prompt to prevent visual gibberish.
 export function buildHeroOverlaySvg(title: string): Buffer {
-  const lines = titleLines(title);
+  const { lines, fontSize, lineHeight } = titleLayout(title);
   const panelX = 930;
   const panelWidth = 710;
-  const panelHeight = 250 + Math.max(0, lines.length - 2) * 38;
+  const panelHeight = 250 + Math.max(0, lines.length - 2) * lineHeight;
   const panelY = HERO_HEIGHT - panelHeight - 42;
   const textX = panelX + 46;
   const startY = panelY + 126;
-  const text = lines.map((line, index) => `<text x="${textX}" y="${startY + index * 48}" class="title">${escapeXml(line)}</text>`).join("");
+  const text = lines.map((line, index) => `<text x="${textX}" y="${startY + index * lineHeight}" class="title">${escapeXml(line)}</text>`).join("");
   return Buffer.from(`<svg width="${HERO_WIDTH}" height="${HERO_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
     <rect x="${panelX}" y="${panelY}" width="${panelWidth}" height="${panelHeight}" rx="24" fill="#17120f" fill-opacity="0.76" stroke="#ffffff" stroke-opacity="0.16"/>
     <rect x="${textX}" y="${panelY + 38}" width="46" height="4" rx="2" fill="#e7b85d"/>
     <text x="${textX}" y="${panelY + 78}" font-family="Arial, sans-serif" font-size="16" font-weight="700" letter-spacing="3.5" fill="#f0d08d">GREAT FLOWERS JOURNAL</text>
-    <style>.title{font-family:Georgia,serif;font-size:38px;font-weight:700;fill:white}</style>
+    <style>.title{font-family:Georgia,serif;font-size:${fontSize}px;font-weight:700;fill:white}</style>
     ${text}
   </svg>`);
 }

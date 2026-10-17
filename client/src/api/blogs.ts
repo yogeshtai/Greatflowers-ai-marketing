@@ -33,6 +33,7 @@ export interface BlogDraft {
 export interface GenerationState {
   running: boolean;
   trigger?: "manual" | "schedule";
+  occasion?: string;
   startedAt?: string;
   finishedAt?: string;
   error?: string;
@@ -48,7 +49,7 @@ const call = async <T,>(request: Promise<{ data: T }>) => request.then((r) => r.
 
 export const getBlogs = () => call<{ blogs: BlogDraft[]; authors: string[]; liveMode: boolean; publishMode: "immediate" | "scheduled"; generation: GenerationState }>(axios.get(url()));
 export const getBlogStatus = () => call<{ generation: GenerationState }>(axios.get(url("/status")));
-export const generateBlog = () => call<{ started: boolean }>(axios.post(url("/generate"), {}));
+export const generateBlog = (occasion?: string) => call<{ started: boolean }>(axios.post(url("/generate"), { occasion: occasion?.trim() || undefined }));
 export const editBlog = (id: string, edit: BlogEdit) => call<{ blog: BlogDraft }>(axios.patch(url(`/${id}`), edit));
 export const deleteBlog = (id: string) => call<{ success: true }>(axios.delete(url(`/${id}`)));
 export const approveBlog = (id: string) => call<{ blog: BlogDraft }>(axios.post(url(`/${id}/approve`)));

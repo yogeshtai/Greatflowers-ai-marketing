@@ -8,6 +8,13 @@ export class HermesUpstreamError extends Error {
   override name = "HermesUpstreamError";
 }
 
+export interface HermesJSONOptions {
+  // A fresh conversation is useful only after both the original output and
+  // its repair were structurally invalid. Upstream/time-out failures are never
+  // repeated here.
+  freshRetries?: number;
+}
+
 function upstreamFailureMessage(output: string): string | null {
   const compact = output.trim().replace(/\s+/g, " ");
   const looksLikeJSON = /^(?:```(?:json)?\s*)?[\[{]/i.test(compact);
@@ -22,7 +29,7 @@ function upstreamFailureMessage(output: string): string | null {
 
 // One format/schema repair, keeping the original evidence and validating both replies.
 // The same deadline covers both calls, so recovery cannot double the request timeout.
-export async function requestHermesJSON<T>(
+async function requestHermesJSONConversation<T>(
   prompt: string,
   validate: (output: string) => T,
   signal?: AbortSignal,
@@ -89,4 +96,23 @@ export async function requestHermesJSON<T>(
     }
   }
   throw new HermesOutputError("Hermes returned no valid JSON");
+}
+
+export async function requestHermesJSON<T>(
+  prompt: string,
+  validate: (output: string) => T,
+  signal?: AbortSignal,
+  jsonSchema?: object,
+  options: HermesJSONOptions = {},
+): Promise<T> {
+  const freshRetries = Math.max(0, Math.min(2, options.freshRetries ?? 0));
+  for (let freshAttempt = 0; ; freshAttempt++) {
+    try {
+      return await requestHermesJSONConversation(prompt, validate, signal, jsonSchema);
+    } catch (error) {
+      if (!(error instanceof HermesOutputError) || freshAttempt >= freshRetries) throw error;
+      signal?.throwIfAborted();
+      console.warn(`Hermes output stayed invalid; starting fresh generation attempt ${freshAttempt + 2}/${freshRetries + 1}.`);
+    }
+  }
 }

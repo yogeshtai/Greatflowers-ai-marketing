@@ -61,10 +61,60 @@ function repairMissingSeparators(text: string): string {
 }
 
 export function parseModelJSON(text: string): any {
+  return parseModelJSONCandidates(text)[0];
+}
+
+// Hermes occasionally surrounds the requested object with Markdown/prose or
+// emits a small metadata object before the real response. Return every
+// top-level JSON value so the caller can select the one that passes its strict
+// domain schema instead of accepting an arbitrary wrapper.
+export function parseModelJSONCandidates(text: string): any[] {
   try {
-    return JSON.parse(text);
+    return [JSON.parse(text)];
   } catch (error) {
     if (!(error instanceof SyntaxError)) throw error;
-    return JSON.parse(repairMissingSeparators(escapeControlCharsInStrings(text)));
+    try {
+      return [JSON.parse(repairMissingSeparators(escapeControlCharsInStrings(text)))];
+    } catch {
+      const values: any[] = [];
+      let start = -1;
+      let depth = 0;
+      let inString = false;
+      let escaped = false;
+
+      for (let index = 0; index < text.length; index++) {
+        const char = text[index]!;
+        if (start === -1) {
+          if (char === "{" || char === "[") {
+            start = index;
+            depth = 1;
+          }
+          continue;
+        }
+        if (inString) {
+          if (escaped) escaped = false;
+          else if (char === "\\") escaped = true;
+          else if (char === '"') inString = false;
+          continue;
+        }
+        if (char === '"') inString = true;
+        else if (char === "{" || char === "[") depth++;
+        else if (char === "}" || char === "]") depth--;
+
+        if (depth === 0) {
+          const candidate = text.slice(start, index + 1);
+          try {
+            values.push(JSON.parse(repairMissingSeparators(escapeControlCharsInStrings(candidate))));
+          } catch {
+            // Keep scanning; another complete JSON value may be the real reply.
+          }
+          start = -1;
+          inString = false;
+          escaped = false;
+        }
+      }
+      if (values.length) return values;
+      throw error;
+    }
   }
 }

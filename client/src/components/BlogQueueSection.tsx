@@ -14,6 +14,7 @@ export function BlogQueueSection() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
+  const [occasion, setOccasion] = useState("");
   const [now, setNow] = useState(() => Date.now());
 
   const load = useCallback(async () => {
@@ -85,20 +86,31 @@ export function BlogQueueSection() {
             {liveMode ? "Live mode: posts are published." : "Safe mode: posts are created hidden (not visible to readers)."}
           </p>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
           <button className="secondary-button" onClick={load} disabled={loading}>{loading ? "Loading..." : "Refresh"}</button>
-          <button className="primary-action-button" disabled={generation.running} onClick={() => run(null, generateBlog)}>
-            {generation.running ? "Writing draft (up to 10 minutes)..." : "Generate draft now"}
+          <label style={{ display: "grid", gap: 5, minWidth: 280, fontSize: 12, color: "#70706a" }}>
+            Optional occasion for manual draft
+            <input
+              value={occasion}
+              maxLength={50}
+              disabled={generation.running}
+              placeholder="Example: Mother's Day"
+              onChange={(event) => setOccasion(event.target.value)}
+              style={{ padding: "10px 12px" }}
+            />
+          </label>
+          <button className="primary-action-button" disabled={generation.running} onClick={() => run(null, () => generateBlog(occasion))}>
+            {generation.running ? "Writing draft..." : occasion.trim() ? "Generate occasion draft" : "Generate draft now"}
           </button>
         </div>
       </div>
 
       {generation.running && (
         <div role="status" style={{ margin: "0 0 16px", padding: "14px 18px", borderRadius: 12, background: "#eef3ff", border: "1px solid #c9d6ff", color: "#1f3a8a" }}>
-          <strong>Writing a new blog draft... {elapsedLabel}</strong>
+          <strong>Writing a new blog draft{generation.occasion ? ` for ${generation.occasion}` : ""}... {elapsedLabel}</strong>
           <div style={{ fontSize: 13, marginTop: 4 }}>
             {generation.trigger === "schedule" ? "Started by the daily 6:00 PM IST run. " : "Started from this page. "}
-            This takes about 5 to 10 minutes (the writing, then the hero image). You can leave this page; the draft appears here by itself when it is ready.
+            This usually takes 5 to 10 minutes (the writing, then the hero image); an automatic retry can take longer. You can leave this page and the draft will appear here when ready.
             {elapsedSeconds > 15 * 60 && " It is taking unusually long. Check the server logs if it does not finish soon."}
           </div>
         </div>

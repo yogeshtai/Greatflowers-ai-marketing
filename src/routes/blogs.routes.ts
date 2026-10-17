@@ -1,6 +1,6 @@
 import express from "express";
 import { z } from "zod";
-import { BlogEditSchema } from "../blog.schema.js";
+import { BlogEditSchema, BlogGenerateRequestSchema } from "../blog.schema.js";
 import { approveDraft, approveFlow, isDraftPublishing, publishDraft, publishImmediate, rejectDraft } from "../blog.publisher.js";
 import { getGenerationState, isDraftImagePending, startGeneration } from "../blog.jobs.js";
 import { deleteUnpublishedBlogDraft, getBlogDraft, getBlogDrafts, updateBlogDraft } from "../blog.store.js";
@@ -35,10 +35,15 @@ router.get("/api/blogs", async (_req, res) => {
   }
 });
 
-router.post("/api/blogs/generate", (_req, res) => {
-  startGeneration("manual")
-    ? res.status(202).json({ success: true, started: true })
-    : res.status(409).json({ success: false, error: "A draft is already being written. Please wait for it to finish." });
+router.post("/api/blogs/generate", (req, res) => {
+  try {
+    const { occasion } = BlogGenerateRequestSchema.parse(req.body ?? {});
+    startGeneration("manual", occasion)
+      ? res.status(202).json({ success: true, started: true })
+      : res.status(409).json({ success: false, error: "A draft is already being written. Please wait for it to finish." });
+  } catch (error) {
+    fail(res, error, 400);
+  }
 });
 
 router.get("/api/blogs/:id/hero", (req, res) => {

@@ -32,6 +32,13 @@ export type GeneratedPost = z.infer<typeof GeneratedPostSchema>;
 
 export const GeneratedPostJsonSchema = z.toJSONSchema(GeneratedPostSchema, { io: "input", unrepresentable: "any" });
 
+const OccasionSchema = z.string().trim().min(2).max(50)
+  .regex(/^[\p{L}\p{N}][\p{L}\p{N} &'’().\/-]*$/u, "occasion contains unsupported characters");
+
+export const BlogGenerateRequestSchema = z.object({
+  occasion: z.preprocess((value) => typeof value === "string" && !value.trim() ? undefined : value, OccasionSchema.optional()),
+});
+
 export const BlogEditSchema = z.object({
   authorName: z.enum(CONTENT_AUTHORS),
   title: z.string().min(10).max(120),

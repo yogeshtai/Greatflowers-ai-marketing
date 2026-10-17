@@ -1,6 +1,6 @@
 import { formatOccasionGuidance, getUpcomingOccasions } from "./occasion.calendar.js";
 import { requestHermesJSON } from "./hermes.json.js";
-import { parseModelJSON } from "./model.json.js";
+import { parseModelJSONCandidates } from "./model.json.js";
 import { BLOG_FORMATS, GeneratedPostJsonSchema, GeneratedPostSchema, type BlogFormat, type GeneratedPost } from "./blog.schema.js";
 import { addBlogDraft, getBlogDrafts, updateBlogDraft } from "./blog.store.js";
 import { generateHeroImage, type HeroInput } from "./blog.image.js";
@@ -80,19 +80,24 @@ export function buildBlogPrompt(args: {
   related: Array<{ slug: string; title: string }>;
   recentHeroConcepts: string[];
   requiredFormat: BlogFormat;
+  requestedOccasion?: string;
 }): string {
   const upcoming = getUpcomingOccasions(50).slice(0, 5).map((o) => `${o.name} (${o.daysUntil} days away)`);
   const structureSample = args.requiredFormat === "CURATED_LIST"
     ? '<h2>1. Sunflower Bouquet for a Cheerful Thank You</h2><p>Sunflowers bring a bright, welcoming presence to an appreciation gift.</p><p>Consider the <a href="PRODUCT:<id>">Sunflower Sunshine Bouquet</a> for a warm and straightforward gesture.</p>'
     : '<h2>Choose a Palette That Fits the Moment</h2><p>Begin with the recipient and setting, then choose colors that support the feeling you want to express.</p><p>A real option such as the <a href="PRODUCT:<id>">Product Name</a> can be introduced naturally when its verified details fit the advice.</p>';
   const relatedLinkRange = args.requiredFormat === "CURATED_LIST" ? "1 to 3" : "2 to 5";
+  const requestedOccasion = args.requestedOccasion
+    ? `\nUSER-REQUESTED OCCASION (MANDATORY FOR THIS MANUAL DRAFT): ${args.requestedOccasion}\n- Write the entire post specifically for this occasion, even if it is outside the 50-day calendar window.\n- The title must contain the exact phrase "${args.requestedOccasion}" (case differences are allowed).\n- Keep the search intent distinct from existing posts; do not replace the requested occasion with another topic.\n`
+    : "";
   return `You are the SEO content writer for GreatFlowers (greatflowers.net), a US online florist with same-day flower delivery.
 Write ONE new blog post for today (${args.today}).
 
 ${formatOccasionGuidance()}
+${requestedOccasion}
 
 TOPIC RULES
-- Occasions coming up in the next 50 days (blog posts need lead time to rank): ${upcoming.length ? upcoming.join("; ") : "none"}. Prefer one of these that has NO existing post yet (check the existing titles). Choose an evergreen topic only if every upcoming occasion is already well covered.
+- Occasions coming up in the next 50 days (blog posts need lead time to rank): ${upcoming.length ? upcoming.join("; ") : "none"}. ${args.requestedOccasion ? "The user-requested occasion above overrides this calendar guidance." : "Prefer one of these that has NO existing post yet (check the existing titles). Choose an evergreen topic only if every upcoming occasion is already well covered."}
 - It must be clearly different from every existing post listed below (different search intent, not a rewording).
 - Existing post titles (do NOT repeat or closely paraphrase):
 ${args.existingTitles.slice(0, 120).map((t) => `  - ${t}`).join("\n")}
@@ -145,11 +150,35 @@ Return the JSON object only.`;
 
 export function validatePost(
   output: string,
-  ctx: { existingTitles: string[]; existingSlugs: string[]; categories: Set<string>; products: CatalogProduct[]; relatedSlugs: Set<string>; base: string; requiredFormat: BlogFormat },
+  ctx: { existingTitles: string[]; existingSlugs: string[]; categories: Set<string>; products: CatalogProduct[]; relatedSlugs: Set<string>; base: string; requiredFormat: BlogFormat; requestedOccasion?: string },
 ): GeneratedPost {
   const productIds = new Set(ctx.products.map((p) => p.id));
-  const post = GeneratedPostSchema.parse(parseModelJSON(output));
+  const roots = parseModelJSONCandidates(output);
+  const candidates: unknown[] = [];
+  const queue: Array<{ value: unknown; depth: number }> = roots.map((value) => ({ value, depth: 0 }));
+  const seen = new Set<unknown>();
+  while (queue.length && candidates.length < 100) {
+    const current = queue.shift()!;
+    if (!current.value || typeof current.value !== "object" || seen.has(current.value)) continue;
+    seen.add(current.value);
+    candidates.push(current.value);
+    if (current.depth >= 3) continue;
+    const children = Array.isArray(current.value) ? current.value : Object.values(current.value as Record<string, unknown>);
+    for (const value of children) queue.push({ value, depth: current.depth + 1 });
+  }
+  let post: GeneratedPost | undefined;
+  for (const candidate of candidates) {
+    const result = GeneratedPostSchema.safeParse(candidate);
+    if (result.success) {
+      post = result.data;
+      break;
+    }
+  }
+  if (!post) post = GeneratedPostSchema.parse(roots.at(-1));
   const lower = post.title.toLowerCase();
+  if (ctx.requestedOccasion && !lower.includes(ctx.requestedOccasion.toLowerCase())) {
+    throw new Error(`title must contain the requested occasion "${ctx.requestedOccasion}"`);
+  }
   if (ctx.existingTitles.some((t) => t.toLowerCase() === lower)) throw new Error("title duplicates an existing post");
   if (ctx.existingSlugs.includes(post.slug)) throw new Error("slug is already taken");
   if (post.contentFormat !== ctx.requiredFormat) throw new Error(`contentFormat must be ${ctx.requiredFormat}`);
@@ -167,7 +196,7 @@ export function validatePost(
   return { ...post, html };
 }
 
-export async function generateDailyBlogDraft(signal?: AbortSignal) {
+export async function generateDailyBlogDraft(signal?: AbortSignal, requestedOccasion?: string) {
   const environment = gfApiHost();
   const context = await withGfClient(async (client) => {
     const [blogs, categories, products] = await Promise.all([client.listBlogs(), client.listBlogCategories(), client.searchProducts("", 40)]);
@@ -193,12 +222,14 @@ export async function generateDailyBlogDraft(signal?: AbortSignal) {
     today: new Date().toISOString().slice(0, 10), existingTitles, existingSlugs, categories, products, related,
     recentHeroConcepts: localDrafts.map((draft) => draft.heroConcept).filter((concept): concept is string => !!concept),
     requiredFormat,
+    ...(requestedOccasion ? { requestedOccasion } : {}),
   });
   const post = await requestHermesJSON(
     prompt,
-    (output) => validatePost(output, { existingTitles, existingSlugs, categories: new Set(categories.map((c) => c.slug)), products, relatedSlugs: new Set(related.map((r) => r.slug)), base, requiredFormat }),
+    (output) => validatePost(output, { existingTitles, existingSlugs, categories: new Set(categories.map((c) => c.slug)), products, relatedSlugs: new Set(related.map((r) => r.slug)), base, requiredFormat, ...(requestedOccasion ? { requestedOccasion } : {}) }),
     signal,
     GeneratedPostJsonSchema,
+    { freshRetries: 1 },
   );
   const draft = await addBlogDraft({ ...post, authorName, environment });
   return attachHeroImage(draft.id, post, products.find((p) => p.id === post.heroProductId)?.imageUrl, signal);

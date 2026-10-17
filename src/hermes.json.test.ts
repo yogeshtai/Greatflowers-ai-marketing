@@ -43,6 +43,26 @@ test("repairs Markdown with original evidence, validates JSON, and shares the de
   assert.equal(calls.length, 1, "valid responses require no repair");
 });
 
+test("optionally starts one fresh conversation after an invalid repair", async (t) => {
+  const oldKey = process.env.HERMES_API_KEY;
+  process.env.HERMES_API_KEY = "test-only";
+  t.after(() => { if (oldKey === undefined) delete process.env.HERMES_API_KEY; else process.env.HERMES_API_KEY = oldKey; });
+  t.mock.method(console, "warn", () => {});
+  const replies = ['{"wrong":true}', '{"stillWrong":true}', '{"productId":90}'];
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async () => {
+    calls++;
+    return new Response(JSON.stringify({ choices: [{ message: { content: replies.shift() } }] }), { status: 200 });
+  });
+  const result = await requestHermesJSON("Return JSON", (output) => {
+    const parsed = JSON.parse(output);
+    if (parsed.productId !== 90) throw new Error("missing productId");
+    return parsed;
+  }, undefined, undefined, { freshRetries: 1 });
+  assert.deepEqual(result, { productId: 90 });
+  assert.equal(calls, 3);
+});
+
 test("an aborted request does not start a repair", async (t) => {
   const oldKey = process.env.HERMES_API_KEY;
   process.env.HERMES_API_KEY = "test-only";

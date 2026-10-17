@@ -6,6 +6,8 @@ import { startBlogScheduler } from "./blog.scheduler.js";
 import blogsRoutes from "./routes/blogs.routes.js";
 import wikisRoutes from "./routes/wikis.routes.js";
 import { startWikiScheduler } from "./wiki.scheduler.js";
+import { startArticleScheduler } from "./article.scheduler.js";
+import articlesRoutes from "./routes/articles.routes.js";
 import campaignsRoutes from "./routes/campaigns.routes.js";
 import recommendationsRoutes from "./routes/recommendations.routes.js";
 import creativesRoutes from "./routes/creatives.routes.js";
@@ -52,12 +54,14 @@ app.use(infoRoutes);
 app.use(publishingRoutes);
 app.use(blogsRoutes);
 app.use(wikisRoutes);
+app.use(articlesRoutes);
 
 const PORT = process.env.PORT || 3000;
 
 startCampaignScheduler();
 startBlogScheduler();
 startWikiScheduler();
+startArticleScheduler();
 
 app.listen(PORT, () => {
   console.log(

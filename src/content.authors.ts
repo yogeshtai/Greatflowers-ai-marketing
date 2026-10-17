@@ -18,7 +18,7 @@ export function isContentAuthor(value: string): value is (typeof CONTENT_AUTHORS
 // Pick once when a draft is created and persist the result. Excluding the
 // three most recent names adds variety without changing a byline on retries,
 // edits, image regeneration or publication.
-export function selectContentAuthor(recentAuthors: Array<string | undefined>, random: () => number = Math.random): string {
+export function selectContentAuthor(recentAuthors: Array<string | undefined>, random: () => number = Math.random): (typeof CONTENT_AUTHORS)[number] {
   const excluded = new Set(recentAuthors.filter((name): name is string => !!name).slice(0, 3));
   const candidates = CONTENT_AUTHORS.filter((name) => !excluded.has(name));
   const pool = candidates.length ? candidates : [...CONTENT_AUTHORS];

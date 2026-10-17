@@ -20,11 +20,12 @@ import { StoryCreativesSection } from "./components/StoryCreativesSection";
 import { StrategyDetails } from "./components/StrategyDetails";
 import { BlogQueueSection } from "./components/BlogQueueSection";
 import { WikiQueueSection } from "./components/WikiQueueSection";
+import { ArticleQueueSection } from "./components/ArticleQueueSection";
 import { HistorySection } from "./components/HistorySection";
 import { ScheduleModal } from "./components/ScheduleModal";
 import { LoginScreen } from "./components/LoginScreen";
 
-type DashboardTab = "studio" | "campaigns" | "blogs" | "wikis";
+type DashboardTab = "studio" | "campaigns" | "blogs" | "wikis" | "articles";
 
 function App() {
   // Authentication state
@@ -908,7 +909,7 @@ function App() {
           <h1>AI Marketing Studio</h1>
           <p>
             Plan campaigns, review AI recommendations, and publish daily blog
-            and flower-wiki content from one focused workspace.
+            articles and flower-wiki content from one focused workspace.
           </p>
         </div>
         <button
@@ -980,6 +981,21 @@ function App() {
             <span className="tab-copy">
               <strong>Wiki Queue</strong>
               <small>Review encyclopedia</small>
+            </span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "articles"}
+            aria-controls="articles-panel"
+            id="articles-tab"
+            className={`dashboard-tab ${activeTab === "articles" ? "active" : ""}`}
+            onClick={() => setActiveTab("articles")}
+          >
+            <span className="tab-icon" aria-hidden="true">✎</span>
+            <span className="tab-copy">
+              <strong>Article Queue</strong>
+              <small>Review long-form guides</small>
             </span>
           </button>
         </div>
@@ -1225,6 +1241,15 @@ function App() {
         aria-labelledby="wikis-tab"
       >
         <WikiQueueSection />
+      </div>}
+
+      {activeTab === "articles" && <div
+        className="tab-panel"
+        id="articles-panel"
+        role="tabpanel"
+        aria-labelledby="articles-tab"
+      >
+        <ArticleQueueSection />
       </div>}
 
       {activeTab === "campaigns" && <div

@@ -129,6 +129,22 @@ and shopping CTAs for conversion campaigns. Do not turn every post into a sales 
 Care content must use reliable general advice, without unsupported product-specific claims.
 Keep all four variants within the selected theme while varying their compositions.
 
+INSTAGRAM PERFORMANCE RULES:
+- Write the Instagram caption for fast feed reading: 45-110 words, with a clear first sentence, 2-4 short paragraphs and one natural CTA.
+- Do not put hashtags inside the caption field; return them only in the hashtags array.
+- Use 6-10 focused hashtags. Prefer specific occasion, flower, recipient and brand terms over generic reach tags.
+- Never invent names, ages, cities, exact timelines, personal histories, customer quotes or card messages unless they were explicitly supplied in the campaign input.
+- A relatable scenario may describe "a friend", "a coworker", "a parent" or "someone you love", but must not pretend a fictional event really happened.
+- Keep the product and the immediate customer benefit clear. Avoid novel-like backstory before mentioning flowers.
+- Do not repeat the same CTA, product fact or idea in multiple paragraphs.
+
+FEED CREATIVE SIMPLICITY:
+- Independent feed creatives must be understandable in under two seconds.
+- Use a headline of at most 6 words. Prefer an empty subheadline for product, lifestyle and occasion concepts.
+- When a subheadline is genuinely needed, keep it to at most 10 words.
+- Keep the bouquet or human moment visually dominant. Avoid dense ad layouts, large text panels and multiple competing messages.
+- Informational graphics may show 2-4 concise content points, but must still retain generous visual space.
+
 Audience: ${input.audience}
 
 Traffic Source: ${input.trafficSource}
@@ -969,16 +985,18 @@ Only include platformContent entries for the platforms requested by the campaign
 
 INSTAGRAM HASHTAG RULES:
 
-The instagram.hashtags array MUST contain at least 15 relevant hashtags.
+The instagram.hashtags array MUST contain 6-10 relevant hashtags.
 
 Hashtag requirements:
-- Return at least 15 hashtags (15-25 is ideal)
+- Return 6-10 hashtags
 - Do NOT include the "#" symbol in the strings (the backend adds it)
 - Each hashtag must be a single word or compound word with no spaces
-- Mix broad reach tags (e.g. "Flowers", "FlowerDelivery") with niche tags (e.g. "PreservedRoses", "WeddingGift")
+- Prefer focused occasion, flower, recipient, product and local-delivery tags over generic tags
 - Always include "GreatFlowers" as one of the hashtags
-- Include occasion, product-type, and audience-relevant tags
+- Include only directly relevant occasion, product-type, and audience tags
 - No duplicate hashtags
+
+The instagram.caption field must not contain hashtags. Hashtags belong only in instagram.hashtags.
 
 Never place unsupported business claims inside the JSON.
 
@@ -1102,7 +1120,17 @@ function normalizeHashtags(
     normalized.push(tag);
   }
 
-  return normalized;
+  const withoutBrand = normalized.filter((tag) => tag.toLowerCase() !== "greatflowers");
+  return ["GreatFlowers", ...withoutBrand].slice(0, 10);
+}
+
+function normalizeInstagramCaption(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  return value
+    .replace(/#[\p{L}\p{N}_]+/gu, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function normalizeStrategyUrls(data: any) {
@@ -1124,6 +1152,11 @@ function normalizeStrategyUrls(data: any) {
       normalizeHashtags(
         data.platformContent.instagram.hashtags
       );
+  }
+  if (data?.platformContent?.instagram?.caption) {
+    data.platformContent.instagram.caption = normalizeInstagramCaption(
+      data.platformContent.instagram.caption
+    );
   }
 
   const brief = data?.creativeBrief;

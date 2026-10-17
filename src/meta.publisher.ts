@@ -126,13 +126,33 @@ export function formatHashtags(
     return "";
   }
 
+  const seen = new Set<string>();
   return hashtags
-    .map((tag) => tag.trim())
-    .filter(Boolean)
-    .map((tag) =>
-      tag.startsWith("#") ? tag : `#${tag}`
-    )
+    .map((tag) => tag.trim().replace(/^#+/, "").replace(/\s+/g, ""))
+    .filter((tag) => {
+      if (!tag) return false;
+      const key = tag.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 10)
+    .map((tag) => `#${tag}`)
     .join(" ");
+}
+
+export function cleanInstagramCaption(caption: string): string {
+  return caption
+    .replace(/#[\p{L}\p{N}_]+/gu, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+export function buildInstagramCaption(caption: string, hashtags: string[] | undefined): string {
+  return [cleanInstagramCaption(caption), formatHashtags(hashtags)]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 function ensureMetaConfig() {
@@ -202,6 +222,44 @@ async function graphPost(
   }
 
   return data;
+}
+
+async function graphGet(path: string, params: Record<string, string> = {}) {
+  ensureMetaConfig();
+  const url = new URL(`${GRAPH_URL}/${path}`);
+  Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
+  url.searchParams.set("access_token", accessToken!);
+  const response = await fetch(url);
+  const data = await response.json();
+  if (!response.ok || data.error) throw new Error(formatMetaError(data));
+  return data;
+}
+
+const configuredInstagramGap = Number(process.env.INSTAGRAM_MIN_POST_GAP_HOURS ?? 12);
+export const INSTAGRAM_MIN_POST_GAP_HOURS = Number.isFinite(configuredInstagramGap)
+  ? Math.max(0, configuredInstagramGap)
+  : 12;
+
+export function instagramNextAvailableAt(latestTimestamp: string | undefined, now: Date = new Date(), gapHours = INSTAGRAM_MIN_POST_GAP_HOURS): Date | null {
+  if (!latestTimestamp || gapHours <= 0) return null;
+  const latest = Date.parse(latestTimestamp);
+  if (!Number.isFinite(latest)) return null;
+  const availableAt = latest + gapHours * 60 * 60 * 1000;
+  return availableAt > now.getTime() ? new Date(availableAt) : null;
+}
+
+export class InstagramCooldownError extends Error {
+  override name = "InstagramCooldownError";
+  constructor(public readonly retryAt: Date) {
+    super(`Instagram posted recently; retry after ${retryAt.toISOString()} to avoid competing posts`);
+  }
+}
+
+export async function ensureInstagramPostingGap(now: Date = new Date()): Promise<void> {
+  if (!instagramId || INSTAGRAM_MIN_POST_GAP_HOURS <= 0) return;
+  const body = await graphGet(`${instagramId}/media`, { fields: "timestamp", limit: "1" });
+  const retryAt = instagramNextAvailableAt(body?.data?.[0]?.timestamp, now);
+  if (retryAt) throw new InstagramCooldownError(retryAt);
 }
 
 async function getInstagramContainerStatus(
@@ -463,9 +521,7 @@ async function publishInstagramCarousel(
   }
 
   // Step 4: Create parent carousel container
-  const caption = [instagram.caption, formatHashtags(instagram.hashtags)]
-    .filter(Boolean)
-    .join("\n\n");
+  const caption = buildInstagramCaption(instagram.caption, instagram.hashtags);
 
   const carouselContainerId = await createInstagramCarouselParentContainer(
     instagramId,
@@ -739,6 +795,8 @@ export async function publishInstagram(
     );
   }
 
+  await ensureInstagramPostingGap();
+
   // Resolve selected creatives with priority logic
   const selectedCreatives = resolveSelectedCreatives(campaign);
 
@@ -761,12 +819,7 @@ export async function publishInstagram(
     productImage
   );
 
-  const caption = [
-    instagram.caption,
-    formatHashtags(instagram.hashtags),
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+  const caption = buildInstagramCaption(instagram.caption, instagram.hashtags);
 
   // Create Instagram media container
   const container = await graphPost(

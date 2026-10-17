@@ -239,8 +239,14 @@ export const marketingStrategySchema = z.object({
     instagram: z
       .object({
         visualConcept: z.string(),
-        caption: z.string(),
-        hashtags: z.array(z.string()),
+        caption: z.string().min(40).refine(
+          (caption) => caption.trim().split(/\s+/).filter(Boolean).length <= 120,
+          "Instagram caption must be no more than 120 words",
+        ).refine((caption) => !/#[\p{L}\p{N}_]+/u.test(caption), "Instagram caption must not contain hashtags"),
+        hashtags: z.array(z.string()).min(6).max(10).refine(
+          (tags) => new Set(tags.map((tag) => tag.toLowerCase())).size === tags.length,
+          "Instagram hashtags must be unique",
+        ),
       })
       .optional(),
 

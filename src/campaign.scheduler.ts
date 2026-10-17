@@ -9,6 +9,8 @@ import {
 import {
   publishFacebook,
   publishInstagram,
+  ensureInstagramPostingGap,
+  InstagramCooldownError,
 } from "./meta.publisher.js";
 
 let schedulerRunning = false;
@@ -87,23 +89,33 @@ async function processScheduledCampaigns() {
         if (!claimed || claimed.publishStatus !== "publishing") continue;
 
         const platforms =
-          campaign.scheduledPlatforms ??
+          claimed.scheduledPlatforms ??
           [
             "facebook",
             "instagram",
           ];
 
-        const publishedPlatforms: string[] =
-          [];
+        const publishedPlatforms = [...new Set(claimed.publishCyclePlatforms ?? [])];
+
+        // Check Instagram before publishing either platform so a recent manual
+        // Instagram post delays the entire campaign instead of splitting it.
+        if (
+          platforms.includes("instagram") &&
+          !publishedPlatforms.includes("instagram") &&
+          claimed.strategy.platformContent.instagram
+        ) {
+          await ensureInstagramPostingGap();
+        }
 
         if (
           platforms.includes(
             "facebook"
           ) &&
-          campaign.strategy
+          !publishedPlatforms.includes("facebook") &&
+          claimed.strategy
             .platformContent.facebook
         ) {
-          await withCampaignPublishing(campaign.id, publishFacebook, "facebook");
+          await withCampaignPublishing(claimed.id, publishFacebook, "facebook");
 
           publishedPlatforms.push(
             "facebook"
@@ -114,10 +126,11 @@ async function processScheduledCampaigns() {
           platforms.includes(
             "instagram"
           ) &&
-          campaign.strategy
+          !publishedPlatforms.includes("instagram") &&
+          claimed.strategy
             .platformContent.instagram
         ) {
-          await withCampaignPublishing(campaign.id, publishInstagram, "instagram");
+          await withCampaignPublishing(claimed.id, publishInstagram, "instagram");
 
           publishedPlatforms.push(
             "instagram"
@@ -151,6 +164,8 @@ async function processScheduledCampaigns() {
 
               publishedPlatforms,
 
+              publishCyclePlatforms: [],
+
               publishAttempts: 0,
             }
           );
@@ -166,6 +181,8 @@ async function processScheduledCampaigns() {
 
               publishedPlatforms,
 
+              publishCyclePlatforms: [],
+
               publishAttempts: 0,
             }
           );
@@ -179,6 +196,16 @@ async function processScheduledCampaigns() {
           `Campaign publish failed: ${campaign.id}`,
           error
         );
+
+        if (error instanceof InstagramCooldownError) {
+          await updateCampaign(campaign.id, {
+            publishStatus: "scheduled",
+            scheduledAt: error.retryAt.toISOString(),
+            publishError: error.message,
+          });
+          console.log(`Instagram cooldown rescheduled campaign ${campaign.id} for ${error.retryAt.toISOString()}`);
+          continue;
+        }
 
         const attempts =
           (campaign.publishAttempts ??

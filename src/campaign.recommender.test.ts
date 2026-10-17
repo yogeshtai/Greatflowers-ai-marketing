@@ -31,6 +31,8 @@ test("recommendation preserves evidence inputs and rejects outputs that bypass r
   const result = await run();
   assert.ok(prompt.includes('"required":["contentTheme","visualTreatment","selectedProductId"'));
   assert.ok(!prompt.includes("Use the greatflowers-marketing-strategist skill"));
+  assert.match(prompt, /do not invent a person's\s+name, exact age, city, job title/);
+  assert.match(prompt, /Specificity should come from the occasion, useful\s+action, setting and flower choice/);
   assert.equal(result.contentTheme, rotation.contentTheme);
   for (const evidence of ["Verified website message", "Verified catalog description", '"views":3', '"addToCarts":1', "CURRENT OCCASION CALENDAR", "Already used scene", "Previously published angle"]) assert.ok(prompt.includes(evidence), evidence);
   output.selectedProductId = 999;

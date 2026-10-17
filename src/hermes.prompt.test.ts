@@ -18,4 +18,9 @@ test("campaign strategy prompt forbids unexplained prop metaphors", () => {
   assert.match(prompt, /The review is over\. The red pen isn't\./);
   assert.match(prompt, /For the person who made your work better\./);
   assert.match(prompt, /Never refer to a pen, key, desk or another prop as a substitute for the person/);
+  assert.match(prompt, /45-110 words/);
+  assert.match(prompt, /6-10 focused hashtags/);
+  assert.match(prompt, /must not contain hashtags/);
+  assert.match(prompt, /Never invent names, ages, cities, exact timelines/);
+  assert.match(prompt, /headline of at most 6 words/);
 });

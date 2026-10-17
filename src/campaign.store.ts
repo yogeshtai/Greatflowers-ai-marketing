@@ -46,6 +46,10 @@ export interface SavedCampaign {
 
   publishedPlatforms?: string[];
 
+  // Successful platforms for the current scheduled occurrence. This prevents
+  // a partial retry from reposting to a platform that already succeeded.
+  publishCyclePlatforms?: string[];
+
   publishAttempts?: number;
 
   maxPublishAttempts?: number;
@@ -406,6 +410,7 @@ export async function withCampaignPublishing<T>(
     campaign.publishedAt = new Date().toISOString();
     campaign.updatedAt = campaign.publishedAt;
     campaign.publishedPlatforms = [...new Set([...(campaign.publishedPlatforms ?? []), platform])];
+    campaign.publishCyclePlatforms = [...new Set([...(campaign.publishCyclePlatforms ?? []), platform])];
     await writeCampaigns(campaigns);
     return result;
   });

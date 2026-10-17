@@ -21,6 +21,7 @@ test("publishing records successful platforms and preserves history after a part
     const successful = await getCampaignById("test");
     assert.ok(successful?.publishedAt);
     assert.deepEqual(successful.publishedPlatforms, ["facebook"]);
+    assert.deepEqual(successful.publishCyclePlatforms, ["facebook"]);
     assert.equal(successful.publishStatus, "scheduled");
     assert.equal(successful.scheduleRecurrence, "weekly");
     await assert.rejects(() => withCampaignPublishing("test", async () => { throw new Error("Instagram failed"); }, "instagram"), /Instagram failed/);
@@ -28,6 +29,7 @@ test("publishing records successful platforms and preserves history after a part
     await withCampaignPublishing("test", async () => ({ published: true }), "instagram");
     await withCampaignPublishing("test", async () => ({ published: true }), "facebook");
     assert.deepEqual((await getCampaignById("test"))?.publishedPlatforms, ["facebook", "instagram"]);
+    assert.deepEqual((await getCampaignById("test"))?.publishCyclePlatforms, ["facebook", "instagram"]);
   } finally {
     process.chdir(originalCwd);
     await rm(directory, { recursive: true, force: true });

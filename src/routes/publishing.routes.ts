@@ -1,4 +1,4 @@
-import { publishFacebook, publishInstagram, formatHashtags } from "../meta.publisher.js";
+import { publishFacebook, publishInstagram, buildInstagramCaption, InstagramCooldownError } from "../meta.publisher.js";
 import { withCampaignPublishing, getCampaignById, updateCampaign } from "../campaign.store.js";
 import { prepareInstagramImage } from "../meta.image.js";
 import express from "express";
@@ -61,8 +61,7 @@ router.get(
         instagram: instagram
           ? {
               caption: [
-                instagram.caption,
-                formatHashtags(instagram.hashtags),
+                buildInstagramCaption(instagram.caption, instagram.hashtags),
                 campaign.selectedProduct?.url || "",
               ]
                 .filter(Boolean)
@@ -170,7 +169,7 @@ router.post(
         error
       );
 
-      return res.status(500).json({
+      return res.status(error instanceof InstagramCooldownError ? 409 : 500).json({
         success: false,
         error:
           "Instagram publishing failed",
@@ -330,6 +329,8 @@ router.post(
 
             publishAttempts: 0,
 
+            publishCyclePlatforms: [],
+
             maxPublishAttempts:
               maxAttempts,
           }
@@ -396,6 +397,7 @@ router.patch(
       > = {
         publishStatus:
           "scheduled",
+        publishCyclePlatforms: [],
       };
 
       if (scheduledAt) {

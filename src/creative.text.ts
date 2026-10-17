@@ -1,8 +1,10 @@
 import sharp from "sharp";
 
 export type CreativeTextSide = "left" | "right";
+export type CreativeTextVertical = "top" | "lower";
 
 type TypographyCreative = {
+  order?: number;
   creativeType: string;
   sceneStrategy: string;
   headline: string;
@@ -12,6 +14,18 @@ type TypographyCreative = {
 
 export const CREATIVE_TEXT_PURPLE = "#32105f";
 export const CREATIVE_TEXT_PINK = "#d61572";
+
+const CREATIVE_TEXT_PALETTES = [
+  { primary: CREATIVE_TEXT_PURPLE, accent: CREATIVE_TEXT_PINK, secondary: "#3f3a44" },
+  { primary: "#25232a", accent: "#a62962", secondary: "#4d4850" },
+  { primary: "#294039", accent: "#9a3f68", secondary: "#46534f" },
+  { primary: "#3b2b2c", accent: "#a84d3c", secondary: "#554747" },
+] as const;
+
+export function textPaletteForCreative(creative: Pick<TypographyCreative, "order">) {
+  const order = Number.isInteger(creative.order) ? Math.max(1, creative.order!) : 1;
+  return CREATIVE_TEXT_PALETTES[(order - 1) % CREATIVE_TEXT_PALETTES.length]!;
+}
 
 export type CreativeTypography = {
   mode: "editorial-serif" | "modern-sans";
@@ -140,7 +154,8 @@ function renderHeadlineLine(
   words: HeadlineWord[],
   x: number,
   y: number,
-  anchor: "start" | "end"
+  anchor: "start" | "end",
+  palette: ReturnType<typeof textPaletteForCreative>,
 ): string {
   const chunks: Array<{ text: string; accented: boolean }> = [];
   for (const word of words) {
@@ -150,7 +165,7 @@ function renderHeadlineLine(
   }
 
   return `<tspan x="${x}" y="${y}" text-anchor="${anchor}">${chunks.map((chunk, index) =>
-    `<tspan fill="${chunk.accented ? CREATIVE_TEXT_PINK : CREATIVE_TEXT_PURPLE}"${index ? ' dx="0.22em"' : ""}>${escapeXml(chunk.text)}</tspan>`
+    `<tspan fill="${chunk.accented ? palette.accent : palette.primary}"${index ? ' dx="0.22em"' : ""}>${escapeXml(chunk.text)}</tspan>`
   ).join("")}</tspan>`;
 }
 
@@ -158,18 +173,20 @@ export function buildCreativeTextOverlay(
   creative: TypographyCreative,
   side: CreativeTextSide,
   width = 1024,
-  height = 1024
+  height = 1024,
+  vertical: CreativeTextVertical = "top",
 ): Buffer {
   const typography = typographyForCreative(creative);
+  const palette = textPaletteForCreative(creative);
   const margin = Math.round(width * 0.055);
   const usableWidth = Math.round(width * 0.42);
   const x = side === "left" ? margin : width - margin;
   const anchor = side === "left" ? "start" : "end";
   const fitted = fitHeadline(headlineWords(creative.headline), usableWidth, typography.mode);
   const lineHeight = Math.round(fitted.size * (typography.mode === "modern-sans" ? 0.94 : 1.02));
-  const firstY = Math.round(height * 0.12);
+  const firstY = Math.round(height * (vertical === "lower" ? 0.55 : 0.12));
   const headlineSvg = fitted.lines.map((line, index) =>
-    renderHeadlineLine(line, x, firstY + index * lineHeight, anchor)
+    renderHeadlineLine(line, x, firstY + index * lineHeight, anchor, palette)
   ).join("");
 
   const subheadline = creative.subheadline.trim();
@@ -212,9 +229,9 @@ export function buildCreativeTextOverlay(
       throw new Error(`Creative content point is too long to fit clearly: "${point}"`);
     }
     const firstBaseline = pointY + pointSize;
-    pointSvg.push(`<circle cx="${numberX}" cy="${firstBaseline - Math.round(pointSize * 0.35)}" r="${numberRadius}" fill="${CREATIVE_TEXT_PINK}"/>`);
+    pointSvg.push(`<circle cx="${numberX}" cy="${firstBaseline - Math.round(pointSize * 0.35)}" r="${numberRadius}" fill="${palette.accent}"/>`);
     pointSvg.push(`<text x="${numberX}" y="${firstBaseline - Math.round(pointSize * 0.13)}" text-anchor="middle" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${Math.round(pointSize * 0.72)}" font-weight="700" fill="#ffffff">${index + 1}</text>`);
-    pointSvg.push(`<text x="${pointTextX}" text-anchor="${pointAnchor}" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${pointSize}" font-weight="600" fill="${CREATIVE_TEXT_PURPLE}" filter="url(#text-shadow)">${lines.map((line, lineIndex) =>
+    pointSvg.push(`<text x="${pointTextX}" text-anchor="${pointAnchor}" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${pointSize}" font-weight="600" fill="${palette.primary}" filter="url(#text-shadow)">${lines.map((line, lineIndex) =>
       `<tspan x="${pointTextX}" y="${firstBaseline + lineIndex * pointLineHeight}">${escapeXml(line)}</tspan>`
     ).join("")}</text>`);
     const pointHeight = Math.max(numberRadius * 2, lines.length * pointLineHeight);
@@ -233,7 +250,7 @@ export function buildCreativeTextOverlay(
       </filter>
     </defs>
     <text font-family="${typography.family}" font-size="${fitted.size}" font-weight="${typography.weight}" letter-spacing="-1.2" filter="url(#text-shadow)">${headlineSvg}</text>
-    ${subLines.length ? `<text x="${x}" text-anchor="${anchor}" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${subSize}" font-weight="400" fill="#3f3a44" filter="url(#text-shadow)">${subSvg}</text>` : ""}
+    ${subLines.length ? `<text x="${x}" text-anchor="${anchor}" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${subSize}" font-weight="400" fill="${palette.secondary}" filter="url(#text-shadow)">${subSvg}</text>` : ""}
     ${pointSvg.join("")}
   </svg>`);
 }
@@ -242,13 +259,14 @@ export async function addCreativeText(
   imagePath: string,
   outputPath: string,
   creative: TypographyCreative,
-  side: CreativeTextSide
+  side: CreativeTextSide,
+  vertical: CreativeTextVertical = "top",
 ): Promise<void> {
   const metadata = await sharp(imagePath).metadata();
   const width = metadata.width || 1024;
   const height = metadata.height || 1024;
   await sharp(imagePath)
-    .composite([{ input: buildCreativeTextOverlay(creative, side, width, height), left: 0, top: 0 }])
+    .composite([{ input: buildCreativeTextOverlay(creative, side, width, height, vertical), left: 0, top: 0 }])
     .png()
     .toFile(outputPath);
 }

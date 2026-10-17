@@ -1,3 +1,5 @@
+import { withTimeoutSignal } from "./http.helpers.js";
+
 const PRODUCT_API =
   "https://api.greatflowers.net/api/product";
 
@@ -103,10 +105,12 @@ function cleanProduct(product: ApiProduct): MarketingProduct {
 }
 
 async function fetchProductPage(
-  page: number
+  page: number,
+  signal?: AbortSignal,
 ): Promise<ProductApiResponse> {
   const response = await fetch(
-    `${PRODUCT_API}?page=${page}`
+    `${PRODUCT_API}?page=${page}`,
+    { signal: withTimeoutSignal(30_000, signal) },
   );
 
   if (!response.ok) {
@@ -118,8 +122,8 @@ async function fetchProductPage(
   return response.json() as Promise<ProductApiResponse>;
 }
 
-export async function getGreatFlowersProducts() {
-  const firstPage = await fetchProductPage(1);
+export async function getGreatFlowersProducts(signal?: AbortSignal) {
+  const firstPage = await fetchProductPage(1, signal);
 
   const pages = Array.from(
     {
@@ -129,7 +133,7 @@ export async function getGreatFlowersProducts() {
   );
 
   const remainingPages = await Promise.all(
-    pages.map(fetchProductPage)
+    pages.map((page) => fetchProductPage(page, signal))
   );
 
   const products = [

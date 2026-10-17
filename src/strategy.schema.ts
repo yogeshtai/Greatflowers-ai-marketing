@@ -43,6 +43,7 @@ export const creativeVariantSchema = z.object({
 });
 
 const HUMAN_SCENE_STRATEGIES = new Set(["HUMAN_GIFTING_MOMENT", "HUMAN_LIFESTYLE"]);
+const wordCount = (value: string) => value.trim().split(/\s+/).filter(Boolean).length;
 
 const CONTENT_PROMISE_PATTERN = /\b(?:steps|checks|tips|ways|routine|checklist|cheat\s*sheet)\b|\b(?:a|the|your|our|quick|simple|complete|essential|care|flower|buying|selection)\s+guide\b|\bguide\s+(?:to|for)\b/i;
 const PROMISED_COUNT_PATTERN = /\b(2|two|3|three|4|four)\b(?:[\s-]+[a-z][a-z'-]*){0,3}[\s-]+(?:steps?|checks?|tips?|ways?|points?|items?)\b/i;
@@ -165,12 +166,24 @@ export const creativeBriefSchema = z.object({
     if (brief.variants.filter(v => v.productRole === "hero").length > 1) {
       ctx.addIssue({ code: "custom", path: ["variants"], message: "Only one independent creative may use the catalog product as the hero" });
     }
-    if (!brief.variants.some(v => v.productRole === "none" || v.productRole === "optional")) {
-      ctx.addIssue({ code: "custom", path: ["variants"], message: "At least one independent creative must work without the catalog product" });
+    if (brief.variants.filter(v => v.productRole === "hero" || v.productRole === "supporting").length > 2) {
+      ctx.addIssue({ code: "custom", path: ["variants"], message: "At least two independent creatives must work without the catalog product reference" });
+    }
+    if (brief.variants.filter(v => v.creativeType === "informational").length > 1) {
+      ctx.addIssue({ code: "custom", path: ["variants"], message: "Only one independent creative may be informational" });
+    }
+    if (!brief.variants.some(v => HUMAN_SCENE_STRATEGIES.has(v.sceneStrategy))) {
+      ctx.addIssue({ code: "custom", path: ["variants"], message: "Independent creatives require at least one human lifestyle or gifting scene" });
     }
 
     brief.variants.forEach((v, i) => {
       if (!v.cta.length) ctx.addIssue({ code: "custom", path: ["variants", i, "cta"], message: "CTA required" });
+      if (wordCount(v.headline) > 6) {
+        ctx.addIssue({ code: "custom", path: ["variants", i, "headline"], message: "Independent creative headlines must be no more than 6 words" });
+      }
+      if (wordCount(v.subheadline) > 10) {
+        ctx.addIssue({ code: "custom", path: ["variants", i, "subheadline"], message: "Independent creative subheadlines must be no more than 10 words" });
+      }
       const copy = `${v.headline} ${v.subheadline}`;
       if (PROP_AS_PERSON_PATTERN.test(copy)) {
         ctx.addIssue({

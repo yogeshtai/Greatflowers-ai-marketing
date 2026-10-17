@@ -43,6 +43,19 @@ test("independent campaigns require four genuinely varied creative directions", 
   assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map(v => ({ ...v, sceneStrategy: "PRODUCT_STUDIO" })) }).success, false);
   assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map(v => ({ ...v, compositionStyle: "Same composition", sceneType: "Same scene" })) }).success, false);
   assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map(v => ({ ...v, productRole: "hero" })) }).success, false);
+  assert.equal(creativeBriefSchema.safeParse({
+    ...base,
+    variants: variants.map((v, index) => index === 1 ? { ...v, creativeType: "informational" } : v),
+  }).success, false);
+  assert.equal(creativeBriefSchema.safeParse({
+    ...base,
+    variants: variants.map((v, index) => ({
+      ...v,
+      sceneStrategy: ["PRODUCT_STUDIO", "EDITORIAL_CONTENT", "OCCASION_SCENE", "BRAND_STORY"][index],
+    })),
+  }).success, false);
+  assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map((v, index) => ({ ...v, productRole: index < 3 ? "supporting" : "none" })) }).success, false);
+  assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map((v, index) => index === 0 ? { ...v, headline: "This headline has far too many words today" } : v) }).success, false);
 });
 
 test("copy that promises a process must include every meaningful content point", () => {
@@ -80,12 +93,12 @@ test("content promises do not mistake ordinary copy or unrelated numbers for lis
 
   assert.equal(creativeBriefSchema.safeParse({
     ...base,
-    variants: withFirst({ headline: "A Beautiful Way to Show You Care" }),
+    variants: withFirst({ headline: "A Beautiful Way to Show Care" }),
   }).success, true);
   assert.equal(creativeBriefSchema.safeParse({
     ...base,
     variants: withFirst({
-      headline: "2-day delivery with three simple care steps",
+      headline: "2-day delivery, three simple care steps",
       contentPoints: ["Trim the stems", "Use a clean vase", "Refresh the water"],
     }),
   }).success, true);
@@ -116,7 +129,7 @@ test("unclear copy cannot use a physical prop as the person or message", () => {
   assert.equal(creativeBriefSchema.safeParse({
     ...base,
     variants: withFirst(
-      "For the teammate who made your work better",
+      "For the teammate who helped you",
       "Thank the person whose thoughtful feedback made a difference.",
     ),
   }).success, true);

@@ -1,3 +1,5 @@
+import { withTimeoutSignal } from "./http.helpers.js";
+
 const WEBSITE_PAGES = [
   "https://greatflowers.net/",
   "https://greatflowers.net/build-your-bouquet/",
@@ -32,9 +34,11 @@ function extractTitle(html: string) {
 }
 
 async function fetchPage(
-  url: string
+  url: string,
+  signal?: AbortSignal,
 ): Promise<WebsitePageContext> {
   const response = await fetch(url, {
+    signal: withTimeoutSignal(15_000, signal),
     headers: {
       "User-Agent":
         "GreatFlowers-AI-Marketing/1.0",
@@ -60,9 +64,9 @@ async function fetchPage(
   };
 }
 
-export async function getGreatFlowersWebsiteContext() {
+export async function getGreatFlowersWebsiteContext(signal?: AbortSignal) {
   const results = await Promise.allSettled(
-    WEBSITE_PAGES.map(fetchPage)
+    WEBSITE_PAGES.map((url) => fetchPage(url, signal))
   );
 
   return results

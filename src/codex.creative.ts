@@ -16,7 +16,7 @@ import fetch from "node-fetch";
 import sharp from "sharp";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { CODEX_SPAWN_OPTIONS, codexLimitArgs, guardCodexProcess } from "./ai.limits.js";
-import { addCreativeText, buildCreativeTextOverlay, type CreativeTextSide } from "./creative.text.js";
+import { addCreativeText, buildCreativeTextOverlay, type CreativeTextSide, type CreativeTextVertical } from "./creative.text.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CODEX_GENERATED_IMAGES_DIR =
@@ -148,6 +148,27 @@ export function shouldUseProductReference(
   variant: Pick<CreativeVariant, "productRole">
 ): boolean {
   return variant.productRole === "hero" || variant.productRole === "supporting";
+}
+
+export function layoutForCreativeVariant(
+  variant: Pick<CreativeVariant, "order" | "contentPoints">
+): { logoPosition: "top-left" | "top-right"; textSide: CreativeTextSide; textVertical: CreativeTextVertical } {
+  const even = variant.order % 2 === 0;
+  const hasContentPoints = Boolean(variant.contentPoints?.length);
+  const textVertical: CreativeTextVertical = hasContentPoints || variant.order === 1 || variant.order === 4
+    ? "top"
+    : "lower";
+  return {
+    logoPosition: even ? "top-left" : "top-right",
+    textSide: even ? "right" : "left",
+    textVertical,
+  };
+}
+
+export function shouldShowWebsiteCta(
+  variant: Pick<CreativeVariant, "order">
+): boolean {
+  return variant.order === 4;
 }
 
 const GREATFLOWERS_LOGO_URL =
@@ -367,9 +388,18 @@ Generate from the strategic concept.`;
     contextInstructions += `\n\nLOCATION CONTEXT:\n${variant.locationContext}\nIncorporate this verified location/service area naturally.`;
   }
 
-  const logoPosition = resolveLogoPosition(creativeBrief.logoPlacement);
-  const textSide: CreativeTextSide = logoPosition === "top-left" ? "right" : "left";
+  const { logoPosition, textSide, textVertical } = layoutForCreativeVariant(variant);
   const hasContentPoints = (variant.contentPoints?.length || 0) > 0;
+  const showWebsiteCta = shouldShowWebsiteCta(variant);
+  const typographySafeArea = hasContentPoints
+    ? `outer ${textSide} 46% of the upper 72%`
+    : textVertical === "lower"
+      ? `outer ${textSide} 42% of the lower-middle band, from about 48% to 82% of the image height`
+      : `outer ${textSide} 42% of the upper half`;
+  const otherDirections = creativeBrief.variants
+    .filter((candidate) => candidate.order !== variant.order)
+    .map((candidate) => `- Variant ${candidate.order}: ${candidate.creativeType}; ${candidate.sceneStrategy}; ${candidate.compositionStyle}; ${candidate.sceneType}`)
+    .join("\n");
 
   return `Create a TEXT-FREE 1:1 premium social media campaign base image for GreatFlowers.
 
@@ -385,6 +415,9 @@ camera framing, or visual hierarchy used for another variant.
 Changing only headline, copy, background, crop, or lighting is NOT sufficient.
 The composition, scene structure, and visual approach must be materially different.
 
+OTHER ASSIGNED DIRECTIONS — DO NOT COPY THEIR SETTING, FRAMING OR SUBJECT PLACEMENT:
+${otherDirections || "No other directions were supplied."}
+
 CREATIVE TYPE: ${variant.creativeType.toUpperCase()}
 
 STRATEGIC CONCEPT:
@@ -395,23 +428,24 @@ ${productInstructions}${contextInstructions}
 
 LOGO SAFE AREA (CRITICAL):
 Reserve a clear zone at:
-${creativeBrief.logoPlacement}
+${logoPosition}
 
 This area MUST remain free of faces, flowers, important objects and decorative details.
 The official GreatFlowers logo will be overlaid here after generation.
 Do not generate, spell, draw, or recreate GreatFlowers branding.
 
 TYPOGRAPHY SAFE AREA (CRITICAL):
-Reserve the outer ${textSide} ${hasContentPoints ? "46% of the upper 72%" : "42% of the upper half"} as calm, light-toned photographic negative space.
+Reserve the ${typographySafeArea} as calm, light-toned photographic negative space.
 Keep faces, flowers and important objects out of that zone, but continue natural scene texture and light through it.
 Do not create a white rectangle, translucent card, blank paper panel or fake text box.
 The application will typeset the approved headline, subheadline${hasContentPoints ? " and numbered content points" : ""} in this zone after generation.
 ${hasContentPoints ? "Do not draw empty circles, unlabeled icons, arrows, process diagrams or step placeholders." : ""}
 
-WEBSITE CTA SAFE AREA:
-Keep the lower-center 12% clear of faces, flowers and important objects for the website pill added later.
+${showWebsiteCta ? `WEBSITE CTA SAFE AREA:
+Keep the lower-center 12% clear of faces, flowers and important objects for the website pill added later.` : `NO WEBSITE PILL:
+Use the lower portion of the frame naturally. No button or URL will be added to this variant.`}
 
-BACKGROUND & ENVIRONMENT:
+CAMPAIGN BACKGROUND DIRECTION (reinterpret it for this variant; do not repeat another variant's room, surface or framing):
 ${creativeBrief.backgroundDirection}
 
 MOOD:
@@ -792,11 +826,10 @@ export async function generateCreativeVariant(
 ): Promise<CreativeResult> {
   const tempFiles = new Set<string>();
   try {
-    const logoPosition = resolveLogoPosition(creativeBrief.logoPlacement);
-    const textSide: CreativeTextSide = logoPosition === "top-left" ? "right" : "left";
+    const { logoPosition, textSide, textVertical } = layoutForCreativeVariant(variant);
 
     // Validate all deterministic typography before starting the slow image-generation step.
-    buildCreativeTextOverlay(variant, textSide);
+    buildCreativeTextOverlay(variant, textSide, 1024, 1024, textVertical);
 
     await mkdir(OUTPUT_DIR, { recursive: true });
 
@@ -842,7 +875,7 @@ export async function generateCreativeVariant(
     // Step 2: Typeset exact approved copy with purpose-specific typography.
     const textOutputPath = join(OUTPUT_DIR, `text-${outputFilename}`);
     tempFiles.add(textOutputPath);
-    await addCreativeText(generatedPath, textOutputPath, variant, textSide);
+    await addCreativeText(generatedPath, textOutputPath, variant, textSide, textVertical);
 
     // Step 3: Programmatically overlay the official GreatFlowers logo
     console.log(`🎨 Adding GreatFlowers logo to ${variant.creativeType}...`);
@@ -851,21 +884,25 @@ export async function generateCreativeVariant(
     await addOfficialLogo(
       textOutputPath,
       logoPath,
-      creativeBrief.logoPlacement,
+      logoPosition,
       logoOutputPath
     );
     console.log(`✅ Logo added to ${variant.creativeType}`);
 
-    // Step 4: Add CTA button overlay
-    console.log(`🔗 Adding CTA button to ${variant.creativeType}...`);
-    const finalPath = join(OUTPUT_DIR, outputFilename);
-    tempFiles.add(finalPath);
-    await addCTAButton(
-      logoOutputPath,
-      "www.greatflowers.net",
-      finalPath
-    );
-    console.log(`✅ CTA button added to ${variant.creativeType}`);
+    // Step 4: Keep most feed creatives editorial. Only the final option carries
+    // the website pill; every post still receives its CTA in the caption.
+    let finalPath = logoOutputPath;
+    if (shouldShowWebsiteCta(variant)) {
+      console.log(`🔗 Adding CTA button to ${variant.creativeType}...`);
+      finalPath = join(OUTPUT_DIR, outputFilename);
+      tempFiles.add(finalPath);
+      await addCTAButton(
+        logoOutputPath,
+        "www.greatflowers.net",
+        finalPath
+      );
+      console.log(`✅ CTA button added to ${variant.creativeType}`);
+    }
 
     // Step 5: Upload the final composed image to S3
     console.log(`📤 Uploading ${variant.creativeType} to S3...`);

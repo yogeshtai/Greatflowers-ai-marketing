@@ -10,7 +10,8 @@ const analyticsClient =
   new BetaAnalyticsDataClient();
 
 export async function getProductAnalytics(
-  startDate = "today"
+  startDate = "today",
+  timeoutMs = 30_000,
 ) {
   const [response] =
     await analyticsClient.runReport({
@@ -46,7 +47,7 @@ export async function getProductAnalytics(
           name: "itemsPurchased",
         },
       ],
-    });
+    }, { timeout: timeoutMs });
 
   return (
     response.rows?.map((row) => ({

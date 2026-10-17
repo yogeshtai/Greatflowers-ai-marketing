@@ -31,6 +31,11 @@ export function abortOnDisconnect(res: express.Response) {
   return controller.signal;
 }
 
+export function withTimeoutSignal(timeoutMs: number, signal?: AbortSignal) {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  return signal ? AbortSignal.any([signal, timeout]) : timeout;
+}
+
 
 export async function withRetry<T>(
   fn: () => Promise<T>,

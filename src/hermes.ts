@@ -642,7 +642,10 @@ Instead, strategically choose the 4 best creative concepts from the available ev
 
 The 4 concepts should be meaningfully different marketing approaches, not just visual variations of the same advertisement.
 Use at least 3 different creativeType values and at least 3 different sceneStrategy values.
-Only one variant may use productRole "hero". At least one must use "optional" or "none" so the campaign is not four versions of the same bouquet shot.
+Only one variant may use productRole "hero". No more than two variants may use "hero" or "supporting"; at least two must use "optional" or "none" so the campaign is not four versions of the same bouquet shot.
+Use creativeType "informational" at most once. At least one variant must be a real human lifestyle or gifting scene using HUMAN_LIFESTYLE or HUMAN_GIFTING_MOMENT.
+Treat the four variants as different editorial executions, not one template: alternate subject placement, text-safe side, vertical hierarchy, camera distance and environment. Do not repeat the same care advice in another variant, even with different wording.
+The website URL is added programmatically only to the fourth variant. Do not design every variant as a direct-response advertisement.
 All four concepts and headlines must be unique. Use at least 3 materially different compositionStyle and sceneType values.
 
 FOR STORY-CAROUSEL MODE:

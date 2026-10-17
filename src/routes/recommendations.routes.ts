@@ -8,14 +8,23 @@ import { getGreatFlowersWebsiteContext } from "../website.context.js";
 import { getRecentRecommendations, recordRecommendation } from "../recommendation.store.js";
 import { singleFlight, abortOnDisconnect, withRetry } from "../http.helpers.js";
 import { HermesUpstreamError } from "../hermes.json.js";
+import { HERMES_TIMEOUT_MS } from "../ai.limits.js";
 import express from "express";
+
+const RECOMMENDATION_PIPELINE_TIMEOUT_MS = Math.max(
+  60_000,
+  Number(process.env.RECOMMENDATION_PIPELINE_TIMEOUT_MS) || HERMES_TIMEOUT_MS * 2 + 60_000,
+);
 
 const router = express.Router();
 
 router.post(
   "/api/recommendations/generate",
   singleFlight("recommendation", async (_req, res) => {
-    const signal = abortOnDisconnect(res);
+    const signal = AbortSignal.any([
+      abortOnDisconnect(res),
+      AbortSignal.timeout(RECOMMENDATION_PIPELINE_TIMEOUT_MS),
+    ]);
 
     try {
       console.log("① Fetching catalog + website...");
@@ -28,12 +37,15 @@ router.post(
         rawAnalytics,
         savedCampaigns,
       ] = await Promise.all([
-        getGreatFlowersProducts(),
-        getGreatFlowersWebsiteContext(),
+        getGreatFlowersProducts(signal),
+        getGreatFlowersWebsiteContext(signal),
         getRecentRecommendations(20),
 
         // Use clean/new tracking initially.
-        getProductAnalytics("today"),
+        getProductAnalytics("today").catch((error) => {
+          console.warn("GA4 analytics unavailable for recommendation; continuing without it:", error);
+          return [];
+        }),
         getCampaigns(),
       ]);
 
@@ -285,7 +297,10 @@ ${recommendation.additionalContext}
         error
       );
 
-      return res.status(error instanceof HermesUpstreamError ? 504 : 500).json({
+      if (res.destroyed || res.headersSent) return;
+      const timedOut = error instanceof HermesUpstreamError ||
+        (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError"));
+      return res.status(timedOut ? 504 : 500).json({
         success: false,
 
         error:

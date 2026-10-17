@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildCodexPrompt,
+  layoutForCreativeVariant,
   shouldUseProductReference,
+  shouldShowWebsiteCta,
   type CreativeBrief,
   type CreativeVariant,
 } from "./codex.creative.js";
@@ -11,6 +13,7 @@ import {
   CREATIVE_TEXT_PINK,
   CREATIVE_TEXT_PURPLE,
   headlineWords,
+  textPaletteForCreative,
   typographyForCreative,
 } from "./creative.text.js";
 
@@ -70,6 +73,15 @@ test("headline typography applies controlled pink emphasis to a meaningful phras
   assert.match(svg, /Bodoni 72, Didot, Georgia/);
   assert.match(svg, /Bring the[\s\S]*Blooms/);
   assert.match(svg, /A thoughtful surprise for their[\s\S]*day\./);
+});
+
+test("independent creative styling rotates layout, palette and website treatment", () => {
+  assert.deepEqual(layoutForCreativeVariant(variant({ order: 1 })), { logoPosition: "top-right", textSide: "left", textVertical: "top" });
+  assert.deepEqual(layoutForCreativeVariant(variant({ order: 2 })), { logoPosition: "top-left", textSide: "right", textVertical: "lower" });
+  assert.equal(layoutForCreativeVariant(variant({ order: 2, contentPoints: ["One useful point", "Another useful point"] })).textVertical, "top");
+  assert.notDeepEqual(textPaletteForCreative(variant({ order: 1 })), textPaletteForCreative(variant({ order: 2 })));
+  assert.equal(shouldShowWebsiteCta(variant({ order: 1 })), false);
+  assert.equal(shouldShowWebsiteCta(variant({ order: 4 })), true);
 });
 
 test("headline and subheadline keep compact spacing and preserve color-boundary spaces", () => {
@@ -143,11 +155,30 @@ test("image generation reserves clear zones and never renders its own text", () 
 
   assert.match(prompt, /TEXT-FREE 1:1 premium social media campaign base image/);
   assert.match(prompt, /outer left 46% of the upper 72%/);
-  assert.match(prompt, /lower-center 12%/);
+  assert.match(prompt, /NO WEBSITE PILL/);
+  assert.doesNotMatch(prompt, /lower-center 12%/);
   assert.match(prompt, /Do NOT render any text, letters, numbers/);
   assert.match(prompt, /Do not draw empty circles, unlabeled icons/);
   assert.doesNotMatch(prompt, /TEXT OVERLAY \(verbatim\)/);
   assert.doesNotMatch(prompt, /Three exact care steps/);
+});
+
+test("only the fourth independent creative reserves space for the website pill", () => {
+  const creative = variant({ order: 4 });
+  const prompt = buildCodexPrompt(creative, brief(creative));
+
+  assert.match(prompt, /lower-center 12%/);
+  assert.doesNotMatch(prompt, /NO WEBSITE PILL/);
+  assert.match(prompt, /outer right 42% of the upper half/);
+});
+
+test("middle variants reserve and render a genuinely different lower text structure", () => {
+  const creative = variant({ order: 2 });
+  const prompt = buildCodexPrompt(creative, brief(creative));
+  const svg = buildCreativeTextOverlay(creative, "right", 1024, 1024, "lower").toString();
+
+  assert.match(prompt, /outer right 42% of the lower-middle band/);
+  assert.match(svg, /y="563"/);
 });
 
 test("hero and supporting creatives use the real product reference", () => {

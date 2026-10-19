@@ -23,4 +23,9 @@ test("campaign strategy prompt forbids unexplained prop metaphors", () => {
   assert.match(prompt, /must not contain hashtags/);
   assert.match(prompt, /Never invent names, ages, cities, exact timelines/);
   assert.match(prompt, /headline of at most 6 words/);
+  assert.match(prompt, /Exactly two variants must use "hero" or "supporting"/);
+  assert.match(prompt, /Do not use productRole "none" in independent mode/);
+  assert.match(prompt, /Every independent visual must unmistakably market flowers/);
+  assert.match(prompt, /props remain secondary atmosphere rather than the subject/);
+  assert.match(prompt, /include at least one gentle purchase or product-discovery action/);
 });

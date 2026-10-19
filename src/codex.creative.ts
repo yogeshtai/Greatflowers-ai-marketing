@@ -292,13 +292,14 @@ For sensitive occasions (sympathy, condolence), keep scenes respectful and taste
 Create an editorial or social content composition.
 Examples: occasion guide, flower/color story, seasonal content, care tips, selection advice.
 
-CRITICAL: This is NOT a product advertisement.
+CRITICAL: Flowers must remain a clear, visually important subject.
 DO NOT create a centered catalog-product layout.
 DO NOT make the supplied product the main visual subject.
 
 Use an editorial/magazine/social content visual style.
-The content/information/story is the focus.
-Product (if included) should be minimal, illustrative, or absent.`;
+The content/information/story is the focus, but it must directly concern choosing, gifting,
+arranging or caring for flowers. Props support the flower story and may never replace it.
+The exact catalog product need not appear, but natural flowers must be clearly visible.`;
       break;
       
     case "INFORMATIONAL_GRAPHIC":
@@ -307,8 +308,9 @@ Product (if included) should be minimal, illustrative, or absent.`;
 Create a structured informational/educational graphic design.
 This is useful content, NOT a product advertisement.
 
-The layout should clearly communicate information or value.
-Product should NOT dominate the canvas.
+The layout should clearly communicate useful information about choosing, gifting, arranging
+or caring for flowers. Natural flowers must remain clearly visible and visually important.
+Product should NOT dominate the canvas, and decor props must remain secondary.
 Use design elements that support learning or understanding.`;
       break;
       
@@ -335,7 +337,8 @@ Product reference is only used when relevant to demonstrating that feature.`;
 
 Build a broader GreatFlowers brand/service composition.
 DO NOT automatically make one catalog product the hero.
-Focus on brand values, service quality, customer care, or emotional connection.`;
+Focus on brand values, service quality, customer care, or emotional connection.
+Keep flowers clearly visible as the service and emotional centerpiece.`;
       break;
   }
   
@@ -363,9 +366,10 @@ BUILD THE SCENE FIRST, then integrate flowers naturally into it.`;
     case "optional":
       productInstructions = `
 PRODUCT ROLE: OPTIONAL
-You may include natural flowers if they improve the concept.
-Do NOT force it to dominate.
-Flowers may be minimal or absent.`;
+Do not copy or imply the identity of the supplied catalog product.
+Natural, concept-relevant flowers are nevertheless REQUIRED and must occupy a meaningful
+part of the composition (roughly 20-35% of the frame). They need not dominate, but they must
+be immediately visible as the subject that connects this creative to GreatFlowers.`;
       break;
       
     case "none":
@@ -425,6 +429,14 @@ ${variant.concept}
 
 ${sceneStrategyInstructions}
 ${productInstructions}${contextInstructions}
+
+FLOWER COMMERCE RELEVANCE (CRITICAL):
+This is a GreatFlowers marketing creative. Flowers must be immediately visible and relevant
+to the idea, even when the exact catalog product is not used. The image should make someone
+interested in choosing, sending, arranging or displaying flowers. Furniture, books, cups,
+feathers, candles and other props may establish context, but must never become the primary
+subject or visually replace the flowers. For human scenes, show an active flower-related
+moment such as giving, receiving, arranging, carrying, delivering or unboxing.
 
 LOGO SAFE AREA (CRITICAL):
 Reserve a clear zone at:

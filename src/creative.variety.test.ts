@@ -3,7 +3,7 @@ import test from "node:test";
 import { creativeBriefSchema } from "./strategy.schema.js";
 
 const scenes = ["PRODUCT_STUDIO", "HUMAN_GIFTING_MOMENT", "EDITORIAL_CONTENT", "OCCASION_SCENE"] as const;
-const roles = ["hero", "supporting", "none", "optional"] as const;
+const roles = ["hero", "supporting", "optional", "optional"] as const;
 const types = ["product", "lifestyle", "informational", "occasion"] as const;
 
 const variant = (order: number) => ({
@@ -55,6 +55,11 @@ test("independent campaigns require four genuinely varied creative directions", 
     })),
   }).success, false);
   assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map((v, index) => ({ ...v, productRole: index < 3 ? "supporting" : "none" })) }).success, false);
+  assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map((v, index) => ({ ...v, productRole: index === 0 ? "hero" : "optional" })) }).success, false);
+  assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map((v, index) => ({ ...v, productRole: index === 0 ? "hero" : index < 3 ? "supporting" : "optional" })) }).success, false);
+  assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map((v, index) => ({ ...v, productRole: index === 3 ? "none" : v.productRole })) }).success, false);
+  assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map(v => ({ ...v, cta: "Save this idea" })) }).success, false);
+  assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map(v => ({ ...v, cta: "Send this to a friend" })) }).success, false);
   assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map((v, index) => index === 0 ? { ...v, headline: "This headline has far too many words today" } : v) }).success, false);
 });
 

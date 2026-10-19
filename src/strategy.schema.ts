@@ -44,6 +44,7 @@ export const creativeVariantSchema = z.object({
 
 const HUMAN_SCENE_STRATEGIES = new Set(["HUMAN_GIFTING_MOMENT", "HUMAN_LIFESTYLE"]);
 const wordCount = (value: string) => value.trim().split(/\s+/).filter(Boolean).length;
+const COMMERCIAL_CTA_PATTERN = /\b(?:shop|order|buy)\b|\bsend\s+(?:flowers?|a\s+bouquet|the\s+bouquet|this\s+bouquet|something\s+thoughtful|a\s+flower\s+gift)\b|\bexplore\s+(?:the\s+)?collection\b|\bview\s+(?:the\s+)?bouquet\b|\bchoose\s+(?:your|a)\s+bouquet\b|\bbuild\s+(?:your|a)\s+bouquet\b/i;
 
 const CONTENT_PROMISE_PATTERN = /\b(?:steps|checks|tips|ways|routine|checklist|cheat\s*sheet)\b|\b(?:a|the|your|our|quick|simple|complete|essential|care|flower|buying|selection)\s+guide\b|\bguide\s+(?:to|for)\b/i;
 const PROMISED_COUNT_PATTERN = /\b(2|two|3|three|4|four)\b(?:[\s-]+[a-z][a-z'-]*){0,3}[\s-]+(?:steps?|checks?|tips?|ways?|points?|items?)\b/i;
@@ -166,14 +167,21 @@ export const creativeBriefSchema = z.object({
     if (brief.variants.filter(v => v.productRole === "hero").length > 1) {
       ctx.addIssue({ code: "custom", path: ["variants"], message: "Only one independent creative may use the catalog product as the hero" });
     }
-    if (brief.variants.filter(v => v.productRole === "hero" || v.productRole === "supporting").length > 2) {
-      ctx.addIssue({ code: "custom", path: ["variants"], message: "At least two independent creatives must work without the catalog product reference" });
+    const catalogProductCount = brief.variants.filter(v => v.productRole === "hero" || v.productRole === "supporting").length;
+    if (catalogProductCount !== 2) {
+      ctx.addIssue({ code: "custom", path: ["variants"], message: "Exactly two independent creatives must use the catalog product; the other two must use visible, concept-relevant flowers without copying it" });
+    }
+    if (brief.variants.some(v => v.productRole === "none")) {
+      ctx.addIssue({ code: "custom", path: ["variants"], message: "Independent GreatFlowers creatives must always show flowers; use productRole optional when the catalog product is not referenced" });
     }
     if (brief.variants.filter(v => v.creativeType === "informational").length > 1) {
       ctx.addIssue({ code: "custom", path: ["variants"], message: "Only one independent creative may be informational" });
     }
     if (!brief.variants.some(v => HUMAN_SCENE_STRATEGIES.has(v.sceneStrategy))) {
       ctx.addIssue({ code: "custom", path: ["variants"], message: "Independent creatives require at least one human lifestyle or gifting scene" });
+    }
+    if (!brief.variants.some(v => COMMERCIAL_CTA_PATTERN.test(v.cta))) {
+      ctx.addIssue({ code: "custom", path: ["variants"], message: "At least one independent creative requires a gentle shopping or flower-sending CTA" });
     }
 
     brief.variants.forEach((v, i) => {

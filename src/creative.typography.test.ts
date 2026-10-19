@@ -216,6 +216,11 @@ test("hero and supporting creatives use the real product reference", () => {
   const prompt = buildCodexPrompt(supporting, brief(supporting));
   assert.match(prompt, /Use the supplied product image as the actual bouquet/);
   assert.match(prompt, /Preserve its recognizable flower mix, colors, arrangement and container/);
+
+  const optional = variant({ productRole: "optional" });
+  const optionalPrompt = buildCodexPrompt(optional, brief(optional));
+  assert.match(optionalPrompt, /Natural, concept-relevant flowers are nevertheless REQUIRED/);
+  assert.match(optionalPrompt, /props may establish context, but must never become the primary/);
 });
 
 test("existing creatives without content points retain the original safe area", () => {

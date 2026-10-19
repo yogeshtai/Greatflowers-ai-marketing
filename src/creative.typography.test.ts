@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import sharp from "sharp";
 import {
   buildCodexPrompt,
   layoutForCreativeVariant,
@@ -12,6 +16,7 @@ import {
   buildCreativeTextOverlay,
   CREATIVE_TEXT_PINK,
   CREATIVE_TEXT_PURPLE,
+  detectCreativeTextTone,
   headlineWords,
   textPaletteForCreative,
   typographyForCreative,
@@ -72,7 +77,7 @@ test("headline typography applies controlled pink emphasis to a meaningful phras
   assert.match(svg, new RegExp(CREATIVE_TEXT_PINK));
   assert.match(svg, /Bodoni 72, Didot, Georgia/);
   assert.match(svg, /Bring the[\s\S]*Blooms/);
-  assert.match(svg, /A thoughtful surprise for their[\s\S]*day\./);
+  assert.match(svg, /A thoughtful surprise for[\s\S]*their day\./);
 });
 
 test("independent creative styling rotates layout, palette and website treatment", () => {
@@ -154,7 +159,7 @@ test("image generation reserves clear zones and never renders its own text", () 
   const prompt = buildCodexPrompt(creative, brief(creative));
 
   assert.match(prompt, /TEXT-FREE 1:1 premium social media campaign base image/);
-  assert.match(prompt, /outer left 46% of the upper 72%/);
+  assert.match(prompt, /outer left 46% of the upper 82%/);
   assert.match(prompt, /NO WEBSITE PILL/);
   assert.doesNotMatch(prompt, /lower-center 12%/);
   assert.match(prompt, /Do NOT render any text, letters, numbers/);
@@ -179,6 +184,26 @@ test("middle variants reserve and render a genuinely different lower text struct
 
   assert.match(prompt, /outer right 42% of the lower-middle band/);
   assert.match(svg, /y="563"/);
+});
+
+test("creative typography automatically switches contrast for dark and light photographs", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "creative-contrast-"));
+  const darkImage = join(directory, "dark.png");
+  const lightImage = join(directory, "light.png");
+  try {
+    await sharp({ create: { width: 1024, height: 1024, channels: 3, background: "#202124" } }).png().toFile(darkImage);
+    await sharp({ create: { width: 1024, height: 1024, channels: 3, background: "#f2eee7" } }).png().toFile(lightImage);
+
+    assert.equal(await detectCreativeTextTone(darkImage, "left", "top"), "light");
+    assert.equal(await detectCreativeTextTone(lightImage, "left", "top"), "dark");
+
+    const lightTextSvg = buildCreativeTextOverlay(variant(), "left", 1024, 1024, "top", "light").toString();
+    assert.match(lightTextSvg, /fill="#ffffff"/);
+    assert.match(lightTextSvg, /flood-color="#000000"/);
+    assert.match(lightTextSvg, /copy-backdrop-blur/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("hero and supporting creatives use the real product reference", () => {

@@ -2,6 +2,7 @@ import sharp from "sharp";
 
 export type CreativeTextSide = "left" | "right";
 export type CreativeTextVertical = "top" | "lower";
+export type CreativeTextTone = "dark" | "light";
 
 type TypographyCreative = {
   order?: number;
@@ -22,9 +23,20 @@ const CREATIVE_TEXT_PALETTES = [
   { primary: "#3b2b2c", accent: "#a84d3c", secondary: "#554747" },
 ] as const;
 
-export function textPaletteForCreative(creative: Pick<TypographyCreative, "order">) {
+const CREATIVE_LIGHT_TEXT_PALETTES = [
+  { primary: "#ffffff", accent: "#ff7fbd", secondary: "#f7f1f5" },
+  { primary: "#ffffff", accent: "#f2b56f", secondary: "#f8f3ed" },
+  { primary: "#ffffff", accent: "#91d8bd", secondary: "#eff8f4" },
+  { primary: "#ffffff", accent: "#ff9c88", secondary: "#fff2ef" },
+] as const;
+
+export function textPaletteForCreative(
+  creative: Pick<TypographyCreative, "order">,
+  tone: CreativeTextTone = "dark",
+) {
   const order = Number.isInteger(creative.order) ? Math.max(1, creative.order!) : 1;
-  return CREATIVE_TEXT_PALETTES[(order - 1) % CREATIVE_TEXT_PALETTES.length]!;
+  const palettes = tone === "light" ? CREATIVE_LIGHT_TEXT_PALETTES : CREATIVE_TEXT_PALETTES;
+  return palettes[(order - 1) % palettes.length]!;
 }
 
 export type CreativeTypography = {
@@ -175,9 +187,10 @@ export function buildCreativeTextOverlay(
   width = 1024,
   height = 1024,
   vertical: CreativeTextVertical = "top",
+  tone: CreativeTextTone = "dark",
 ): Buffer {
   const typography = typographyForCreative(creative);
-  const palette = textPaletteForCreative(creative);
+  const palette = textPaletteForCreative(creative, tone);
   const margin = Math.round(width * 0.055);
   const usableWidth = Math.round(width * 0.42);
   const x = side === "left" ? margin : width - margin;
@@ -190,7 +203,7 @@ export function buildCreativeTextOverlay(
   ).join("");
 
   const subheadline = creative.subheadline.trim();
-  const subSize = Math.max(20, Math.round(width * 0.024));
+  const subSize = Math.max(24, Math.round(width * 0.029));
   const subLines = subheadline
     ? wrapPlainText(subheadline, Math.max(18, Math.floor(usableWidth / (subSize * 0.52))))
     : [];
@@ -209,7 +222,7 @@ export function buildCreativeTextOverlay(
   ).join("");
 
   const contentPoints = (creative.contentPoints || []).map(point => point.trim()).filter(Boolean);
-  const pointSize = Math.max(19, Math.round(width * 0.021));
+  const pointSize = Math.max(24, Math.round(width * 0.026));
   const pointLineHeight = Math.round(pointSize * 1.24);
   const pointGap = Math.round(height * 0.018);
   const numberRadius = Math.round(pointSize * 0.68);
@@ -239,20 +252,46 @@ export function buildCreativeTextOverlay(
     pointY += pointHeight + pointGap;
   });
 
-  if (contentPoints.length && contentBottom > height * 0.74) {
+  if (contentPoints.length && contentBottom > height * 0.84) {
     throw new Error("Creative content points are too long to fit without overlapping the website CTA");
   }
 
   return Buffer.from(`<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <filter id="text-shadow" x="-20%" y="-20%" width="140%" height="140%">
-        <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="#ffffff" flood-opacity="0.8"/>
+        <feDropShadow dx="0" dy="1" stdDeviation="${tone === "light" ? "2.4" : "1.8"}" flood-color="${tone === "light" ? "#000000" : "#ffffff"}" flood-opacity="${tone === "light" ? "0.72" : "0.82"}"/>
+      </filter>
+      <filter id="copy-backdrop-blur" x="-15%" y="-20%" width="130%" height="140%">
+        <feGaussianBlur stdDeviation="32"/>
       </filter>
     </defs>
+    <rect x="${side === "left" ? 0 : Math.round(width * 0.5)}" y="${vertical === "lower" ? Math.round(height * 0.45) : 0}" width="${Math.round(width * 0.5)}" height="${vertical === "lower" ? Math.round(height * 0.42) : Math.round(height * (contentPoints.length ? 0.85 : 0.5))}" fill="${tone === "light" ? "#000000" : "#ffffff"}" fill-opacity="${tone === "light" ? "0.22" : "0.18"}" filter="url(#copy-backdrop-blur)"/>
     <text font-family="${typography.family}" font-size="${fitted.size}" font-weight="${typography.weight}" letter-spacing="-1.2" filter="url(#text-shadow)">${headlineSvg}</text>
-    ${subLines.length ? `<text x="${x}" text-anchor="${anchor}" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${subSize}" font-weight="400" fill="${palette.secondary}" filter="url(#text-shadow)">${subSvg}</text>` : ""}
+    ${subLines.length ? `<text x="${x}" text-anchor="${anchor}" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${subSize}" font-weight="500" fill="${palette.secondary}" filter="url(#text-shadow)">${subSvg}</text>` : ""}
     ${pointSvg.join("")}
   </svg>`);
+}
+
+export async function detectCreativeTextTone(
+  imagePath: string,
+  side: CreativeTextSide,
+  vertical: CreativeTextVertical,
+): Promise<CreativeTextTone> {
+  const image = sharp(imagePath);
+  const metadata = await image.metadata();
+  const width = metadata.width || 1024;
+  const height = metadata.height || 1024;
+  const regionWidth = Math.max(1, Math.floor(width * 0.5));
+  const regionHeight = Math.max(1, Math.floor(height * (vertical === "lower" ? 0.4 : 0.5)));
+  const left = side === "left" ? 0 : width - regionWidth;
+  const top = vertical === "lower" ? Math.floor(height * 0.45) : 0;
+  const safeHeight = Math.min(regionHeight, height - top);
+  const { channels } = await image
+    .extract({ left, top, width: regionWidth, height: safeHeight })
+    .greyscale()
+    .stats();
+  const mean = channels[0]?.mean ?? 255;
+  return mean < 145 ? "light" : "dark";
 }
 
 export async function addCreativeText(
@@ -265,8 +304,9 @@ export async function addCreativeText(
   const metadata = await sharp(imagePath).metadata();
   const width = metadata.width || 1024;
   const height = metadata.height || 1024;
+  const tone = await detectCreativeTextTone(imagePath, side, vertical);
   await sharp(imagePath)
-    .composite([{ input: buildCreativeTextOverlay(creative, side, width, height, vertical), left: 0, top: 0 }])
+    .composite([{ input: buildCreativeTextOverlay(creative, side, width, height, vertical, tone), left: 0, top: 0 }])
     .png()
     .toFile(outputPath);
 }

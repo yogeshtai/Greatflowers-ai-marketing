@@ -392,7 +392,7 @@ Generate from the strategic concept.`;
   const hasContentPoints = (variant.contentPoints?.length || 0) > 0;
   const showWebsiteCta = shouldShowWebsiteCta(variant);
   const typographySafeArea = hasContentPoints
-    ? `outer ${textSide} 46% of the upper 72%`
+    ? `outer ${textSide} 46% of the upper 82%`
     : textVertical === "lower"
       ? `outer ${textSide} 42% of the lower-middle band, from about 48% to 82% of the image height`
       : `outer ${textSide} 42% of the upper half`;
@@ -437,6 +437,7 @@ Do not generate, spell, draw, or recreate GreatFlowers branding.
 TYPOGRAPHY SAFE AREA (CRITICAL):
 Reserve the ${typographySafeArea} as calm, light-toned photographic negative space.
 Keep faces, flowers and important objects out of that zone, but continue natural scene texture and light through it.
+Keep this area tonally consistent enough for large, high-contrast editorial typography; avoid mottled highlights and deep shadows behind the copy.
 Do not create a white rectangle, translucent card, blank paper panel or fake text box.
 The application will typeset the approved headline, subheadline${hasContentPoints ? " and numbered content points" : ""} in this zone after generation.
 ${hasContentPoints ? "Do not draw empty circles, unlabeled icons, arrows, process diagrams or step placeholders." : ""}

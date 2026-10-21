@@ -1,7 +1,7 @@
 import cron from "node-cron";
 import { istDateKey } from "./blog.time.js";
 import { startWikiGeneration } from "./wiki.jobs.js";
-import { publishWikiDraft, publishWikiImmediate, WIKI_PUBLISH_HOUR_ET } from "./wiki.publisher.js";
+import { approveWikiFlow, publishWikiDraft, publishWikiImmediate, WIKI_PUBLISH_HOUR_ET } from "./wiki.publisher.js";
 import { getWikiDrafts } from "./wiki.store.js";
 
 export async function generateWikiDraftIfNeeded() {
@@ -9,7 +9,11 @@ export async function generateWikiDraftIfNeeded() {
   const today = istDateKey();
   const drafts = await getWikiDrafts();
   if (drafts.some((draft) => draft.status !== "rejected" && istDateKey(new Date(draft.createdAt)) === today)) return false;
-  return startWikiGeneration("schedule");
+  return startWikiGeneration("schedule", process.env.WIKI_AUTOAPPROVE === "false" ? undefined : async (draft) => {
+    const result = await approveWikiFlow(draft.id);
+    if (result.outcome === "publish-failed") throw new Error(`automatic wiki publishing failed for ${draft.slug}`);
+    if (result.outcome !== "approved" && result.outcome !== "published") throw new Error(`automatic wiki approval was not actionable: ${result.outcome}`);
+  });
 }
 
 let publishing = false;
@@ -28,6 +32,6 @@ export async function publishDueWikis() {
 
 export function startWikiScheduler() {
   console.log(`📚 Wiki scheduler started (draft 19:00 IST, publish ${publishWikiImmediate() ? "on approve" : `${WIKI_PUBLISH_HOUR_ET}:00 ET`})`);
-  cron.schedule("0 19 * * *", () => void generateWikiDraftIfNeeded(), { timezone: "Asia/Kolkata" });
+  cron.schedule("0 19 * * 2,4,6", () => void generateWikiDraftIfNeeded(), { timezone: "Asia/Kolkata" });
   cron.schedule("*/10 * * * *", () => void publishDueWikis());
 }

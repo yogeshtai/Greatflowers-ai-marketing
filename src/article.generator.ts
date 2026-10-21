@@ -6,6 +6,9 @@ import { selectContentAuthor } from "./content.authors.js";
 import { gfApiHost, withGfClient } from "./gf.admin.client.js";
 import { requestHermesJSON } from "./hermes.json.js";
 import { parseModelJSONCandidates } from "./model.json.js";
+import { assertNoTitleCollision, type ContentTitle } from "./content.overlap.js";
+import { getBlogDrafts } from "./blog.store.js";
+import { getWikiDrafts } from "./wiki.store.js";
 
 const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 const storefrontBase = () => (process.env.GF_STOREFRONT_URL || "https://greatflowers.net").replace(/\/+$/, "");
@@ -127,7 +130,7 @@ IMAGE
 - Avoid plain catalog shots, empty white backgrounds and centered bouquet-only compositions. No text, signs, cards, logos or watermarks.
 
 SEO
-- title: 35-75 characters, natural and intent-specific.
+- title: 35-60 characters, natural and intent-specific.
 - slug: lowercase and hyphenated.
 - topic, format and authorName must exactly match the assignment.
 - description: a useful 1-2 sentence summary.
@@ -148,6 +151,7 @@ export function validateArticle(output: string, context: {
   authorName: string;
   existingTitles: string[];
   existingSlugs: string[];
+  contentInventory?: ContentTitle[];
   products: CatalogProduct[];
   relatedSlugs: Set<string>;
   base: string;
@@ -194,6 +198,7 @@ export function validateArticle(output: string, context: {
   if (article.authorName !== context.authorName) throw new Error(`authorName must be exactly ${context.authorName}`);
   if (/great\s*flowers/i.test(article.metaTitle)) throw new Error("metaTitle must not contain the Great Flowers brand name");
   if (context.existingTitles.some((title) => normalize(title) === normalize(article!.title))) throw new Error("title duplicates an existing article");
+  assertNoTitleCollision(article.title, context.contentInventory ?? context.existingTitles.map((title) => ({ kind: "article", title })));
   if (context.existingSlugs.includes(article.slug)) throw new Error("slug duplicates an existing article");
   const allowed = new Set(context.products.map((product) => product.id));
   if (article.productIds.some((id) => !allowed.has(id))) throw new Error("productIds contains an unknown catalog product");
@@ -208,12 +213,23 @@ export function validateArticle(output: string, context: {
 export async function generateDailyArticleDraft(signal?: AbortSignal, onDraftSaved?: () => void) {
   const environment = gfApiHost();
   const context = await withGfClient(async (client) => {
-    const [articles, topics, rawProducts] = await Promise.all([client.listArticles(), client.listArticleTopics(), client.searchProducts("", 100)]);
-    return { articles, topics, products: rawProducts.map(toCatalogProduct).filter((product) => product.imageUrl) };
+    const [articles, blogs, wikis, topics, rawProducts] = await Promise.all([
+      client.listArticles(), client.listBlogs(), client.listWikis(), client.listArticleTopics(), client.searchProducts("", 100),
+    ]);
+    return { articles, blogs, wikis, topics, products: rawProducts.map(toCatalogProduct).filter((product) => product.imageUrl) };
   });
   if (context.products.length < 2) throw new Error("Not enough catalog products with images to write an article");
-  const local = (await getArticleDrafts()).filter((draft) => draft.environment === environment && draft.status !== "rejected");
-  const existingTitles = [...context.articles.map((article: any) => String(article.title)), ...local.map((draft) => draft.title)];
+  const [articleDrafts, blogDrafts, wikiDrafts] = await Promise.all([getArticleDrafts(), getBlogDrafts(), getWikiDrafts()]);
+  const local = articleDrafts.filter((draft) => draft.environment === environment && draft.status !== "rejected");
+  const contentInventory: ContentTitle[] = [
+    ...context.articles.map((item: any) => ({ kind: "article" as const, title: String(item.title), slug: String(item.slug ?? "") })),
+    ...context.blogs.map((item: any) => ({ kind: "blog" as const, title: String(item.title), slug: String(item.slug ?? "") })),
+    ...context.wikis.map((item: any) => ({ kind: "wiki" as const, title: String(item.title), slug: String(item.slug ?? "") })),
+    ...local.map((item) => ({ kind: "article" as const, title: item.title, slug: item.slug })),
+    ...blogDrafts.filter((item) => item.environment === environment && item.status !== "rejected").map((item) => ({ kind: "blog" as const, title: item.title, slug: item.slug })),
+    ...wikiDrafts.filter((item) => item.environment === environment && item.status !== "rejected").map((item) => ({ kind: "wiki" as const, title: item.title, slug: item.slug })),
+  ];
+  const existingTitles = contentInventory.map((item) => `[${item.kind}] ${item.title}`);
   const existingSlugs = [...context.articles.map((article: any) => String(article.slug)), ...local.map((draft) => draft.slug)];
   const recentTopics = [...local.map((draft) => draft.topic), ...context.articles.map((article: any) => String(article.topic ?? ""))];
   const topic = selectArticleTopic(context.topics.map((item: any) => String(item.name ?? item.id ?? item)), recentTopics);
@@ -224,7 +240,7 @@ export async function generateDailyArticleDraft(signal?: AbortSignal, onDraftSav
   const promptProducts = context.products.slice(0, 45);
   const article = await requestHermesJSON(
     buildArticlePrompt({ topic, direction, format, authorName, existingTitles, products: promptProducts, related }),
-    (output) => validateArticle(output, { topic, format, authorName, existingTitles, existingSlugs, products: promptProducts, relatedSlugs: new Set(related.map((item) => item.slug)), base: storefrontBase() }),
+    (output) => validateArticle(output, { topic, format, authorName, existingTitles, existingSlugs, contentInventory, products: promptProducts, relatedSlugs: new Set(related.map((item) => item.slug)), base: storefrontBase() }),
     signal,
     GeneratedArticleJsonSchema,
     { freshRetries: 1 },

@@ -20,15 +20,20 @@ export const isDraftImagePending = (draft: { createdAt: string }) =>
   !!(state.running && state.startedAt && draft.createdAt >= state.startedAt);
 
 // Draft generation takes minutes (Hermes + hero image), longer than any proxy keeps an HTTP request open, so it runs in the background.
-export function startGeneration(trigger: "manual" | "schedule", occasion?: string): boolean {
+export function startGeneration(
+  trigger: "manual" | "schedule",
+  occasion?: string,
+  onComplete?: (draft: Awaited<ReturnType<typeof generateDailyBlogDraft>>) => void | Promise<void>,
+): boolean {
   const release = tryAcquire("blog");
   if (!release) return false;
   const startedAt = new Date().toISOString();
   state = { running: true, trigger, ...(occasion ? { occasion } : {}), startedAt };
   generateDailyBlogDraft(undefined, occasion)
-    .then((draft) => {
-      console.log(`📝 Blog draft ready for approval: ${draft.title}`);
+    .then(async (draft) => {
       state = { running: false, trigger, ...(occasion ? { occasion } : {}), startedAt, finishedAt: new Date().toISOString() };
+      if (onComplete) await onComplete(draft);
+      console.log(`📝 Blog draft ready${onComplete ? " and automatic approval processed" : " for approval"}: ${draft.title}`);
       emitBlogEvent({ type: "draft-ready", draft });
     })
     .catch((error) => {

@@ -11,7 +11,7 @@ const wordCount = (html: string) => html.replace(/<[^>]+>/g, " ").split(/\s+/).f
 
 export const GeneratedPostSchema = z.object({
   topic: z.string().min(5).max(200),
-  title: z.string().min(10).max(120),
+  title: z.string().min(10).max(60),
   slug: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/).max(100),
   metaTitle: z.string().min(10).max(70),
   metaDescription: z.string().min(80).max(170),
@@ -41,6 +41,7 @@ export const BlogGenerateRequestSchema = z.object({
 
 export const BlogEditSchema = z.object({
   authorName: z.enum(CONTENT_AUTHORS),
+  // Preserve compatibility with drafts created before new titles were capped at 60.
   title: z.string().min(10).max(120),
   metaTitle: z.string().min(10).max(70),
   metaDescription: z.string().min(80).max(170),

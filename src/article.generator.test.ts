@@ -95,6 +95,6 @@ test("article publish mode defaults to immediate and supports scheduled mode", (
   } finally { delete process.env.ARTICLE_PUBLISH_MODE; }
 });
 
-test("article daily draft schedule is 6:30 PM IST", () => {
-  assert.equal(ARTICLE_DRAFT_CRON, "30 18 * * *");
+test("article weekly draft schedule is Sunday at 6:30 PM IST", () => {
+  assert.equal(ARTICLE_DRAFT_CRON, "30 18 * * 0");
 });

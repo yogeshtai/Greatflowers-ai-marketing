@@ -24,7 +24,7 @@ const allowedMarkup = (html: string) =>
   );
 
 export const GeneratedArticleSchema = z.object({
-  title: z.string().min(25).max(80).refine(plainText, "title must be plain text"),
+  title: z.string().min(25).max(60).refine(plainText, "title must be plain text"),
   slug: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/).max(110),
   topic: z.string().min(2).max(100).refine(plainText, "topic must be plain text"),
   format: z.enum(ARTICLE_FORMATS),
@@ -45,7 +45,8 @@ export type GeneratedArticle = z.infer<typeof GeneratedArticleSchema>;
 export const GeneratedArticleJsonSchema = z.toJSONSchema(GeneratedArticleSchema, { io: "input", unrepresentable: "any" });
 
 export const ArticleEditSchema = z.object({
-  title: GeneratedArticleSchema.shape.title,
+  // Preserve compatibility with drafts created before new titles were capped at 60.
+  title: z.string().min(25).max(80).refine(plainText, "title must be plain text"),
   topic: GeneratedArticleSchema.shape.topic,
   authorName: GeneratedArticleSchema.shape.authorName,
   description: GeneratedArticleSchema.shape.description,

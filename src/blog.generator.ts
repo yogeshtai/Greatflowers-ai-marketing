@@ -6,6 +6,9 @@ import { addBlogDraft, getBlogDrafts, updateBlogDraft } from "./blog.store.js";
 import { generateHeroImage, type HeroInput } from "./blog.image.js";
 import { gfApiHost, withGfClient } from "./gf.admin.client.js";
 import { selectContentAuthor } from "./content.authors.js";
+import { assertNoTitleCollision, type ContentTitle } from "./content.overlap.js";
+import { getArticleDrafts } from "./article.store.js";
+import { getWikiDrafts } from "./wiki.store.js";
 
 // The model may say no category fits; the post is then published without a category instead of a wrong one.
 export const NO_CATEGORY = "none";
@@ -47,8 +50,11 @@ function inferredFormat(title: string): BlogFormat {
 }
 
 export function selectBlogFormat(recent: Array<{ title: string; contentFormat?: BlogFormat }>): BlogFormat {
-  const used = new Set(recent.slice(0, BLOG_FORMATS.length - 1).map((post) => post.contentFormat ?? inferredFormat(post.title)));
-  return BLOG_FORMATS.find((format) => !used.has(format)) ?? BLOG_FORMATS[0];
+  // Evergreen how-to and question-led resources belong in Articles. Blogs are
+  // reserved for product-led lists and timely occasion coverage.
+  const blogFormats: BlogFormat[] = ["CURATED_LIST", "OCCASION_PLAYBOOK"];
+  const used = new Set(recent.slice(0, blogFormats.length - 1).map((post) => post.contentFormat ?? inferredFormat(post.title)));
+  return blogFormats.find((format) => !used.has(format)) ?? blogFormats[0]!;
 }
 
 // The model only writes PRODUCT:<id>, BLOG:<slug> or HOME as link targets; real URLs are built here from catalog data.
@@ -143,14 +149,14 @@ WRITING RULES
 - Do not create urgency or scarcity claims such as "before they sell out" or "ensures your flowers arrive on time".
 - Do not invent statistics, awards, delivery guarantees, discounts, promo codes, or competitor names. Do not write "SAVE15" or any code.
 - Do not claim same-day delivery is guaranteed everywhere; say "same-day delivery is available in many areas".
-- title: 35-65 characters, natural, includes the main keyword. metaTitle: 10-55 characters, WITHOUT the brand name (we append " | Great Flowers" ourselves). metaDescription: 140-165 characters, one or two sentences, may end with "Same-day delivery is available in many areas." summary: 1-2 sentences.
+- title: 35-60 characters, natural, includes the main keyword. metaTitle: 10-55 characters, WITHOUT the brand name (we append " | Great Flowers" ourselves). metaDescription: 140-165 characters, one or two sentences, may end with "Same-day delivery is available in many areas." summary: 1-2 sentences.
 - slug: lowercase-hyphenated, unique vs the taken slugs.
 Return the JSON object only.`;
 }
 
 export function validatePost(
   output: string,
-  ctx: { existingTitles: string[]; existingSlugs: string[]; categories: Set<string>; products: CatalogProduct[]; relatedSlugs: Set<string>; base: string; requiredFormat: BlogFormat; requestedOccasion?: string },
+  ctx: { existingTitles: string[]; existingSlugs: string[]; contentInventory?: ContentTitle[]; categories: Set<string>; products: CatalogProduct[]; relatedSlugs: Set<string>; base: string; requiredFormat: BlogFormat; requestedOccasion?: string },
 ): GeneratedPost {
   const productIds = new Set(ctx.products.map((p) => p.id));
   const roots = parseModelJSONCandidates(output);
@@ -180,6 +186,7 @@ export function validatePost(
     throw new Error(`title must contain the requested occasion "${ctx.requestedOccasion}"`);
   }
   if (ctx.existingTitles.some((t) => t.toLowerCase() === lower)) throw new Error("title duplicates an existing post");
+  assertNoTitleCollision(post.title, ctx.contentInventory ?? ctx.existingTitles.map((title) => ({ kind: "blog", title })));
   if (ctx.existingSlugs.includes(post.slug)) throw new Error("slug is already taken");
   if (post.contentFormat !== ctx.requiredFormat) throw new Error(`contentFormat must be ${ctx.requiredFormat}`);
   if (post.categorySlug !== NO_CATEGORY && !ctx.categories.has(post.categorySlug)) throw new Error(`categorySlug must be one of: ${[...ctx.categories].join(", ")}, or "none" if nothing fits`);
@@ -199,13 +206,26 @@ export function validatePost(
 export async function generateDailyBlogDraft(signal?: AbortSignal, requestedOccasion?: string) {
   const environment = gfApiHost();
   const context = await withGfClient(async (client) => {
-    const [blogs, categories, products] = await Promise.all([client.listBlogs(), client.listBlogCategories(), client.searchProducts("", 40)]);
-    return { blogs, categories, products };
+    const [blogs, wikis, articles, categories, products] = await Promise.all([
+      client.listBlogs(), client.listWikis(), client.listArticles(), client.listBlogCategories(), client.searchProducts("", 40),
+    ]);
+    return { blogs, wikis, articles, categories, products };
   });
 
-  const localDrafts = (await getBlogDrafts()).filter((d) => d.environment === environment && d.status !== "rejected");
+  const [allBlogDrafts, allWikiDrafts, allArticleDrafts] = await Promise.all([getBlogDrafts(), getWikiDrafts(), getArticleDrafts()]);
+  const localDrafts = allBlogDrafts.filter((d) => d.environment === environment && d.status !== "rejected");
+  const localWikis = allWikiDrafts.filter((d) => d.environment === environment && d.status !== "rejected");
+  const localArticles = allArticleDrafts.filter((d) => d.environment === environment && d.status !== "rejected");
   const authorName = selectContentAuthor(localDrafts.map((draft) => draft.authorName));
-  const existingTitles = [...context.blogs.map((b: any) => String(b.title)), ...localDrafts.map((d) => d.title)];
+  const contentInventory: ContentTitle[] = [
+    ...context.blogs.map((item: any) => ({ kind: "blog" as const, title: String(item.title), slug: String(item.slug ?? "") })),
+    ...context.wikis.map((item: any) => ({ kind: "wiki" as const, title: String(item.title), slug: String(item.slug ?? "") })),
+    ...context.articles.map((item: any) => ({ kind: "article" as const, title: String(item.title), slug: String(item.slug ?? "") })),
+    ...localDrafts.map((item) => ({ kind: "blog" as const, title: item.title, slug: item.slug })),
+    ...localWikis.map((item) => ({ kind: "wiki" as const, title: item.title, slug: item.slug })),
+    ...localArticles.map((item) => ({ kind: "article" as const, title: item.title, slug: item.slug })),
+  ];
+  const existingTitles = contentInventory.map((item) => `[${item.kind}] ${item.title}`);
   const existingSlugs = [...context.blogs.map((b: any) => String(b.slug)), ...localDrafts.map((d) => d.slug)];
   const categories = context.categories.map((c: any) => ({ slug: String(c.slug), name: String(c.name) }));
   const products = context.products.map(toCatalogProduct).filter((p) => p.imageUrl);
@@ -226,7 +246,7 @@ export async function generateDailyBlogDraft(signal?: AbortSignal, requestedOcca
   });
   const post = await requestHermesJSON(
     prompt,
-    (output) => validatePost(output, { existingTitles, existingSlugs, categories: new Set(categories.map((c) => c.slug)), products, relatedSlugs: new Set(related.map((r) => r.slug)), base, requiredFormat, ...(requestedOccasion ? { requestedOccasion } : {}) }),
+    (output) => validatePost(output, { existingTitles, existingSlugs, contentInventory, categories: new Set(categories.map((c) => c.slug)), products, relatedSlugs: new Set(related.map((r) => r.slug)), base, requiredFormat, ...(requestedOccasion ? { requestedOccasion } : {}) }),
     signal,
     GeneratedPostJsonSchema,
     { freshRetries: 1 },

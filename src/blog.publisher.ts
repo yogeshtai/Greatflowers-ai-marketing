@@ -8,6 +8,7 @@ import { errorDetail } from "./http.helpers.js";
 import { nextNewYorkHour } from "./blog.time.js";
 import type { BlogDraft } from "./blog.schema.js";
 import { DEFAULT_CONTENT_AUTHOR } from "./content.authors.js";
+import { assertNoTitleCollision } from "./content.overlap.js";
 
 export const PUBLISH_HOUR_ET = Number(process.env.BLOG_PUBLISH_HOUR_ET ?? 10);
 const MAX_ATTEMPTS = 3;
@@ -72,8 +73,13 @@ async function publish(draft: BlogDraft) {
     const hero = products.map(toCatalogProduct).find((p) => p.id === draft.heroProductId);
     if (!aiHero && !hero?.imageUrl) throw new Error(`hero product ${draft.heroProductId} has no image on the target environment`);
 
-    const existing = (await client.listBlogs()).find((b: any) => b.slug === draft.slug || b.title === draft.title);
+    const [remoteBlogs, remoteWikis, remoteArticles] = await Promise.all([client.listBlogs(), client.listWikis(), client.listArticles()]);
+    const existing = remoteBlogs.find((b: any) => b.slug === draft.slug || b.title === draft.title);
     if (existing) return { id: Number(existing.id), status: Number(existing.status) as 0 | 1, reused: true };
+    assertNoTitleCollision(draft.title, [
+      ...remoteWikis.map((item: any) => ({ kind: "wiki" as const, title: String(item.title), slug: String(item.slug ?? "") })),
+      ...remoteArticles.map((item: any) => ({ kind: "article" as const, title: String(item.title), slug: String(item.slug ?? "") })),
+    ]);
 
     const imageId = await client.uploadAttachment(aiHero ?? await heroImage(hero!.imageUrl!), `${draft.slug}.${HERO_FILE_EXTENSION}`, HERO_MIME_TYPE);
     const status: 0 | 1 = liveMode() ? 1 : 0;

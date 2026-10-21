@@ -1,17 +1,21 @@
 import cron from "node-cron";
 import { startArticleGeneration } from "./article.jobs.js";
-import { ARTICLE_PUBLISH_HOUR_ET, publishArticleDraft, publishArticleImmediate } from "./article.publisher.js";
+import { approveArticleFlow, ARTICLE_PUBLISH_HOUR_ET, publishArticleDraft, publishArticleImmediate } from "./article.publisher.js";
 import { getArticleDrafts } from "./article.store.js";
 import { istDateKey } from "./blog.time.js";
 
-export const ARTICLE_DRAFT_CRON = "30 18 * * *";
+export const ARTICLE_DRAFT_CRON = "30 18 * * 0";
 
 export async function generateArticleDraftIfNeeded() {
   if (process.env.ARTICLE_AUTOGENERATE === "false") return false;
   const today = istDateKey();
   const drafts = await getArticleDrafts();
   if (drafts.some((draft) => draft.status !== "rejected" && istDateKey(new Date(draft.createdAt)) === today)) return false;
-  return startArticleGeneration("schedule");
+  return startArticleGeneration("schedule", process.env.ARTICLE_AUTOAPPROVE === "false" ? undefined : async (draft) => {
+    const result = await approveArticleFlow(draft.id);
+    if (result.outcome === "publish-failed") throw new Error(`automatic article publishing failed for ${draft.slug}`);
+    if (result.outcome !== "approved" && result.outcome !== "published") throw new Error(`automatic article approval was not actionable: ${result.outcome}`);
+  });
 }
 
 let publishing = false;

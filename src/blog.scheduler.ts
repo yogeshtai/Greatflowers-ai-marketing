@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import { startGeneration } from "./blog.jobs.js";
-import { PUBLISH_HOUR_ET, publishDraft, publishImmediate } from "./blog.publisher.js";
+import { approveFlow, PUBLISH_HOUR_ET, publishDraft, publishImmediate } from "./blog.publisher.js";
 import { getBlogDrafts } from "./blog.store.js";
 import { istDateKey } from "./blog.time.js";
 
@@ -9,7 +9,11 @@ export async function generateDraftIfNeeded() {
   const today = istDateKey();
   const drafts = await getBlogDrafts();
   if (drafts.some((d) => d.status !== "rejected" && istDateKey(new Date(d.createdAt)) === today)) return false;
-  return startGeneration("schedule");
+  return startGeneration("schedule", undefined, process.env.BLOG_AUTOAPPROVE === "false" ? undefined : async (draft) => {
+    const result = await approveFlow(draft.id);
+    if (result.outcome === "publish-failed") throw new Error(`automatic blog publishing failed for ${draft.slug}`);
+    if (result.outcome !== "approved" && result.outcome !== "published") throw new Error(`automatic blog approval was not actionable: ${result.outcome}`);
+  });
 }
 
 let publishing = false;
@@ -28,6 +32,6 @@ export async function publishDueBlogs() {
 
 export function startBlogScheduler() {
   console.log(`📝 Blog scheduler started (draft 18:00 IST, publish ${publishImmediate() ? "on approve" : `${PUBLISH_HOUR_ET}:00 ET`})`);
-  cron.schedule("0 18 * * *", () => void generateDraftIfNeeded(), { timezone: "Asia/Kolkata" });
+  cron.schedule("0 18 * * 1,3,5", () => void generateDraftIfNeeded(), { timezone: "Asia/Kolkata" });
   cron.schedule("*/10 * * * *", () => void publishDueBlogs());
 }

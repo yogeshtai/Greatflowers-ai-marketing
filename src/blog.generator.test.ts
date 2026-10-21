@@ -133,12 +133,12 @@ test("blog heroes are encoded as correctly sized progressive JPEGs", async () =>
 });
 test("blog formats rotate before repeating", () => {
   const history: Array<{ title: string; contentFormat?: "CURATED_LIST" | "PRACTICAL_GUIDE" | "OCCASION_PLAYBOOK" | "QUESTION_EXPLAINER" }> = [];
-  const formats = Array.from({ length: 4 }, () => {
+  const formats = Array.from({ length: 2 }, () => {
     const format = selectBlogFormat(history);
     history.unshift({ title: "Generated post", contentFormat: format });
     return format;
   });
-  assert.equal(new Set(formats).size, 4);
+  assert.deepEqual(new Set(formats), new Set(["CURATED_LIST", "OCCASION_PLAYBOOK"]));
   assert.equal(selectBlogFormat(history), formats[0]);
 });
 test("sensitive topics are forced into a respectful scene without people moments", () => {

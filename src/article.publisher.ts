@@ -6,6 +6,7 @@ import { toCatalogProduct } from "./blog.generator.js";
 import { nextNewYorkHour } from "./blog.time.js";
 import { withGfClient } from "./gf.admin.client.js";
 import { errorDetail } from "./http.helpers.js";
+import { assertNoTitleCollision } from "./content.overlap.js";
 
 export const ARTICLE_PUBLISH_HOUR_ET = Number(process.env.ARTICLE_PUBLISH_HOUR_ET ?? 10);
 const MAX_ATTEMPTS = 3;
@@ -52,13 +53,17 @@ async function productImage(imageUrl: string): Promise<Buffer> {
 async function publish(draft: ArticleDraft) {
   return withGfClient(async (client) => {
     const products = (await client.searchProducts("", 100)).map(toCatalogProduct);
-    const remoteArticles = await client.listArticles();
+    const [remoteArticles, remoteBlogs, remoteWikis] = await Promise.all([client.listArticles(), client.listBlogs(), client.listWikis()]);
     const existing = remoteArticles.find((article: any) => article.slug === draft.slug);
     if (existing) {
       if (existing.title !== draft.title) throw new Error(`article slug "${draft.slug}" already belongs to "${existing.title}"`);
       return { id: Number(existing.id), status: Number(existing.status) as 0 | 1 };
     }
     if (remoteArticles.some((article: any) => article.title === draft.title)) throw new Error(`article title "${draft.title}" already exists under a different slug`);
+    assertNoTitleCollision(draft.title, [
+      ...remoteBlogs.map((item: any) => ({ kind: "blog" as const, title: String(item.title), slug: String(item.slug ?? "") })),
+      ...remoteWikis.map((item: any) => ({ kind: "wiki" as const, title: String(item.title), slug: String(item.slug ?? "") })),
+    ]);
     const aiImage = await readArticleImage(draft.id);
     const hero = products.find((product) => product.id === draft.heroProductId);
     if (!aiImage && !hero?.imageUrl) throw new Error(`article hero product ${draft.heroProductId} has no image on the target environment`);

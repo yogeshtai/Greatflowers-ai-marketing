@@ -19,7 +19,10 @@ export const endArticleImageRegeneration = (id: string) => regeneratingImageIds.
 export const isArticleDraftImagePending = (draft: { id?: string; createdAt: string }) =>
   !!((state.running && state.startedAt && draft.createdAt >= state.startedAt) || (draft.id && regeneratingImageIds.has(draft.id)));
 
-export function startArticleGeneration(trigger: "manual" | "schedule"): boolean {
+export function startArticleGeneration(
+  trigger: "manual" | "schedule",
+  onComplete?: (draft: Awaited<ReturnType<typeof generateDailyArticleDraft>>) => void | Promise<void>,
+): boolean {
   const release = tryAcquire("article");
   if (!release) return false;
   const startedAt = new Date().toISOString();
@@ -27,9 +30,10 @@ export function startArticleGeneration(trigger: "manual" | "schedule"): boolean 
   generateDailyArticleDraft(undefined, () => {
     if (state.running && state.startedAt === startedAt) state = { ...state, phase: "image" };
   })
-    .then((draft) => {
-      console.log(`📝 Article draft ready for approval: ${draft.title}`);
+    .then(async (draft) => {
       state = { running: false, trigger, startedAt, finishedAt: new Date().toISOString() };
+      if (onComplete) await onComplete(draft);
+      console.log(`📝 Article draft ready${onComplete ? " and automatic approval processed" : " for approval"}: ${draft.title}`);
     })
     .catch((error) => {
       const message = errorDetail(error);

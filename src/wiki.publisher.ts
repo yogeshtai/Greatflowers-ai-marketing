@@ -5,6 +5,7 @@ import { errorDetail } from "./http.helpers.js";
 import { isWikiDraftImagePending } from "./wiki.jobs.js";
 import { optimizeWikiImage, readWikiImage, WIKI_IMAGE_FILE_EXTENSION, WIKI_IMAGE_MIME_TYPE } from "./wiki.image.js";
 import type { WikiDraft } from "./wiki.schema.js";
+import { assertNoTitleCollision } from "./content.overlap.js";
 import { getWikiDraft, updateWikiDraft } from "./wiki.store.js";
 
 export const WIKI_PUBLISH_HOUR_ET = Number(process.env.WIKI_PUBLISH_HOUR_ET ?? 10);
@@ -62,7 +63,7 @@ async function publish(draft: WikiDraft) {
   return withGfClient(async (client) => {
     const rawProducts = await client.searchProducts("", 100);
     const products = rawProducts.map(toCatalogProduct);
-    const remoteWikis = await client.listWikis();
+    const [remoteWikis, remoteBlogs, remoteArticles] = await Promise.all([client.listWikis(), client.listBlogs(), client.listArticles()]);
     const existing = remoteWikis.find((wiki: any) => wiki.slug === draft.slug);
     if (existing) {
       if (existing.title !== draft.title) throw new Error(`wiki slug "${draft.slug}" already belongs to "${existing.title}"`);
@@ -71,6 +72,10 @@ async function publish(draft: WikiDraft) {
     if (remoteWikis.some((wiki: any) => wiki.title === draft.title)) {
       throw new Error(`wiki title "${draft.title}" already exists under a different slug`);
     }
+    assertNoTitleCollision(draft.title, [
+      ...remoteBlogs.map((item: any) => ({ kind: "blog" as const, title: String(item.title), slug: String(item.slug ?? "") })),
+      ...remoteArticles.map((item: any) => ({ kind: "article" as const, title: String(item.title), slug: String(item.slug ?? "") })),
+    ]);
 
     const aiImage = await readWikiImage(draft.id);
     const hero = products.find((product) => product.id === draft.heroProductId);

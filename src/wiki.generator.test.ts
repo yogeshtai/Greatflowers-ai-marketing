@@ -9,12 +9,13 @@ import { buildWikiPublishPayload, wikiPublishAfterFor } from "./wiki.publisher.j
 const products = [
   { id: 7, name: "Rose Garden Bouquet", slug: "rose-garden", price: 50, imageUrl: "rose.webp", description: "Red roses arranged with greenery." },
   { id: 8, name: "White Lily Bouquet", slug: "white-lily", price: 45, imageUrl: "lily.webp", description: "White lilies in a clear glass vase." },
+  { id: 9, name: "Pink Rose Bouquet", slug: "pink-rose-bouquet", price: 59.97, imageUrl: "pink-rose.webp", description: "Pink roses arranged in a vase." },
 ];
 const subject = WIKI_SUBJECTS[0]!;
 const paragraph = `<p>${"Roses are recognized by layered petals and are traditionally associated with many different sentiments. ".repeat(11)}</p>`;
 const html = [
   "Overview", "Identification", "Varieties", "Colors and Meanings", "Season and Availability", "Cut Flower Care", "Design Uses", "Gifting", "Frequently Asked Questions",
-].map((heading, index) => `<h2>${heading}</h2>${paragraph}${index === 2 ? '<p>See the <a href="PRODUCT:7">Rose Garden Bouquet</a> as one available example.</p>' : ""}`).join("") + '<p>Browse <a href="HOME">Great Flowers</a> for related arrangements.</p>';
+].map((heading, index) => `<h2>${heading}</h2>${paragraph}${index === 2 ? '<p>See the <a href="PRODUCT:7">Rose Garden Bouquet</a> as one available example.</p>' : index === 6 ? '<p>Compare it with the <a href="PRODUCT:9">Pink Rose Bouquet</a>.</p>' : ""}`).join("") + '<p>Browse <a href="HOME">Great Flowers</a> for related arrangements.</p>';
 const base = {
   title: "Roses",
   slug: "roses",
@@ -23,7 +24,7 @@ const base = {
   description: "Roses are layered flowering plants valued in gardens, floral design and gifts, with forms and colors suited to many different settings.",
   metaTitle: "Roses: Meanings, Varieties and Care",
   metaDescription: "Learn how to recognize roses, understand their traditional color meanings, care for cut stems and choose them for arrangements and thoughtful gifts.",
-  productIds: [7],
+  productIds: [7, 9],
   heroProductId: 7,
   imageConcept: "A richly detailed garden rose bloom sits off-center beside one opening bud and a leafy stem on warm natural linen in soft window light.",
   html,
@@ -42,6 +43,14 @@ test("valid wiki output resolves verified product and home links", () => {
   const wiki = validateWiki(JSON.stringify(base), { subject, existingTitles: [], existingSlugs: [], products, base: "https://greatflowers.net" });
   assert.match(wiki.html, /greatflowers\.net\/product\/rose-garden\//);
   assert.match(wiki.html, /href="https:\/\/greatflowers\.net\/"/);
+});
+
+test("existing one-product wiki drafts remain valid", () => {
+  const oneProductHtml = html.replace(/<p>Compare it with the <a href="PRODUCT:9">Pink Rose Bouquet<\/a>\.<\/p>/, "");
+  const wiki = validateWiki(JSON.stringify({ ...base, productIds: [7], html: oneProductHtml }), {
+    subject, existingTitles: [], existingSlugs: [], products, base: "https://greatflowers.net",
+  });
+  assert.deepEqual(wiki.productIds, [7]);
 });
 
 test("wiki validation rejects changed subject identity and unknown links", () => {
@@ -119,9 +128,16 @@ test("wiki publish payload attaches products and removes legacy inline embeds", 
     environment: "example.test",
     html: `${base.html}<div class="blog-product-embed" data-product-id="7"></div>`,
   };
-  const payload = buildWikiPublishPayload(draft, 42, 1);
-  assert.deepEqual(payload.products, [7]);
+  const payload = buildWikiPublishPayload(draft, 42, 1, [products[0]!, products[2]!], "https://greatflowers.net");
+  assert.deepEqual(payload.products, [7, 9]);
   assert.equal(payload.wiki_thumbnail_id, 42);
   assert.equal(payload.status, 1);
   assert.doesNotMatch(payload.content, /blog-product-embed/);
+  assert.match(payload.content, /^<p><strong>Same Day Delivery<\/strong>&nbsp;<\/p>/);
+  assert.match(payload.content, /<figure class="image"><img src="rose\.webp" alt="Rose Garden Bouquet"><\/figure>/);
+  assert.match(payload.content, /href="https:\/\/greatflowers\.net\/product\/rose-garden"/);
+  assert.match(payload.content, /<strong>From \$50\.00<\/strong>/);
+  assert.match(payload.content, /<figure class="image"><img src="pink-rose\.webp" alt="Pink Rose Bouquet"><\/figure>/);
+  assert.match(payload.content, /href="https:\/\/greatflowers\.net\/product\/pink-rose-bouquet"/);
+  assert.match(payload.content, /<strong>From \$59\.97<\/strong>/);
 });

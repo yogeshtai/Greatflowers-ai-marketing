@@ -1,5 +1,5 @@
 import { withGfClient } from "./gf.admin.client.js";
-import { toCatalogProduct } from "./blog.generator.js";
+import { toCatalogProduct, type CatalogProduct } from "./blog.generator.js";
 import { nextNewYorkHour } from "./blog.time.js";
 import { errorDetail } from "./http.helpers.js";
 import { isWikiDraftImagePending } from "./wiki.jobs.js";
@@ -62,14 +62,41 @@ async function productImage(imageUrl: string): Promise<Buffer> {
 export const withoutLegacyProductEmbeds = (html: string) =>
   html.replace(/<div[^>]*class="blog-product-embed"[^>]*data-product-id="\d+"[^>]*>\s*<\/div>/gi, "");
 
-export function buildWikiPublishPayload(draft: WikiDraft, imageId: number, status: 0 | 1) {
+const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+})[character]!);
+
+export function buildWikiInlineProductCard(product: CatalogProduct, base: string): string {
+  if (!product.imageUrl) throw new Error(`wiki inline product ${product.id} has no image`);
+  const price = product.price == null ? "" : `<p><strong>From $${product.price.toFixed(2)}</strong></p>`;
+  return `<p><strong>Same Day Delivery</strong>&nbsp;</p>`
+    + `<figure class="image"><img src="${escapeHtml(product.imageUrl)}" alt="${escapeHtml(product.name)}"></figure>`
+    + `<p><a href="${base}/product/${encodeURIComponent(product.slug)}"><strong>${escapeHtml(product.name)}</strong></a></p>${price}`;
+}
+
+export function injectWikiInlineProductCards(html: string, products: CatalogProduct[], base: string): string {
+  const selected = products.filter((product) => product.imageUrl).slice(0, 2);
+  if (!selected.length) return html;
+  const first = buildWikiInlineProductCard(selected[0]!, base);
+  const second = selected[1] ? buildWikiInlineProductCard(selected[1], base) : "";
+  return `${first}${html}${second}`;
+}
+
+export function buildWikiPublishPayload(
+  draft: WikiDraft,
+  imageId: number,
+  status: 0 | 1,
+  products: CatalogProduct[] = [],
+  base: string = (process.env.GF_STOREFRONT_URL || "https://greatflowers.net").replace(/\/+$/, ""),
+) {
+  const cleanContent = withoutLegacyProductEmbeds(draft.html);
   return {
     title: draft.title,
     slug: draft.slug,
     botanical_name: draft.botanicalName,
     author_name: draft.authorName,
     description: draft.description,
-    content: withoutLegacyProductEmbeds(draft.html),
+    content: injectWikiInlineProductCards(cleanContent, products, base),
     meta_title: draft.metaTitle,
     meta_description: draft.metaDescription,
     wiki_thumbnail_id: imageId,
@@ -84,6 +111,10 @@ async function publish(draft: WikiDraft) {
   return withGfClient(async (client) => {
     const rawProducts = await client.searchProducts("", 100);
     const products = rawProducts.map(toCatalogProduct);
+    const selectedProducts = draft.productIds
+      .map((id) => products.find((product) => product.id === id))
+      .filter((product): product is CatalogProduct => !!product);
+    if (selectedProducts.length !== draft.productIds.length) throw new Error("one or more wiki products are no longer available");
     const [remoteWikis, remoteBlogs, remoteArticles] = await Promise.all([client.listWikis(), client.listBlogs(), client.listArticles()]);
     const existing = remoteWikis.find((wiki: any) => wiki.slug === draft.slug);
     if (existing) {
@@ -92,7 +123,7 @@ async function publish(draft: WikiDraft) {
       if (!existingImageId) throw new Error(`existing wiki "${draft.slug}" has no reusable image id`);
       const existingStatus = Number(existing.status) === 1 ? 1 : 0;
       const targetStatus: 0 | 1 = (existingStatus === 1 || liveMode()) ? 1 : 0;
-      await client.updateWiki(Number(existing.id), buildWikiPublishPayload(draft, existingImageId, targetStatus));
+      await client.updateWiki(Number(existing.id), buildWikiPublishPayload(draft, existingImageId, targetStatus, selectedProducts));
       return { id: Number(existing.id), status: targetStatus, reused: true };
     }
     if (remoteWikis.some((wiki: any) => wiki.title === draft.title)) {
@@ -108,7 +139,7 @@ async function publish(draft: WikiDraft) {
     if (!aiImage && !hero?.imageUrl) throw new Error(`wiki hero product ${draft.heroProductId} has no image on the target environment`);
     const imageId = await client.uploadAttachment(aiImage ?? await productImage(hero!.imageUrl!), `${draft.slug}.${WIKI_IMAGE_FILE_EXTENSION}`, WIKI_IMAGE_MIME_TYPE);
     const targetStatus: 0 | 1 = liveMode() ? 1 : 0;
-    const payload = buildWikiPublishPayload(draft, imageId, targetStatus);
+    const payload = buildWikiPublishPayload(draft, imageId, targetStatus, selectedProducts);
     // Keep the page hidden until the follow-up update has attached products.
     const created = await client.createWiki({ ...payload, status: 0 });
     const id = Number(created?.id ?? created?.data?.id);

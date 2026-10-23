@@ -122,7 +122,7 @@ CONTENT STRUCTURE
 - Use short paragraphs and plain US English. No hype, urgency, exclamation marks or keyword stuffing.
 
 PRODUCT RULES
-- Choose 1-4 genuinely relevant products from the supplied catalog. Every productId must come from the list.
+- Choose 1-4 genuinely relevant products from the supplied catalog. Every productId must come from the list. Up to the first two will also appear as product cards inside the wiki.
 - Mention each selected product naturally once and link it exactly as <a href="PRODUCT:<id>">Product Name</a>.
 - Do not describe colors, flowers, vase or style unless the supplied catalog description explicitly confirms them.
 - End with one modest sentence linking <a href="HOME">Great Flowers</a>.

@@ -14,7 +14,7 @@ const subject = WIKI_SUBJECTS[0]!;
 const paragraph = `<p>${"Roses are recognized by layered petals and are traditionally associated with many different sentiments. ".repeat(11)}</p>`;
 const html = [
   "Overview", "Identification", "Varieties", "Colors and Meanings", "Season and Availability", "Cut Flower Care", "Design Uses", "Gifting", "Frequently Asked Questions",
-].map((heading, index) => `<h2>${heading}</h2>${paragraph}${index === 2 ? '<p>See the <a href="PRODUCT:7">Rose Garden Bouquet</a> as one available example.</p>' : ""}`).join("") + '<p>Browse <a href="HOME">Great Flowers</a> for related arrangements.</p>';
+].map((heading, index) => `<h2>${heading}</h2>${paragraph}${index === 2 ? '<p>See the <a href="PRODUCT:7">Rose Garden Bouquet</a> as one available example.</p><div class="blog-product-embed" data-product-id="7"></div>' : ""}`).join("") + '<p>Browse <a href="HOME">Great Flowers</a> for related arrangements.</p>';
 const base = {
   title: "Roses",
   slug: "roses",
@@ -42,6 +42,21 @@ test("valid wiki output resolves verified product and home links", () => {
   const wiki = validateWiki(JSON.stringify(base), { subject, existingTitles: [], existingSlugs: [], products, base: "https://greatflowers.net" });
   assert.match(wiki.html, /greatflowers\.net\/product\/rose-garden\//);
   assert.match(wiki.html, /href="https:\/\/greatflowers\.net\/"/);
+  assert.match(wiki.html, /class="blog-product-embed" data-product-id="7"/);
+});
+
+test("wiki product embeds keep selected products and remove hallucinated ids", () => {
+  const withHallucinatedEmbed = { ...base, html: `${base.html}<div class="blog-product-embed" data-product-id="99"></div>` };
+  const wiki = validateWiki(JSON.stringify(withHallucinatedEmbed), { subject, existingTitles: [], existingSlugs: [], products, base: "https://greatflowers.net" });
+  assert.match(wiki.html, /data-product-id="7"/);
+  assert.doesNotMatch(wiki.html, /data-product-id="99"/);
+});
+
+test("wiki product embeds reject duplicates and stray div markup", () => {
+  const context = { subject, existingTitles: [], existingSlugs: [], products, base: "https://greatflowers.net" };
+  const duplicate = `${base.html}<div class="blog-product-embed" data-product-id="7"></div>`;
+  assert.throws(() => validateWiki(JSON.stringify({ ...base, html: duplicate }), context), /only once/);
+  assert.throws(() => validateWiki(JSON.stringify({ ...base, html: `${base.html}</div>` }), context), /unsupported tags or attributes/);
 });
 
 test("wiki validation rejects changed subject identity and unknown links", () => {
@@ -63,6 +78,7 @@ test("wiki prompt fixes the subject and requires conservative factual writing", 
   assert.match(prompt, /title must be exactly "Roses"/);
   assert.match(prompt, /Do not give medical, edible-use or pet-safety advice/);
   assert.match(prompt, /traditionally associated/);
+  assert.match(prompt, /blog-product-embed/);
 });
 
 test("wiki slugs remove apostrophes instead of splitting the word", () => {

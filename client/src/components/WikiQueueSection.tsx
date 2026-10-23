@@ -166,7 +166,7 @@ export function WikiQueueSection() {
                         <div><button className="secondary-button" disabled={busyId === wiki.id || !pendingEdit || Object.keys(pendingEdit).length === 0} onClick={() => run(wiki.id, async () => { await editWiki(wiki.id, pendingEdit ?? {}); setEditing((current) => Object.fromEntries(Object.entries(current).filter(([id]) => id !== wiki.id))); })}>Save changes</button></div>
                       </div>
                     )}
-                    <iframe title={wiki.title} sandbox="" srcDoc={`<style>body{font-family:sans-serif;max-width:900px;margin:16px auto;padding:0 14px;line-height:1.7}h2{margin-top:1.4em}a{color:#701888}</style>${wiki.html}`} style={{ width: "100%", height: 580, border: "1px solid #e0e0d8", borderRadius: 10, background: "white" }} />
+                    <iframe title={wiki.title} sandbox="" srcDoc={`<style>body{font-family:sans-serif;max-width:900px;margin:16px auto;padding:0 14px;line-height:1.7}h2{margin-top:1.4em}a{color:#701888}.blog-product-embed{border:1px dashed #999;padding:10px;margin:18px 0;color:#666}.blog-product-embed:before{content:'[Product card shown on the live site]'}</style>${wiki.html}`} style={{ width: "100%", height: 580, border: "1px solid #e0e0d8", borderRadius: 10, background: "white" }} />
                   </div>
                 )}
               </article>

@@ -2,7 +2,7 @@ import { gfApiHost, withGfClient } from "./gf.admin.client.js";
 import { DEFAULT_WIKI_AUTHOR, isWikiAuthor, selectWikiAuthor } from "./wiki.authors.js";
 import { requestHermesJSON } from "./hermes.json.js";
 import { parseModelJSON } from "./model.json.js";
-import { toCatalogProduct, type CatalogProduct } from "./blog.generator.js";
+import { EMBED_RE, sanitizeEmbeds, toCatalogProduct, type CatalogProduct } from "./blog.generator.js";
 import { GeneratedWikiJsonSchema, GeneratedWikiSchema, type GeneratedWiki } from "./wiki.schema.js";
 import { addWikiDraft, getWikiDrafts, updateWikiDraft } from "./wiki.store.js";
 import { generateWikiImage, type WikiImageInput } from "./wiki.image.js";
@@ -124,10 +124,12 @@ CONTENT STRUCTURE
 PRODUCT RULES
 - Choose 1-4 genuinely relevant products from the supplied catalog. Every productId must come from the list.
 - Mention each selected product naturally once and link it exactly as <a href="PRODUCT:<id>">Product Name</a>.
+- Embed a product card for 1-3 of the most relevant selected products. Put it directly after the paragraph that mentions that product, using exactly: <div class="blog-product-embed" data-product-id="PRODUCT_ID"></div>.
+- Product-card IDs must be included in productIds. Space cards between relevant sections; never group several cards together.
 - Do not describe colors, flowers, vase or style unless the supplied catalog description explicitly confirms them.
 - End with one modest sentence linking <a href="HOME">Great Flowers</a>.
 
-HTML may contain only <p>, <h2>, <h3>, <ul>, <li>, <strong>, <em> and <a>. No <h1>, images, product-card markup, styles or scripts.
+HTML may contain only <p>, <h2>, <h3>, <ul>, <li>, <strong>, <em>, <a> and the exact product-card <div> above. No <h1>, images, other <div> markup, styles or scripts.
 
 IMAGE
 - heroProductId must be one of productIds and should be the closest visual reference.
@@ -162,7 +164,11 @@ export function validateWiki(output: string, context: { subject: WikiSubject; ex
     if (!new RegExp(`href="PRODUCT:${id}"`).test(wiki.html)) throw new Error(`selected product ${id} must be linked in html`);
   }
   if (!/href="HOME"/.test(wiki.html)) throw new Error("html must link HOME");
-  return { ...wiki, html: resolveWikiLinks(wiki.html, context.products, context.base) };
+  const embedded = sanitizeEmbeds(wiki.html, selected);
+  const embeddedIds = [...embedded.matchAll(new RegExp(EMBED_RE.source, "gi"))].map((match) => Number(match[1]));
+  if (embeddedIds.length < 1 || embeddedIds.length > 3) throw new Error("html must embed 1 to 3 product cards");
+  if (new Set(embeddedIds).size !== embeddedIds.length) throw new Error("each product may be embedded only once");
+  return { ...wiki, html: resolveWikiLinks(embedded, context.products, context.base) };
 }
 
 const storefrontBase = () => (process.env.GF_STOREFRONT_URL || "https://greatflowers.net").replace(/\/+$/, "");

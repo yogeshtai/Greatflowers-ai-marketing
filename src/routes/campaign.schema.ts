@@ -3,6 +3,7 @@ import { z } from "zod";
 export const campaignSchema = z.object({
   campaignGoal: z.string().min(1),
   product: z.string().min(1),
+  productId: z.number().int().positive().optional(),
 
   occasion: z.string().optional(),
   creativeScenario: z.string().optional(),

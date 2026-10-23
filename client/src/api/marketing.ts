@@ -5,6 +5,7 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3005";
 export interface CampaignInput {
   campaignGoal: string;
   product: string;
+  productId?: number;
   occasion?: string;
   creativeScenario?: string;
   contentTheme?: string;
@@ -81,6 +82,14 @@ export async function updateCampaign(
       selectedCreatives,
       ...(storyData || {}),
     }
+  );
+
+  return response.data;
+}
+
+export async function getProducts() {
+  const response = await axios.get(
+    `${API_URL}/api/greatflowers/products`
   );
 
   return response.data;

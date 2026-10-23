@@ -20,11 +20,65 @@ router.post("/api/strategies/generate", singleFlight("strategy", async (req, res
       });
     }
 
-    const strategy = await generateMarketingStrategy(parsed.data);
+    // Same downstream as the recommendation pipeline: when a catalog product is chosen,
+    // verify it and feed the strategy real product data so creatives/publishing get a real product.
+    const { productId, ...input } = parsed.data;
+    let selectedProduct: any = null;
+
+    if (productId !== undefined) {
+      const products = await getGreatFlowersProducts();
+      selectedProduct = products.find((product) => product.id === productId) ?? null;
+      if (!selectedProduct || selectedProduct.stockStatus !== "in_stock" || !selectedProduct.image) {
+        return res.status(400).json({
+          success: false,
+          error: "The selected product is unavailable or has no image",
+        });
+      }
+
+      input.product = selectedProduct.name;
+      input.additionalContext = `
+VERIFIED LIVE PRODUCT DATA:
+
+Product ID:
+${selectedProduct.id}
+
+Product Name:
+${selectedProduct.name}
+
+Product URL:
+${selectedProduct.url}
+
+Product Image:
+${selectedProduct.image}
+
+Price:
+${selectedProduct.price}
+
+Stock Status:
+${selectedProduct.stockStatus}
+
+Categories:
+${selectedProduct.categories.join(", ")}
+
+Product Description:
+${selectedProduct.description}
+
+IMPORTANT:
+The information above came directly from the live GreatFlowers product API.
+Treat it as verified product information.
+
+Do not put these supplied facts inside needsVerification.
+
+${input.additionalContext ?? ""}
+`.trim();
+    }
+
+    const strategy = await generateMarketingStrategy(input);
 
     return res.json({
       success: true,
       strategy,
+      selectedProduct,
     });
   } catch (error) {
     console.error("Strategy generation failed:", error);

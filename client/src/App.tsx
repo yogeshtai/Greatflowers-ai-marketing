@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   generateStrategy,
+  getProducts,
   saveCampaign,
   updateCampaign,
   getCampaigns,
@@ -78,6 +79,9 @@ function App() {
   const [error, setError] = useState("");
   const [recommendationEvidence, setRecommendationEvidence] = useState<RecommendationEvidence | null>(null);
   const [recommendedProduct, setRecommendedProduct] = useState<any | null>(null);
+  // Live catalog for the manual product picker; "custom" keeps the free-text product field.
+  const [catalogProducts, setCatalogProducts] = useState<any[]>([]);
+  const [productChoice, setProductChoice] = useState<string>("custom");
   
   // Creative state (separate from recommendation)
   const [creatives, setCreatives] = useState<Creative[]>([]);
@@ -107,8 +111,19 @@ function App() {
   useEffect(() => {
     if (isAuthenticated) {
       loadCampaigns();
+      getProducts()
+        .then((response) => setCatalogProducts(response.products ?? []))
+        .catch(() => setCatalogProducts([]));
     }
   }, [isAuthenticated]);
+
+  // Match the current product name to a catalog entry once the catalog or the name changes
+  // (keeps edit-opened campaigns and typed defaults working).
+  useEffect(() => {
+    if (!catalogProducts.length) return;
+    const match = catalogProducts.find((product) => product.name === form.product);
+    setProductChoice(match ? String(match.id) : "custom");
+  }, [catalogProducts, form.product]);
   
   const handleLogout = () => {
     setIsAuthenticated(false);
@@ -128,6 +143,19 @@ function App() {
       ...prev,
       [name]: value,
     }));
+  };
+
+  const handleProductSelect = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = event.target.value;
+    if (value === "custom") {
+      setProductChoice("custom");
+      return;
+    }
+    const product = catalogProducts.find((item) => String(item.id) === value);
+    if (product) {
+      setProductChoice(value);
+      setForm((prev) => ({ ...prev, product: product.name }));
+    }
   };
 
   const togglePlatform = (platform: string) => {
@@ -160,11 +188,15 @@ function App() {
       setRecommendationEvidence(null);
       setRecommendedProduct(null);
 
+      const productId = productChoice !== "custom" ? Number(productChoice) : undefined;
+
       const response = await generateStrategy({
         ...form,
         platforms,
+        productId,
       });
 
+      setRecommendedProduct(response.selectedProduct ?? null);
       setStrategy(response.strategy);
     } catch (err) {
       console.error(err);
@@ -1027,12 +1059,26 @@ function App() {
 
           <label>
             Product / Feature
-            <input
-              name="product"
-              value={form.product}
-              onChange={updateField}
-            />
+            <select value={productChoice} onChange={handleProductSelect}>
+              <option value="custom">Type a custom product...</option>
+              {catalogProducts.map((product) => (
+                <option key={product.id} value={product.id}>
+                  {product.name}{product.price ? ` — $${product.price}` : ""}
+                </option>
+              ))}
+            </select>
           </label>
+
+          {productChoice === "custom" && (
+            <label>
+              Custom product name
+              <input
+                name="product"
+                value={form.product}
+                onChange={updateField}
+              />
+            </label>
+          )}
 
           <label>
             Occasion / Topic

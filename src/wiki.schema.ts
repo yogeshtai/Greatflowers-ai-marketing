@@ -5,12 +5,10 @@ export type WikiDraftStatus = (typeof WIKI_STATUSES)[number];
 
 const wordCount = (html: string) => html.replace(/<[^>]+>/g, " ").split(/\s+/).filter(Boolean).length;
 const plainText = (value: string) => !/[<>]/.test(value);
-const allowedMarkup = (html: string) => {
-  const withoutProductEmbeds = html.replace(/<div class="blog-product-embed" data-product-id="\d+"><\/div>/gi, "");
-  return [...withoutProductEmbeds.matchAll(/<[^>]+>/g)].every(([tag]) =>
+const allowedMarkup = (html: string) =>
+  [...html.matchAll(/<[^>]+>/g)].every(([tag]) =>
     /^<\/?(?:p|h2|h3|ul|li|strong|em)>$/i.test(tag) || /^<a href="[^"]+">$/i.test(tag) || /^<\/a>$/i.test(tag),
   );
-};
 
 export const GeneratedWikiSchema = z.object({
   title: z.string().min(2).max(80).refine(plainText, "title must be plain text"),

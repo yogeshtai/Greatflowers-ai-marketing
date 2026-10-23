@@ -4,7 +4,7 @@ import sharp from "sharp";
 import { buildWikiPrompt, resolveWikiLinks, selectWikiSubject, validateWiki, WIKI_SUBJECTS } from "./wiki.generator.js";
 import { buildWikiImagePrompt, optimizeWikiImage, WIKI_IMAGE_HEIGHT, WIKI_IMAGE_MIME_TYPE, WIKI_IMAGE_WIDTH } from "./wiki.image.js";
 import { beginWikiImageRegeneration, endWikiImageRegeneration, isWikiDraftImagePending } from "./wiki.jobs.js";
-import { wikiPublishAfterFor } from "./wiki.publisher.js";
+import { buildWikiPublishPayload, wikiPublishAfterFor } from "./wiki.publisher.js";
 
 const products = [
   { id: 7, name: "Rose Garden Bouquet", slug: "rose-garden", price: 50, imageUrl: "rose.webp", description: "Red roses arranged with greenery." },
@@ -14,7 +14,7 @@ const subject = WIKI_SUBJECTS[0]!;
 const paragraph = `<p>${"Roses are recognized by layered petals and are traditionally associated with many different sentiments. ".repeat(11)}</p>`;
 const html = [
   "Overview", "Identification", "Varieties", "Colors and Meanings", "Season and Availability", "Cut Flower Care", "Design Uses", "Gifting", "Frequently Asked Questions",
-].map((heading, index) => `<h2>${heading}</h2>${paragraph}${index === 2 ? '<p>See the <a href="PRODUCT:7">Rose Garden Bouquet</a> as one available example.</p><div class="blog-product-embed" data-product-id="7"></div>' : ""}`).join("") + '<p>Browse <a href="HOME">Great Flowers</a> for related arrangements.</p>';
+].map((heading, index) => `<h2>${heading}</h2>${paragraph}${index === 2 ? '<p>See the <a href="PRODUCT:7">Rose Garden Bouquet</a> as one available example.</p>' : ""}`).join("") + '<p>Browse <a href="HOME">Great Flowers</a> for related arrangements.</p>';
 const base = {
   title: "Roses",
   slug: "roses",
@@ -42,21 +42,6 @@ test("valid wiki output resolves verified product and home links", () => {
   const wiki = validateWiki(JSON.stringify(base), { subject, existingTitles: [], existingSlugs: [], products, base: "https://greatflowers.net" });
   assert.match(wiki.html, /greatflowers\.net\/product\/rose-garden\//);
   assert.match(wiki.html, /href="https:\/\/greatflowers\.net\/"/);
-  assert.match(wiki.html, /class="blog-product-embed" data-product-id="7"/);
-});
-
-test("wiki product embeds keep selected products and remove hallucinated ids", () => {
-  const withHallucinatedEmbed = { ...base, html: `${base.html}<div class="blog-product-embed" data-product-id="99"></div>` };
-  const wiki = validateWiki(JSON.stringify(withHallucinatedEmbed), { subject, existingTitles: [], existingSlugs: [], products, base: "https://greatflowers.net" });
-  assert.match(wiki.html, /data-product-id="7"/);
-  assert.doesNotMatch(wiki.html, /data-product-id="99"/);
-});
-
-test("wiki product embeds reject duplicates and stray div markup", () => {
-  const context = { subject, existingTitles: [], existingSlugs: [], products, base: "https://greatflowers.net" };
-  const duplicate = `${base.html}<div class="blog-product-embed" data-product-id="7"></div>`;
-  assert.throws(() => validateWiki(JSON.stringify({ ...base, html: duplicate }), context), /only once/);
-  assert.throws(() => validateWiki(JSON.stringify({ ...base, html: `${base.html}</div>` }), context), /unsupported tags or attributes/);
 });
 
 test("wiki validation rejects changed subject identity and unknown links", () => {
@@ -78,7 +63,6 @@ test("wiki prompt fixes the subject and requires conservative factual writing", 
   assert.match(prompt, /title must be exactly "Roses"/);
   assert.match(prompt, /Do not give medical, edible-use or pet-safety advice/);
   assert.match(prompt, /traditionally associated/);
-  assert.match(prompt, /blog-product-embed/);
 });
 
 test("wiki slugs remove apostrophes instead of splitting the word", () => {
@@ -122,4 +106,22 @@ test("wiki publish mode defaults to immediate and supports scheduled mode", () =
   } finally {
     delete process.env.WIKI_PUBLISH_MODE;
   }
+});
+
+test("wiki publish payload attaches products and removes legacy inline embeds", () => {
+  const draft = {
+    ...base,
+    id: "1f769b3f-21f6-4aa0-95b6-0c818b09c585",
+    status: "approved" as const,
+    createdAt: new Date(0).toISOString(),
+    updatedAt: new Date(0).toISOString(),
+    attempts: 0,
+    environment: "example.test",
+    html: `${base.html}<div class="blog-product-embed" data-product-id="7"></div>`,
+  };
+  const payload = buildWikiPublishPayload(draft, 42, 1);
+  assert.deepEqual(payload.products, [7]);
+  assert.equal(payload.wiki_thumbnail_id, 42);
+  assert.equal(payload.status, 1);
+  assert.doesNotMatch(payload.content, /blog-product-embed/);
 });

@@ -59,6 +59,27 @@ async function productImage(imageUrl: string): Promise<Buffer> {
   return optimizeWikiImage(Buffer.from(await response.arrayBuffer()));
 }
 
+export const withoutLegacyProductEmbeds = (html: string) =>
+  html.replace(/<div[^>]*class="blog-product-embed"[^>]*data-product-id="\d+"[^>]*>\s*<\/div>/gi, "");
+
+export function buildWikiPublishPayload(draft: WikiDraft, imageId: number, status: 0 | 1) {
+  return {
+    title: draft.title,
+    slug: draft.slug,
+    botanical_name: draft.botanicalName,
+    author_name: draft.authorName,
+    description: draft.description,
+    content: withoutLegacyProductEmbeds(draft.html),
+    meta_title: draft.metaTitle,
+    meta_description: draft.metaDescription,
+    wiki_thumbnail_id: imageId,
+    wiki_meta_image_id: imageId,
+    products: draft.productIds,
+    is_featured: 0,
+    status,
+  };
+}
+
 async function publish(draft: WikiDraft) {
   return withGfClient(async (client) => {
     const rawProducts = await client.searchProducts("", 100);
@@ -67,7 +88,12 @@ async function publish(draft: WikiDraft) {
     const existing = remoteWikis.find((wiki: any) => wiki.slug === draft.slug);
     if (existing) {
       if (existing.title !== draft.title) throw new Error(`wiki slug "${draft.slug}" already belongs to "${existing.title}"`);
-      return { id: Number(existing.id), status: Number(existing.status) as 0 | 1, reused: true };
+      const existingImageId = Number(existing.wiki_thumbnail_id ?? existing.wiki_meta_image_id);
+      if (!existingImageId) throw new Error(`existing wiki "${draft.slug}" has no reusable image id`);
+      const existingStatus = Number(existing.status) === 1 ? 1 : 0;
+      const targetStatus: 0 | 1 = (existingStatus === 1 || liveMode()) ? 1 : 0;
+      await client.updateWiki(Number(existing.id), buildWikiPublishPayload(draft, existingImageId, targetStatus));
+      return { id: Number(existing.id), status: targetStatus, reused: true };
     }
     if (remoteWikis.some((wiki: any) => wiki.title === draft.title)) {
       throw new Error(`wiki title "${draft.title}" already exists under a different slug`);
@@ -81,25 +107,16 @@ async function publish(draft: WikiDraft) {
     const hero = products.find((product) => product.id === draft.heroProductId);
     if (!aiImage && !hero?.imageUrl) throw new Error(`wiki hero product ${draft.heroProductId} has no image on the target environment`);
     const imageId = await client.uploadAttachment(aiImage ?? await productImage(hero!.imageUrl!), `${draft.slug}.${WIKI_IMAGE_FILE_EXTENSION}`, WIKI_IMAGE_MIME_TYPE);
-    const status: 0 | 1 = liveMode() ? 1 : 0;
-    const created = await client.createWiki({
-      title: draft.title,
-      slug: draft.slug,
-      botanical_name: draft.botanicalName,
-      author_name: draft.authorName,
-      description: draft.description,
-      content: draft.html,
-      meta_title: draft.metaTitle,
-      meta_description: draft.metaDescription,
-      wiki_thumbnail_id: imageId,
-      wiki_meta_image_id: imageId,
-      products: draft.productIds,
-      is_featured: 0,
-      status,
-    });
+    const targetStatus: 0 | 1 = liveMode() ? 1 : 0;
+    const payload = buildWikiPublishPayload(draft, imageId, targetStatus);
+    // Keep the page hidden until the follow-up update has attached products.
+    const created = await client.createWiki({ ...payload, status: 0 });
     const id = Number(created?.id ?? created?.data?.id);
     if (!id) throw new Error("create wiki returned no id");
-    return { id, status, reused: false };
+    // The create endpoint stores the wiki body but does not currently sync its
+    // product relation. The admin edit endpoint does, so mirror that operation.
+    await client.updateWiki(id, payload);
+    return { id, status: targetStatus, reused: false };
   });
 }
 

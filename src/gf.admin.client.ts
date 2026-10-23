@@ -97,6 +97,13 @@ export function createGfClient(token: string) {
         body: JSON.stringify(payload),
       });
     },
+    async updateWiki(id: number, payload: Json) {
+      return http(`${baseUrl}/wiki/${id}`, {
+        method: "PUT",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    },
     async createArticle(payload: Json) {
       return http(`${baseUrl}/article`, {
         method: "POST",

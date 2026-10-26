@@ -16,7 +16,7 @@ import fetch from "node-fetch";
 import sharp from "sharp";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { CODEX_SPAWN_OPTIONS, codexLimitArgs, guardCodexProcess } from "./ai.limits.js";
-import { addCreativeText, buildCreativeTextOverlay, type CreativeTextSide, type CreativeTextVertical } from "./creative.text.js";
+import { addCreativeText, buildCreativeTextOverlay, CREATIVE_LOGO_WIDTH_RATIO as LOGO_WIDTH_RATIO, CREATIVE_MARGIN_RATIO, type CreativeTextSide, type CreativeTextVertical } from "./creative.text.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CODEX_GENERATED_IMAGES_DIR =
@@ -147,7 +147,7 @@ export interface CreativeResult {
 export function shouldUseProductReference(
   variant: Pick<CreativeVariant, "productRole">
 ): boolean {
-  return variant.productRole === "hero" || variant.productRole === "supporting";
+  return variant.productRole !== "none";
 }
 
 export function layoutForCreativeVariant(
@@ -176,7 +176,7 @@ export function shouldShowWebsiteCta(
 const GREATFLOWERS_LOGO_URL =
   "https://greatflowers.net/assets/svg/greatflowers-logo.svg";
 
-export const CREATIVE_LOGO_WIDTH_RATIO = 0.24;
+export const CREATIVE_LOGO_WIDTH_RATIO = LOGO_WIDTH_RATIO;
 export const CREATIVE_CTA_PURPLE = "#32105f";
 
 const OUTPUT_DIR = join(process.cwd(), "test-creatives");
@@ -368,10 +368,11 @@ BUILD THE SCENE FIRST, then integrate flowers naturally into it.`;
     case "optional":
       productInstructions = `
 PRODUCT ROLE: OPTIONAL
-Do not copy or imply the identity of the supplied catalog product.
-Natural, concept-relevant flowers are nevertheless REQUIRED and must occupy a meaningful
-part of the composition (roughly 20-35% of the frame). They need not dominate, but they must
-be immediately visible as the subject that connects this creative to GreatFlowers.`;
+The scene may lead and the supplied product does not need to be the focus, but any bouquet or
+arrangement that appears MUST be the exact supplied product: same flowers, colors, arrangement and
+container. Never invent a different bouquet. Natural flowers are REQUIRED and must occupy a
+meaningful part of the composition (roughly 20-35% of the frame), immediately visible as the
+subject that connects this creative to GreatFlowers.`;
       break;
       
     case "none":
@@ -715,10 +716,10 @@ async function addOfficialLogo(
 
   const logoHeight = logoMetadata.height || logoWidth;
 
-  // Comfortable margin from edges: ~4% of image size
+  // Same margin as the typography column so the logo and headline share one left/right edge
   const margin = Math.max(
     24,
-    Math.round(imageWidth * 0.04)
+    Math.round(imageWidth * CREATIVE_MARGIN_RATIO)
   );
 
   const position = resolveLogoPosition(logoPlacement);

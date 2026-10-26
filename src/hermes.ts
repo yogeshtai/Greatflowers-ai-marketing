@@ -523,7 +523,8 @@ way to thank them. Never refer to a pen, key, desk or another prop as a substitu
 
 cta:
 
-Short CTA suitable for social advertising.
+Short CTA suitable for social advertising. For the four campaign creatives, keep each CTA to one or
+two words (for example "Shop Now", "Send Flowers", "Save This"), because it is rendered on a small button.
 
 Safe CTA examples:
 - Send Flowers
@@ -645,7 +646,7 @@ Instead, strategically choose the 4 best creative concepts from the available ev
 The 4 concepts should be meaningfully different marketing approaches, not just visual variations of the same advertisement.
 Use at least 3 different creativeType values and at least 3 different sceneStrategy values.
 Only one variant may use productRole "hero". Exactly two variants must use "hero" or "supporting" and exactly two must use "optional". Do not use productRole "none" in independent mode.
-The two optional variants must still show natural, concept-relevant flowers prominently; they simply must not copy or claim facts about the selected catalog bouquet.
+The two optional variants must still show flowers prominently. The image generator is given the selected product photo for every variant, so any bouquet shown is always the selected product; in optional variants it is simply not the focus. Never describe a different bouquet.
 Every independent visual must unmistakably market flowers. Flowers must occupy a meaningful part of the composition, while books, mugs, candles, shelves, feathers and other props remain secondary atmosphere rather than the subject.
 At least one human scene must show a flower-related action such as giving, receiving, arranging, carrying, delivering or unboxing flowers—not merely a person sitting near a vase.
 If one variant is informational, teach something directly useful about choosing, gifting, arranging or caring for flowers. Do not turn it into generic interior or shelf styling where decor replaces the flowers.

@@ -14,10 +14,15 @@ import {
 } from "./codex.creative.js";
 import {
   buildCreativeTextOverlay,
+  CREATIVE_LOGO_ASPECT,
+  CREATIVE_LOGO_WIDTH_RATIO,
+  CREATIVE_MARGIN_RATIO,
   CREATIVE_TEXT_PINK,
   CREATIVE_TEXT_PURPLE,
   detectCreativeTextTone,
   headlineWords,
+  shortCtaLabel,
+  stripPrices,
   textPaletteForCreative,
   typographyForCreative,
 } from "./creative.text.js";
@@ -212,7 +217,7 @@ test("creative typography automatically switches contrast for dark and light pho
 test("hero and supporting creatives use the real product reference", () => {
   assert.equal(shouldUseProductReference(variant({ productRole: "hero" })), true);
   assert.equal(shouldUseProductReference(variant({ productRole: "supporting" })), true);
-  assert.equal(shouldUseProductReference(variant({ productRole: "optional" })), false);
+  assert.equal(shouldUseProductReference(variant({ productRole: "optional" })), true);
   assert.equal(shouldUseProductReference(variant({ productRole: "none" })), false);
 
   const supporting = variant({ productRole: "supporting" });
@@ -222,7 +227,8 @@ test("hero and supporting creatives use the real product reference", () => {
 
   const optional = variant({ productRole: "optional" });
   const optionalPrompt = buildCodexPrompt(optional, brief(optional));
-  assert.match(optionalPrompt, /Natural, concept-relevant flowers are nevertheless REQUIRED/);
+  assert.match(optionalPrompt, /MUST be the exact supplied product/);
+  assert.match(optionalPrompt, /Never invent a different bouquet/);
   assert.match(optionalPrompt, /props may establish context, but must never become the primary/);
 });
 
@@ -234,4 +240,33 @@ test("existing creatives without content points retain the original safe area", 
   assert.doesNotMatch(prompt, /numbered content points/);
   assert.doesNotMatch(prompt, /empty circles, unlabeled icons/);
   assert.doesNotThrow(() => buildCreativeTextOverlay(creative, "left"));
+});
+
+test("headline always starts below the logo with a clear gap", () => {
+  for (const headline of ["Autumn, Already Styled", "One Arrangement Changed the Room", "A Beautiful Way to Show You Care Every Day"]) {
+    const svg = buildCreativeTextOverlay(variant({ headline }), "left", 1024, 1024, "top").toString();
+    const firstBaseline = Number(svg.match(/<tspan x="56" y="(\d+)" text-anchor="start">/)?.[1]);
+    const size = Number(svg.match(/font-size="(\d+)" font-weight="700" letter-spacing/)?.[1]);
+    const logoBottom = Math.round(1024 * CREATIVE_MARGIN_RATIO) + Math.round(1024 * CREATIVE_LOGO_WIDTH_RATIO * CREATIVE_LOGO_ASPECT);
+    assert.ok(firstBaseline - size * 0.72 - logoBottom >= 20, `${headline}: headline top ${firstBaseline - size * 0.72} vs logo bottom ${logoBottom}`);
+  }
+});
+
+test("image CTA pills are one or two words and the column never prints the URL", () => {
+  assert.equal(shortCtaLabel("Shop Now"), "Shop Now");
+  assert.equal(shortCtaLabel("Send Flowers"), "Send Flowers");
+  assert.equal(shortCtaLabel("Shop Spiced Pumpkin Petals"), "Shop Now");
+  assert.equal(shortCtaLabel("Explore the Halloween collection at https://greatflowers.net"), "Explore Now");
+  assert.equal(shortCtaLabel("Save this fall table idea"), "Save This");
+  assert.equal(shortCtaLabel(""), "");
+  const svg = buildCreativeTextOverlay(variant({ cta: "Shop Spiced Pumpkin Petals" }), "left").toString();
+  assert.match(svg, />Shop Now →</);
+  assert.doesNotMatch(svg, /greatflowers\.net/);
+});
+
+test("prices are never baked into creative copy", () => {
+  assert.equal(stripPrices("Orange spray mums in an autumn-print bucket — $40.97."), "Orange spray mums in an autumn-print bucket.");
+  assert.equal(stripPrices("Only $57.97 today"), "today");
+  const svg = buildCreativeTextOverlay(variant({ subheadline: "Orange mums in a bucket — $40.97." }), "left").toString();
+  assert.doesNotMatch(svg, /\$40/);
 });

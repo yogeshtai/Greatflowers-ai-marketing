@@ -158,9 +158,11 @@ export function layoutForCreativeVariant(
   const textVertical: CreativeTextVertical = hasContentPoints || variant.order === 1 || variant.order === 4
     ? "top"
     : "lower";
+  const textSide: CreativeTextSide = even ? "right" : "left";
   return {
-    logoPosition: even ? "top-left" : "top-right",
-    textSide: even ? "right" : "left",
+    // The logo anchors the top of the text column (brand block), like the approved ad references.
+    logoPosition: textSide === "left" ? "top-left" : "top-right",
+    textSide,
     textVertical,
   };
 }
@@ -174,7 +176,7 @@ export function shouldShowWebsiteCta(
 const GREATFLOWERS_LOGO_URL =
   "https://greatflowers.net/assets/svg/greatflowers-logo.svg";
 
-export const CREATIVE_LOGO_WIDTH_RATIO = 0.2;
+export const CREATIVE_LOGO_WIDTH_RATIO = 0.24;
 export const CREATIVE_CTA_PURPLE = "#32105f";
 
 const OUTPUT_DIR = join(process.cwd(), "test-creatives");
@@ -438,18 +440,14 @@ feathers, candles and other props may establish context, but must never become t
 subject or visually replace the flowers. For human scenes, show an active flower-related
 moment such as giving, receiving, arranging, carrying, delivering or unboxing.
 
-LOGO SAFE AREA (CRITICAL):
-Reserve a clear zone at:
-${logoPosition}
-
-This area MUST remain free of faces, flowers, important objects and decorative details.
-The official GreatFlowers logo will be overlaid here after generation.
-Do not generate, spell, draw, or recreate GreatFlowers branding.
+LOGO + TEXT COLUMN (CRITICAL):
+The ${textSide} side of the image is one continuous brand column: the official GreatFlowers logo at the top ${logoPosition === "top-left" ? "left" : "right"} corner, with large editorial typography beneath it.
+This whole column MUST remain free of faces, flowers, important objects and decorative details.
+Do not generate, spell, draw, or recreate GreatFlowers branding or logo.
 
 TYPOGRAPHY SAFE AREA (CRITICAL):
-Reserve the ${typographySafeArea} as calm, light-toned photographic negative space.
-Keep faces, flowers and important objects out of that zone, but continue natural scene texture and light through it.
-Keep this area tonally consistent enough for large, high-contrast editorial typography; avoid mottled highlights and deep shadows behind the copy.
+Reserve the ${typographySafeArea} as a smooth, almost solid, very light-toned surface — like a plaster wall, pale marble or soft-focus backdrop.
+Keep faces, flowers and important objects out of that zone. Texture must stay minimal and uniform: no mottled highlights, deep shadows, strong grain or busy details, so large high-contrast editorial typography reads perfectly clean.
 Do not create a white rectangle, translucent card, blank paper panel or fake text box.
 The application will typeset the approved headline, subheadline${hasContentPoints ? " and numbered content points" : ""} in this zone after generation.
 ${hasContentPoints ? "Do not draw empty circles, unlabeled icons, arrows, process diagrams or step placeholders." : ""}

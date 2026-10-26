@@ -10,7 +10,7 @@ test("creative branding matches the approved logo scale and website CTA", () => 
   const cta = buildWebsiteCta(1024, 1024);
   const svg = cta.input.toString();
 
-  assert.equal(CREATIVE_LOGO_WIDTH_RATIO, 0.2);
+  assert.equal(CREATIVE_LOGO_WIDTH_RATIO, 0.24);
   assert.deepEqual(
     { left: cta.left, top: cta.top, width: cta.width, height: cta.height },
     { left: 297, top: 920, width: 430, height: 68 }

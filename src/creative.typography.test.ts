@@ -80,11 +80,14 @@ test("headline typography applies controlled pink emphasis to a meaningful phras
   assert.match(svg, /A thoughtful surprise for[\s\S]*their day\./);
 });
 
-test("independent creative styling rotates layout, palette and website treatment", () => {
-  assert.deepEqual(layoutForCreativeVariant(variant({ order: 1 })), { logoPosition: "top-right", textSide: "left", textVertical: "top" });
-  assert.deepEqual(layoutForCreativeVariant(variant({ order: 2 })), { logoPosition: "top-left", textSide: "right", textVertical: "lower" });
+test("independent creative styling rotates layout while the palette and logo stay on-brand", () => {
+  // The logo anchors the top of the text column on the same side, like the reference ads.
+  assert.deepEqual(layoutForCreativeVariant(variant({ order: 1 })), { logoPosition: "top-left", textSide: "left", textVertical: "top" });
+  assert.deepEqual(layoutForCreativeVariant(variant({ order: 2 })), { logoPosition: "top-right", textSide: "right", textVertical: "lower" });
   assert.equal(layoutForCreativeVariant(variant({ order: 2, contentPoints: ["One useful point", "Another useful point"] })).textVertical, "top");
-  assert.notDeepEqual(textPaletteForCreative(variant({ order: 1 })), textPaletteForCreative(variant({ order: 2 })));
+  assert.equal(textPaletteForCreative(variant({ order: 1 })).primary, CREATIVE_TEXT_PURPLE);
+  assert.equal(textPaletteForCreative(variant({ order: 2 })).primary, CREATIVE_TEXT_PURPLE);
+  assert.equal(textPaletteForCreative(variant({ order: 3 })).accent, CREATIVE_TEXT_PINK);
   assert.equal(shouldShowWebsiteCta(variant({ order: 1 })), false);
   assert.equal(shouldShowWebsiteCta(variant({ order: 4 })), true);
 });

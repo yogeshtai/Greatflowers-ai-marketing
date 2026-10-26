@@ -10,6 +10,7 @@ type TypographyCreative = {
   sceneStrategy: string;
   headline: string;
   subheadline: string;
+  cta?: string;
   contentPoints?: string[];
 };
 
@@ -31,12 +32,12 @@ const CREATIVE_LIGHT_TEXT_PALETTES = [
 ] as const;
 
 export function textPaletteForCreative(
-  creative: Pick<TypographyCreative, "order">,
+  _creative: Pick<TypographyCreative, "order">,
   tone: CreativeTextTone = "dark",
 ) {
-  const order = Number.isInteger(creative.order) ? Math.max(1, creative.order!) : 1;
+  // Locked to the approved brand palette (purple + magenta) so every creative looks like the reference ads.
   const palettes = tone === "light" ? CREATIVE_LIGHT_TEXT_PALETTES : CREATIVE_TEXT_PALETTES;
-  return palettes[(order - 1) % palettes.length]!;
+  return palettes[0]!;
 }
 
 export type CreativeTypography = {
@@ -124,7 +125,7 @@ function wrapWords(words: HeadlineWord[], maxChars: number): HeadlineWord[][] {
 }
 
 function fitHeadline(words: HeadlineWord[], usableWidth: number, mode: CreativeTypography["mode"]) {
-  const preferred = mode === "modern-sans" ? 72 : 66;
+  const preferred = mode === "modern-sans" ? 92 : 84;
   const widthFactor = mode === "modern-sans" ? 0.56 : 0.52;
   const preferredLines = words.length <= 6 ? 2 : 3;
 
@@ -197,7 +198,8 @@ export function buildCreativeTextOverlay(
   const anchor = side === "left" ? "start" : "end";
   const fitted = fitHeadline(headlineWords(creative.headline), usableWidth, typography.mode);
   const lineHeight = Math.round(fitted.size * (typography.mode === "modern-sans" ? 0.94 : 1.02));
-  const firstY = Math.round(height * (vertical === "lower" ? 0.55 : 0.12));
+  // "top" leaves room for the logo that anchors the brand column above the headline.
+  const firstY = Math.round(height * (vertical === "lower" ? 0.55 : 0.17));
   const headlineSvg = fitted.lines.map((line, index) =>
     renderHeadlineLine(line, x, firstY + index * lineHeight, anchor, palette)
   ).join("");
@@ -222,6 +224,27 @@ export function buildCreativeTextOverlay(
   ).join("");
 
   const contentPoints = (creative.contentPoints || []).map(point => point.trim()).filter(Boolean);
+
+  // Reference-ad CTA: a magenta pill under the subheadline, with the URL beneath it.
+  // Variant 4 carries the bottom website pill instead, so its column URL is skipped.
+  const ctaLabel = (creative.cta ?? "").trim();
+  const showCtaPill = !contentPoints.length && ctaLabel.length > 0 && ctaLabel.length <= 30;
+  const showColumnUrl = showCtaPill && creative.order !== 4;
+  const pillFont = Math.max(22, Math.round(width * 0.028));
+  const pillHeight = Math.round(pillFont * 2.3);
+  const pillWidth = Math.round(ctaLabel.length * pillFont * 0.6) + Math.round(pillFont * 2.6);
+  const pillX = side === "left" ? x : x - pillWidth;
+  const contentStart = subLines.length ? subFirstY + subLines.length * subLineHeight : lastHeadlineY + Math.round(fitted.size * 0.4);
+  const pillY = contentStart + Math.round(height * 0.025);
+  const urlSize = Math.max(20, Math.round(width * 0.022));
+  const urlY = pillY + pillHeight + Math.round(height * 0.02) + urlSize;
+  const ctaPillSvg = showCtaPill
+    ? `<rect x="${pillX}" y="${pillY}" width="${pillWidth}" height="${pillHeight}" rx="${Math.round(pillHeight / 2)}" fill="${CREATIVE_TEXT_PINK}"/>
+       <text x="${pillX + Math.round(pillWidth / 2)}" y="${pillY + Math.round(pillHeight * 0.66)}" text-anchor="middle" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${pillFont}" font-weight="700" fill="#ffffff">${escapeXml(ctaLabel)} →</text>`
+    : "";
+  const urlSvg = showColumnUrl
+    ? `<text x="${x}" y="${urlY}" text-anchor="${anchor}" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${urlSize}" font-weight="500" fill="${palette.secondary}" filter="url(#text-shadow)">www.greatflowers.net</text>`
+    : "";
   const pointSize = Math.max(24, Math.round(width * 0.026));
   const pointLineHeight = Math.round(pointSize * 1.24);
   const pointGap = Math.round(height * 0.018);
@@ -265,9 +288,11 @@ export function buildCreativeTextOverlay(
         <feGaussianBlur stdDeviation="32"/>
       </filter>
     </defs>
-    <rect x="${side === "left" ? 0 : Math.round(width * 0.5)}" y="${vertical === "lower" ? Math.round(height * 0.45) : 0}" width="${Math.round(width * 0.5)}" height="${vertical === "lower" ? Math.round(height * 0.42) : Math.round(height * (contentPoints.length ? 0.85 : 0.5))}" fill="${tone === "light" ? "#000000" : "#ffffff"}" fill-opacity="${tone === "light" ? "0.22" : "0.18"}" filter="url(#copy-backdrop-blur)"/>
+    <rect x="${side === "left" ? 0 : Math.round(width * 0.5)}" y="${vertical === "lower" ? Math.round(height * 0.45) : 0}" width="${Math.round(width * 0.5)}" height="${vertical === "lower" ? Math.round(height * 0.45) : Math.round(height * (contentPoints.length ? 0.85 : 0.8))}" fill="${tone === "light" ? "#000000" : "#ffffff"}" fill-opacity="${tone === "light" ? "0.22" : "0.18"}" filter="url(#copy-backdrop-blur)"/>
     <text font-family="${typography.family}" font-size="${fitted.size}" font-weight="${typography.weight}" letter-spacing="-1.2" filter="url(#text-shadow)">${headlineSvg}</text>
     ${subLines.length ? `<text x="${x}" text-anchor="${anchor}" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${subSize}" font-weight="500" fill="${palette.secondary}" filter="url(#text-shadow)">${subSvg}</text>` : ""}
+    ${ctaPillSvg}
+    ${urlSvg}
     ${pointSvg.join("")}
   </svg>`);
 }

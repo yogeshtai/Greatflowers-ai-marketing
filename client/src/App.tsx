@@ -185,8 +185,13 @@ function App() {
       setStoryPlan(null);
       setStorySlides([]);
       setSelectedStoryCarousel(false);
+      setStoryError("");
       setRecommendationEvidence(null);
       setRecommendedProduct(null);
+      setCreatives([]);
+      setCreativesError("");
+      setCreativeFallbackImage(null);
+      setSelectedCreatives([]);
 
       const productId = productChoice !== "custom" ? Number(productChoice) : undefined;
 

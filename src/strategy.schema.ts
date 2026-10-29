@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ART_DIRECTIONS, COPY_LAYOUTS } from "./creative.direction.js";
+import { ART_DIRECTIONS, COPY_LAYOUTS, SCENE_ENVIRONMENTS, LIGHTING_SETUPS } from "./creative.direction.js";
 
 export const SCENE_STRATEGIES = [
   "PRODUCT_STUDIO",
@@ -40,6 +40,8 @@ export const creativeVariantSchema = z.object({
   sceneType: z.string().min(1),
   artDirection: z.enum(ART_DIRECTIONS).optional(),
   copyLayout: z.enum(COPY_LAYOUTS).optional(),
+  environment: z.enum(SCENE_ENVIRONMENTS).optional(),
+  lightingSetup: z.enum(LIGHTING_SETUPS).optional(),
   brandRole: z.enum(["none", "subtle", "reveal"]).optional(),
   sceneChange: z.string().min(1).optional(),
   cameraDirection: z.string().min(1).optional(),
@@ -174,6 +176,12 @@ export const creativeBriefSchema = z.object({
     }
     if (brief.variants.some(v => !v.copyLayout) || uniqueCount(brief.variants.map(v => v.copyLayout || "")) < 3) {
       ctx.addIssue({ code: "custom", path: ["variants"], message: "Independent creatives require explicit copyLayout values with at least three different layouts" });
+    }
+    if (brief.variants.some(v => !v.environment) || uniqueCount(brief.variants.map(v => v.environment || "")) !== 4) {
+      ctx.addIssue({ code: "custom", path: ["variants"], message: "Independent creatives require four explicit, different environment values" });
+    }
+    if (brief.variants.some(v => !v.lightingSetup) || uniqueCount(brief.variants.map(v => v.lightingSetup || "")) < 3) {
+      ctx.addIssue({ code: "custom", path: ["variants"], message: "Independent creatives require explicit lightingSetup values with at least three different setups" });
     }
     if (brief.variants.filter(v => v.productRole === "hero").length > 1) {
       ctx.addIssue({ code: "custom", path: ["variants"], message: "Only one independent creative may use the catalog product as the hero" });

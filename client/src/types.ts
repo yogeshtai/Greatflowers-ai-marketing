@@ -172,6 +172,8 @@ export type CreativeVariant = {
   lightingStyle: string;
   sceneType: string;
   artDirection?: string;
+  environment?: string;
+  lightingSetup?: string;
   copyLayout?: string;
   brandRole?: "none" | "subtle" | "reveal";
   sceneChange?: string;
@@ -203,6 +205,8 @@ export type Creative = {
   subheadline: string;
   cta: string;
   artDirection?: string;
+  environment?: string;
+  lightingSetup?: string;
   copyLayout?: string;
   success: boolean;
   error?: string;

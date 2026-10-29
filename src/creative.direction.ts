@@ -45,6 +45,78 @@ export const ART_DIRECTION_GUIDANCE: Record<ArtDirection, string> = {
   "magazine-product-feature": "Premium magazine-style product feature with an unusual crop, strong hierarchy and refined styling. Avoid the standard centered ecommerce composition.",
 };
 
+export const SCENE_ENVIRONMENTS = [
+  "entryway-console",
+  "kitchen-counter",
+  "dining-table",
+  "living-room-seating",
+  "bedside-nightstand",
+  "sunlit-windowsill",
+  "florist-workbench",
+  "studio-backdrop",
+  "outdoor-garden",
+  "cafe-table",
+  "workplace-desk",
+  "front-doorstep",
+] as const;
+
+export type SceneEnvironment = typeof SCENE_ENVIRONMENTS[number];
+
+export const LIGHTING_SETUPS = [
+  "bright-daylight",
+  "diffused-overcast",
+  "golden-hour",
+  "candlelit-warm",
+  "hard-studio",
+  "backlit-glow",
+  "lamplit-evening",
+] as const;
+
+export type LightingSetup = typeof LIGHTING_SETUPS[number];
+
+export const ENVIRONMENT_GUIDANCE: Record<SceneEnvironment, string> = {
+  "entryway-console": "A hallway or entryway console table with a mirror, keys or post nearby. Narrow depth and architectural lines behind.",
+  "kitchen-counter": "A working kitchen counter with everyday morning life around it. Worktop texture, cabinetry and daylight.",
+  "dining-table": "A dining or gathering table seen across its surface, with place settings or glassware implied around the flowers.",
+  "living-room-seating": "A sofa, armchair or coffee-table setting with soft furnishing texture and room depth behind.",
+  "bedside-nightstand": "A bedside table with linens, a lamp or a book. Intimate scale and a quiet private mood.",
+  "sunlit-windowsill": "Directly at a window, with the frame, glass and outside light part of the composition.",
+  "florist-workbench": "A working bench with stems, trimmings, twine and wrapping in progress. Workshop texture, not a styled display.",
+  "studio-backdrop": "A seamless or textured studio backdrop with controlled staging and no domestic context at all.",
+  "outdoor-garden": "Outdoors among planting, a terrace or a garden table, with real daylight and open air behind.",
+  "cafe-table": "A small cafe or bistro table with a cup or two, in a public setting with life behind.",
+  "workplace-desk": "A desk or workspace with work objects present but subordinate to the flowers.",
+  "front-doorstep": "An exterior doorway, porch or threshold, with the door and step part of the frame.",
+};
+
+export const LIGHTING_GUIDANCE: Record<LightingSetup, string> = {
+  "bright-daylight": "Open, bright daylight with crisp shadows and a clean, awake feeling.",
+  "diffused-overcast": "Soft even overcast light with gentle shadows and calm, muted contrast.",
+  "golden-hour": "Low warm directional sun with long shadows and a golden cast.",
+  "candlelit-warm": "Low warm candle or firelight with deep falloff and pooled highlights.",
+  "hard-studio": "Controlled studio lighting with deliberate highlight shape and crisp edges.",
+  "backlit-glow": "Light behind the subject producing rim light, glow and translucency through petals.",
+  "lamplit-evening": "Interior lamplight after dark, warm pools of light against cooler shadow.",
+};
+
+export function fallbackEnvironment(order: number): SceneEnvironment {
+  return ([
+    "dining-table",
+    "sunlit-windowsill",
+    "living-room-seating",
+    "kitchen-counter",
+  ] as const)[Math.max(0, Math.min(3, order - 1))] ?? "dining-table";
+}
+
+export function fallbackLightingSetup(order: number): LightingSetup {
+  return ([
+    "diffused-overcast",
+    "bright-daylight",
+    "golden-hour",
+    "lamplit-evening",
+  ] as const)[Math.max(0, Math.min(3, order - 1))] ?? "diffused-overcast";
+}
+
 export const PREFERRED_ART_DIRECTIONS: Record<string, readonly ArtDirection[]> = {
   PRODUCT_STUDIO: ["sculptural-studio", "botanical-macro", "color-block-editorial", "magazine-product-feature", "editorial-flatlay"],
   HUMAN_GIFTING_MOMENT: ["documentary-gifting", "doorstep-delivery", "bouquet-in-motion", "unboxing-reveal", "seasonal-cinematic"],

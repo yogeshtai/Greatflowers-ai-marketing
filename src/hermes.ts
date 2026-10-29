@@ -9,7 +9,7 @@ import {
 } from "./strategy.schema.js";
 import { hermesDispatcher, hermesSignal } from "./ai.limits.js";
 import { parseModelJSON } from "./model.json.js";
-import { ART_DIRECTIONS, artDirectionPreferences } from "./creative.direction.js";
+import { ART_DIRECTIONS, artDirectionPreferences, SCENE_ENVIRONMENTS, LIGHTING_SETUPS } from "./creative.direction.js";
 
 export interface CampaignInput {
   campaignGoal: string;
@@ -340,6 +340,8 @@ Use exactly this structure:
         "sceneType": "string",
         "artDirection": "documentary-gifting | doorstep-delivery | florist-workbench | botanical-macro | sculptural-studio | editorial-flatlay | hosting-tablescape | bouquet-in-motion | unboxing-reveal | architectural-interior | seasonal-cinematic | color-block-editorial | flower-care-demonstration | magazine-product-feature (REQUIRED in independent mode; optional in story-carousel)",
         "copyLayout": "top-left-editorial | top-right-editorial | lower-left-caption | lower-right-caption | full-bleed-left-gradient | full-bleed-right-gradient (REQUIRED in independent mode; optional in story-carousel)",
+        "environment": "entryway-console | kitchen-counter | dining-table | living-room-seating | bedside-nightstand | sunlit-windowsill | florist-workbench | studio-backdrop | outdoor-garden | cafe-table | workplace-desk | front-doorstep (REQUIRED in independent mode; optional in story-carousel)",
+        "lightingSetup": "bright-daylight | diffused-overcast | golden-hour | candlelit-warm | hard-studio | backlit-glow | lamplit-evening (REQUIRED in independent mode; optional in story-carousel)",
         "storyRole": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
         "storyBeat": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
         "brandRole": "none | subtle | reveal (REQUIRED if creativeMode is story-carousel, otherwise omit)",
@@ -365,6 +367,8 @@ Use exactly this structure:
         "sceneType": "string",
         "artDirection": "documentary-gifting | doorstep-delivery | florist-workbench | botanical-macro | sculptural-studio | editorial-flatlay | hosting-tablescape | bouquet-in-motion | unboxing-reveal | architectural-interior | seasonal-cinematic | color-block-editorial | flower-care-demonstration | magazine-product-feature (REQUIRED in independent mode; optional in story-carousel)",
         "copyLayout": "top-left-editorial | top-right-editorial | lower-left-caption | lower-right-caption | full-bleed-left-gradient | full-bleed-right-gradient (REQUIRED in independent mode; optional in story-carousel)",
+        "environment": "entryway-console | kitchen-counter | dining-table | living-room-seating | bedside-nightstand | sunlit-windowsill | florist-workbench | studio-backdrop | outdoor-garden | cafe-table | workplace-desk | front-doorstep (REQUIRED in independent mode; optional in story-carousel)",
+        "lightingSetup": "bright-daylight | diffused-overcast | golden-hour | candlelit-warm | hard-studio | backlit-glow | lamplit-evening (REQUIRED in independent mode; optional in story-carousel)",
         "storyRole": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
         "storyBeat": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
         "brandRole": "none | subtle | reveal (REQUIRED if creativeMode is story-carousel, otherwise omit)",
@@ -390,6 +394,8 @@ Use exactly this structure:
         "sceneType": "string",
         "artDirection": "documentary-gifting | doorstep-delivery | florist-workbench | botanical-macro | sculptural-studio | editorial-flatlay | hosting-tablescape | bouquet-in-motion | unboxing-reveal | architectural-interior | seasonal-cinematic | color-block-editorial | flower-care-demonstration | magazine-product-feature (REQUIRED in independent mode; optional in story-carousel)",
         "copyLayout": "top-left-editorial | top-right-editorial | lower-left-caption | lower-right-caption | full-bleed-left-gradient | full-bleed-right-gradient (REQUIRED in independent mode; optional in story-carousel)",
+        "environment": "entryway-console | kitchen-counter | dining-table | living-room-seating | bedside-nightstand | sunlit-windowsill | florist-workbench | studio-backdrop | outdoor-garden | cafe-table | workplace-desk | front-doorstep (REQUIRED in independent mode; optional in story-carousel)",
+        "lightingSetup": "bright-daylight | diffused-overcast | golden-hour | candlelit-warm | hard-studio | backlit-glow | lamplit-evening (REQUIRED in independent mode; optional in story-carousel)",
         "storyRole": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
         "storyBeat": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
         "brandRole": "none | subtle | reveal (REQUIRED if creativeMode is story-carousel, otherwise omit)",
@@ -415,6 +421,8 @@ Use exactly this structure:
         "sceneType": "string",
         "artDirection": "documentary-gifting | doorstep-delivery | florist-workbench | botanical-macro | sculptural-studio | editorial-flatlay | hosting-tablescape | bouquet-in-motion | unboxing-reveal | architectural-interior | seasonal-cinematic | color-block-editorial | flower-care-demonstration | magazine-product-feature (REQUIRED in independent mode; optional in story-carousel)",
         "copyLayout": "top-left-editorial | top-right-editorial | lower-left-caption | lower-right-caption | full-bleed-left-gradient | full-bleed-right-gradient (REQUIRED in independent mode; optional in story-carousel)",
+        "environment": "entryway-console | kitchen-counter | dining-table | living-room-seating | bedside-nightstand | sunlit-windowsill | florist-workbench | studio-backdrop | outdoor-garden | cafe-table | workplace-desk | front-doorstep (REQUIRED in independent mode; optional in story-carousel)",
+        "lightingSetup": "bright-daylight | diffused-overcast | golden-hour | candlelit-warm | hard-studio | backlit-glow | lamplit-evening (REQUIRED in independent mode; optional in story-carousel)",
         "storyRole": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
         "storyBeat": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
         "brandRole": "none | subtle | reveal (REQUIRED if creativeMode is story-carousel, otherwise omit)",
@@ -876,6 +884,18 @@ Choose the intended branded-copy zone from the allowed enum. Use at least three 
 across independent variants. A full-bleed gradient layout should retain photographic detail beneath
 the copy instead of creating an empty white half-image.
 
+environment:
+Choose the physical setting from the allowed enum. All four independent variants must use four
+DIFFERENT environments. This is the single strongest guard against four creatives that look like one
+photo shoot: if two variants share a room or surface, the campaign has failed regardless of how
+differently their other fields are worded.
+
+lightingSetup:
+Choose the lighting condition from the allowed enum. Use at least three different values across
+independent variants. Do not describe a dark candlelit interior for every variant just because the
+occasion is seasonal; vary time of day and light quality so the four creatives do not share one
+palette.
+
 colorPalette:
 Specific color direction for the scene and props (NOT the product flowers).
 
@@ -926,6 +946,10 @@ FOR INDEPENDENT MODE:
 
 The 4 variants MUST use different values for at least 3 out of the 4 descriptive style fields,
 plus four different artDirection values and at least three different copyLayout values.
+They must also use four different environment values and at least three different lightingSetup
+values. colorPalette, compositionStyle, lightingStyle and sceneType must then DESCRIBE the chosen
+environment and lighting rather than restating one another in different words: wording that differs
+while the photograph stays the same does not count as variety.
 
 Do NOT generate variants with the same colorPalette, compositionStyle, AND lightingStyle.
 

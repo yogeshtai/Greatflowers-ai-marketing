@@ -17,7 +17,7 @@ import sharp from "sharp";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { CODEX_SPAWN_OPTIONS, codexLimitArgs, guardCodexProcess } from "./ai.limits.js";
 import { addCreativeText, buildCreativeTextOverlay, CREATIVE_LOGO_WIDTH_RATIO as LOGO_WIDTH_RATIO, CREATIVE_MARGIN_RATIO, type CreativeTextSide, type CreativeTextVertical } from "./creative.text.js";
-import { ART_DIRECTION_GUIDANCE, fallbackArtDirection, fallbackCopyLayout, type ArtDirection, type CopyLayout } from "./creative.direction.js";
+import { ART_DIRECTION_GUIDANCE, ENVIRONMENT_GUIDANCE, LIGHTING_GUIDANCE, fallbackArtDirection, fallbackCopyLayout, fallbackEnvironment, fallbackLightingSetup, type ArtDirection, type CopyLayout, type SceneEnvironment, type LightingSetup } from "./creative.direction.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CODEX_GENERATED_IMAGES_DIR =
@@ -121,6 +121,8 @@ export interface CreativeVariant {
   sceneType: string;
   artDirection?: ArtDirection;
   copyLayout?: CopyLayout;
+  environment?: SceneEnvironment;
+  lightingSetup?: LightingSetup;
 }
 
 export interface CreativeBrief {
@@ -402,6 +404,8 @@ Generate from the strategic concept.`;
   const { logoPosition, textSide, textVertical } = layoutForCreativeVariant(variant);
   const artDirection = variant.artDirection ?? fallbackArtDirection(variant.sceneStrategy);
   const copyLayout = variant.copyLayout ?? fallbackCopyLayout(variant.order);
+  const environment = variant.environment ?? fallbackEnvironment(variant.order);
+  const lightingSetup = variant.lightingSetup ?? fallbackLightingSetup(variant.order);
   const fullBleedCopy = copyLayout.startsWith("full-bleed");
   const hasContentPoints = (variant.contentPoints?.length || 0) > 0;
   const showWebsiteCta = shouldShowWebsiteCta(variant);
@@ -414,7 +418,7 @@ Generate from the strategic concept.`;
       : `outer ${textSide} 42% of the upper half`;
   const otherDirections = creativeBrief.variants
     .filter((candidate) => candidate.order !== variant.order)
-    .map((candidate) => `- Variant ${candidate.order}: ${candidate.creativeType}; ${candidate.sceneStrategy}; ${candidate.artDirection ?? fallbackArtDirection(candidate.sceneStrategy)}; ${candidate.copyLayout ?? fallbackCopyLayout(candidate.order)}; ${candidate.compositionStyle}; ${candidate.sceneType}`)
+    .map((candidate) => `- Variant ${candidate.order}: ${candidate.creativeType}; ${candidate.sceneStrategy}; ${candidate.artDirection ?? fallbackArtDirection(candidate.sceneStrategy)}; ${candidate.environment ?? fallbackEnvironment(candidate.order)}; ${candidate.lightingSetup ?? fallbackLightingSetup(candidate.order)}; ${candidate.copyLayout ?? fallbackCopyLayout(candidate.order)}; ${candidate.compositionStyle}; ${candidate.sceneType}`)
     .join("\n");
 
   return `Create a TEXT-FREE 1:1 premium social media campaign base image for GreatFlowers.
@@ -441,6 +445,15 @@ ${variant.concept}
 
 ${sceneStrategyInstructions}
 ${productInstructions}${contextInstructions}
+
+ENVIRONMENT (MANDATORY): ${environment}
+${ENVIRONMENT_GUIDANCE[environment]}
+This is the physical setting. No other variant in this campaign uses it. Do not relocate the scene to
+a different room, surface or setting, and do not reuse an environment listed for another variant.
+
+LIGHTING (MANDATORY): ${lightingSetup}
+${LIGHTING_GUIDANCE[lightingSetup]}
+Light the whole frame this way, including the background and the copy safe area.
 
 ART DIRECTION (MANDATORY): ${artDirection}
 ${ART_DIRECTION_GUIDANCE[artDirection]}
@@ -699,6 +712,60 @@ function resolveLogoPosition(
   return "top-right";
 }
 
+// The wordmark is a fixed-colour SVG composited blind, so it disappears into bright or busy
+// corners. Measure what is actually behind it and lay down a soft gradient only when the contrast
+// is too low to read.
+export function logoScrimTone(meanLuminance: number): "dark" | "light" | null {
+  if (meanLuminance >= 150) return "dark";
+  if (meanLuminance <= 55) return "light";
+  return null;
+}
+
+async function logoScrim(
+  imagePath: string,
+  left: number,
+  top: number,
+  logoWidth: number,
+  logoHeight: number,
+  imageWidth: number,
+  imageHeight: number
+): Promise<{ buffer: Buffer; left: number; top: number } | null> {
+  const padX = Math.round(logoWidth * 0.35);
+  const padY = Math.round(logoHeight * 0.9);
+  const scrimLeft = Math.max(0, left - padX);
+  const scrimTop = Math.max(0, top - padY);
+  const scrimWidth = Math.min(imageWidth - scrimLeft, logoWidth + padX * 2);
+  const scrimHeight = Math.min(imageHeight - scrimTop, logoHeight + padY * 2);
+  if (scrimWidth <= 0 || scrimHeight <= 0) return null;
+
+  let tone: "dark" | "light" | null = null;
+  try {
+    const region = await sharp(imagePath)
+      .extract({ left, top, width: Math.min(logoWidth, imageWidth - left), height: Math.min(logoHeight, imageHeight - top) })
+      .stats();
+    const [r, g, b] = region.channels;
+    if (!r || !g || !b) return null;
+    tone = logoScrimTone(0.2126 * r.mean + 0.7152 * g.mean + 0.0722 * b.mean);
+  } catch {
+    // A sampling failure must never cost us the creative; fall back to the bare logo.
+    return null;
+  }
+  if (!tone) return null;
+
+  const colour = tone === "dark" ? "0,0,0" : "255,255,255";
+  const svg = `<svg width="${scrimWidth}" height="${scrimHeight}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="g" cx="50%" cy="50%" r="62%">
+        <stop offset="0%" stop-color="rgb(${colour})" stop-opacity="0.5"/>
+        <stop offset="60%" stop-color="rgb(${colour})" stop-opacity="0.26"/>
+        <stop offset="100%" stop-color="rgb(${colour})" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <rect width="${scrimWidth}" height="${scrimHeight}" fill="url(#g)"/>
+  </svg>`;
+  return { buffer: await sharp(Buffer.from(svg)).png().toBuffer(), left: scrimLeft, top: scrimTop };
+}
+
 async function addOfficialLogo(
   generatedImagePath: string,
   logoPath: string,
@@ -755,8 +822,11 @@ async function addOfficialLogo(
     Math.min(margin, imageHeight - logoHeight)
   );
 
+  const scrim = await logoScrim(generatedImagePath, left, top, logoWidth, logoHeight, imageWidth, imageHeight);
+
   await baseImage
     .composite([
+      ...(scrim ? [{ input: scrim.buffer, left: scrim.left, top: scrim.top }] : []),
       {
         input: logoBuffer,
         left,

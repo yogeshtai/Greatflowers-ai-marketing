@@ -8,6 +8,8 @@ const roles = ["hero", "supporting", "optional", "optional"] as const;
 const types = ["product", "lifestyle", "informational", "occasion"] as const;
 const artDirections = ["sculptural-studio", "documentary-gifting", "flower-care-demonstration", "seasonal-cinematic"] as const;
 const copyLayouts = ["top-left-editorial", "lower-right-caption", "full-bleed-left-gradient", "top-right-editorial"] as const;
+const environments = ["dining-table", "front-doorstep", "studio-backdrop", "outdoor-garden"] as const;
+const lightingSetups = ["diffused-overcast", "golden-hour", "hard-studio", "bright-daylight"] as const;
 
 const variant = (order: number) => ({
   order,
@@ -26,6 +28,8 @@ const variant = (order: number) => ({
   sceneType: `Scene ${order}`,
   artDirection: artDirections[order - 1],
   copyLayout: copyLayouts[order - 1],
+  environment: environments[order - 1],
+  lightingSetup: lightingSetups[order - 1],
 });
 
 const base = {
@@ -49,6 +53,11 @@ test("independent campaigns require four genuinely varied creative directions", 
   assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map(v => ({ ...v, compositionStyle: "Same composition", sceneType: "Same scene" })) }).success, false);
   assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map(v => ({ ...v, artDirection: "sculptural-studio" })) }).success, false);
   assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map(v => ({ ...v, copyLayout: "top-left-editorial" })) }).success, false);
+  assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map(v => ({ ...v, environment: "dining-table" })) }).success, false);
+  assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map((v, index) => index === 0 ? { ...v, environment: environments[1] } : v) }).success, false);
+  assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map(v => ({ ...v, lightingSetup: "golden-hour" })) }).success, false);
+  assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map(({ environment, ...rest }) => rest) }).success, false);
+  assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map(({ lightingSetup, ...rest }) => rest) }).success, false);
   assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map(v => ({ ...v, productRole: "hero" })) }).success, false);
   assert.equal(creativeBriefSchema.safeParse({
     ...base,

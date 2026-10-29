@@ -4,6 +4,7 @@ import {
   buildWebsiteCta,
   CREATIVE_CTA_PURPLE,
   CREATIVE_LOGO_WIDTH_RATIO,
+  logoScrimTone,
 } from "./codex.creative.js";
 
 test("creative branding matches the approved logo scale and website CTA", () => {
@@ -19,4 +20,13 @@ test("creative branding matches the approved logo scale and website CTA", () => 
   assert.match(svg, /fill="white"/);
   assert.match(svg, /font-weight="700"/);
   assert.match(svg, /www\.greatflowers\.net/);
+});
+
+test("the logo scrim only engages when the corner behind it is too bright or too dark", () => {
+  assert.equal(logoScrimTone(235), "dark");
+  assert.equal(logoScrimTone(150), "dark");
+  assert.equal(logoScrimTone(20), "light");
+  assert.equal(logoScrimTone(55), "light");
+  assert.equal(logoScrimTone(120), null);
+  assert.equal(logoScrimTone(90), null);
 });

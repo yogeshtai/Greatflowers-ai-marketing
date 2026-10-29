@@ -11,6 +11,8 @@ export interface RecommendationHistoryItem {
   creativeScenario?: string;
   marketingAngle?: string;
   visualDirection?: string;
+  artDirections?: string[];
+  copyLayouts?: string[];
 }
 
 const DATA_DIR = path.join(process.cwd(), "data");

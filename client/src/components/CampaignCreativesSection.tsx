@@ -139,6 +139,17 @@ export function CampaignCreativesSection({
                         <p className="creative-subheadline">{creative.subheadline}</p>
                       )}
 
+                      {creative.artDirection && (
+                        <p className="creative-meta">
+                          <strong>Art direction:</strong> {creative.artDirection.replace(/-/g, ' ')}
+                        </p>
+                      )}
+                      {creative.copyLayout && (
+                        <p className="creative-meta">
+                          <strong>Copy layout:</strong> {creative.copyLayout.replace(/-/g, ' ')}
+                        </p>
+                      )}
+
                       {/* Strategic metadata */}
                       {creative.sceneStrategy && (
                         <p className="creative-meta">
@@ -263,6 +274,12 @@ export function CampaignCreativesSection({
                     <h3 className="creative-headline">{creative.headline}</h3>
                     {creative.subheadline && (
                       <p className="creative-subheadline">{creative.subheadline}</p>
+                    )}
+                    {creative.artDirection && (
+                      <p className="creative-meta"><strong>Art direction:</strong> {creative.artDirection.replace(/-/g, ' ')}</p>
+                    )}
+                    {creative.copyLayout && (
+                      <p className="creative-meta"><strong>Copy layout:</strong> {creative.copyLayout.replace(/-/g, ' ')}</p>
                     )}
                     <p className="creative-cta">CTA: {creative.cta}</p>
                     {!creative.success && creative.error && (

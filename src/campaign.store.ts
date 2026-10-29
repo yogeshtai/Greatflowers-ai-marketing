@@ -69,6 +69,8 @@ export interface SavedCampaign {
     headline: string;
     subheadline: string;
     cta: string;
+    artDirection?: string;
+    copyLayout?: string;
     success: boolean;
     error?: string;
   }>;

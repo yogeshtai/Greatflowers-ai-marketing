@@ -171,6 +171,8 @@ export type CreativeVariant = {
   compositionStyle: string;
   lightingStyle: string;
   sceneType: string;
+  artDirection?: string;
+  copyLayout?: string;
   brandRole?: "none" | "subtle" | "reveal";
   sceneChange?: string;
   cameraDirection?: string;
@@ -200,6 +202,8 @@ export type Creative = {
   headline: string;
   subheadline: string;
   cta: string;
+  artDirection?: string;
+  copyLayout?: string;
   success: boolean;
   error?: string;
   // New strategic metadata from Hermes

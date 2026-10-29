@@ -9,6 +9,7 @@ import {
 } from "./strategy.schema.js";
 import { hermesDispatcher, hermesSignal } from "./ai.limits.js";
 import { parseModelJSON } from "./model.json.js";
+import { ART_DIRECTIONS } from "./creative.direction.js";
 
 export interface CampaignInput {
   campaignGoal: string;
@@ -120,8 +121,9 @@ Content Theme: ${input.contentTheme || "Choose a suitable theme"}
 Visual Treatment: ${input.visualTreatment || "Choose a suitable treatment"}
 
 CONTENT MIX RULES:
-Preserve the supplied theme, creative scenario, goal and visual treatment in captions,
-headlines, CTAs and the creative brief. Promote GreatFlowers naturally in every theme.
+Preserve the supplied theme, creative scenario and goal in captions, headlines, CTAs and the
+creative brief. Use the supplied visual treatment as the primary art-direction anchor while the
+other variants explore complementary treatments. Promote GreatFlowers naturally in every theme.
 For home-styling, flower-care, product-spotlight, seasonal-inspiration and conversation-starter,
 use independent creativeMode, without forcing a sender/recipient or gifting narrative.
 Use save/share/comment CTAs for engagement and discovery CTAs for awareness/consideration,
@@ -336,6 +338,8 @@ Use exactly this structure:
         "compositionStyle": "string",
         "lightingStyle": "string",
         "sceneType": "string",
+        "artDirection": "documentary-gifting | doorstep-delivery | florist-workbench | botanical-macro | sculptural-studio | editorial-flatlay | hosting-tablescape | bouquet-in-motion | unboxing-reveal | architectural-interior | seasonal-cinematic | color-block-editorial | flower-care-demonstration | magazine-product-feature (REQUIRED in independent mode; optional in story-carousel)",
+        "copyLayout": "top-left-editorial | top-right-editorial | lower-left-caption | lower-right-caption | full-bleed-left-gradient | full-bleed-right-gradient (REQUIRED in independent mode; optional in story-carousel)",
         "storyRole": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
         "storyBeat": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
         "brandRole": "none | subtle | reveal (REQUIRED if creativeMode is story-carousel, otherwise omit)",
@@ -359,6 +363,8 @@ Use exactly this structure:
         "compositionStyle": "string",
         "lightingStyle": "string",
         "sceneType": "string",
+        "artDirection": "documentary-gifting | doorstep-delivery | florist-workbench | botanical-macro | sculptural-studio | editorial-flatlay | hosting-tablescape | bouquet-in-motion | unboxing-reveal | architectural-interior | seasonal-cinematic | color-block-editorial | flower-care-demonstration | magazine-product-feature (REQUIRED in independent mode; optional in story-carousel)",
+        "copyLayout": "top-left-editorial | top-right-editorial | lower-left-caption | lower-right-caption | full-bleed-left-gradient | full-bleed-right-gradient (REQUIRED in independent mode; optional in story-carousel)",
         "storyRole": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
         "storyBeat": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
         "brandRole": "none | subtle | reveal (REQUIRED if creativeMode is story-carousel, otherwise omit)",
@@ -382,6 +388,8 @@ Use exactly this structure:
         "compositionStyle": "string",
         "lightingStyle": "string",
         "sceneType": "string",
+        "artDirection": "documentary-gifting | doorstep-delivery | florist-workbench | botanical-macro | sculptural-studio | editorial-flatlay | hosting-tablescape | bouquet-in-motion | unboxing-reveal | architectural-interior | seasonal-cinematic | color-block-editorial | flower-care-demonstration | magazine-product-feature (REQUIRED in independent mode; optional in story-carousel)",
+        "copyLayout": "top-left-editorial | top-right-editorial | lower-left-caption | lower-right-caption | full-bleed-left-gradient | full-bleed-right-gradient (REQUIRED in independent mode; optional in story-carousel)",
         "storyRole": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
         "storyBeat": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
         "brandRole": "none | subtle | reveal (REQUIRED if creativeMode is story-carousel, otherwise omit)",
@@ -405,6 +413,8 @@ Use exactly this structure:
         "compositionStyle": "string",
         "lightingStyle": "string",
         "sceneType": "string",
+        "artDirection": "documentary-gifting | doorstep-delivery | florist-workbench | botanical-macro | sculptural-studio | editorial-flatlay | hosting-tablescape | bouquet-in-motion | unboxing-reveal | architectural-interior | seasonal-cinematic | color-block-editorial | flower-care-demonstration | magazine-product-feature (REQUIRED in independent mode; optional in story-carousel)",
+        "copyLayout": "top-left-editorial | top-right-editorial | lower-left-caption | lower-right-caption | full-bleed-left-gradient | full-bleed-right-gradient (REQUIRED in independent mode; optional in story-carousel)",
         "storyRole": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
         "storyBeat": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
         "brandRole": "none | subtle | reveal (REQUIRED if creativeMode is story-carousel, otherwise omit)",
@@ -645,6 +655,7 @@ Instead, strategically choose the 4 best creative concepts from the available ev
 
 The 4 concepts should be meaningfully different marketing approaches, not just visual variations of the same advertisement.
 Use at least 3 different creativeType values and at least 3 different sceneStrategy values.
+Assign four different artDirection values and at least three different copyLayout values. These are production controls, not descriptive synonyms: each art direction must visibly change the camera behavior, environment, product scale and human action. The supplied campaign Visual Treatment is the anchor for the strongest variant, not a command to make all four images use one look.
 Only one variant may use productRole "hero". Exactly two variants must use "hero" or "supporting" and exactly two must use "optional". Do not use productRole "none" in independent mode.
 The two optional variants must still show flowers prominently. The image generator is given the selected product photo for every variant, so any bouquet shown is always the selected product; in optional variants it is simply not the focus. Never describe a different bouquet.
 Every independent visual must unmistakably market flowers. Flowers must occupy a meaningful part of the composition, while books, mugs, candles, shelves, feathers and other props remain secondary atmosphere rather than the subject.
@@ -845,7 +856,17 @@ FOR STORY-CAROUSEL MODE:
 
 The 4 slides should maintain visual continuity as specified in visualContinuity, while still showing clear progression through the story.
 
-Each variant must specify these 4 visual style fields:
+Each independent variant must specify these 6 visual style fields:
+
+artDirection:
+Choose one production-ready direction from the allowed enum. It controls the kind of photograph,
+camera behavior and action—not merely adjectives. Use four different values across independent
+variants. Match the concept honestly; for example, do not choose doorstep-delivery for a flat lay.
+
+copyLayout:
+Choose the intended branded-copy zone from the allowed enum. Use at least three different values
+across independent variants. A full-bleed gradient layout should retain photographic detail beneath
+the copy instead of creating an empty white half-image.
 
 colorPalette:
 Specific color direction for the scene and props (NOT the product flowers).
@@ -895,7 +916,8 @@ VISUAL DIVERSITY ENFORCEMENT:
 
 FOR INDEPENDENT MODE:
 
-The 4 variants MUST use different values for at least 3 out of 4 style fields.
+The 4 variants MUST use different values for at least 3 out of the 4 descriptive style fields,
+plus four different artDirection values and at least three different copyLayout values.
 
 Do NOT generate variants with the same colorPalette, compositionStyle, AND lightingStyle.
 
@@ -1195,6 +1217,11 @@ export async function generateMarketingStrategy(
     const strategy = marketingStrategySchema.parse(normalizedJSON);
     if (input.contentTheme && input.contentTheme !== "gifting-story" && strategy.creativeBrief?.creativeMode === "story-carousel") {
       throw new Error("Non-gifting content must preserve its theme using independent creatives");
+    }
+    if (input.visualTreatment && ART_DIRECTIONS.some(direction => direction === input.visualTreatment) &&
+        strategy.creativeBrief?.creativeMode === "independent" &&
+        !strategy.creativeBrief.variants.some(variant => variant.artDirection === input.visualTreatment)) {
+      throw new Error("Independent creatives must include the assigned campaign visual treatment as one art direction");
     }
     return strategy;
   }, signal, z.toJSONSchema(marketingStrategySchema));

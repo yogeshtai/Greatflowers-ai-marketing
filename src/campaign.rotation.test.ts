@@ -10,12 +10,12 @@ const quietDay = new Date(2026, 8, 28, 12);
 const catalog = [1, 2, 3, 4, 5, 6, 7].map(id => product(id));
 
 test("recommendations and published posts both enforce theme, visual and product cooldowns", () => {
-  const recent = [{ contentTheme: "gifting-story", visualTreatment: "bouquet-detail", productId: 1 }, { contentTheme: "home-styling", productId: 2 }];
-  const published = [{ contentTheme: "flower-care", visualTreatment: "room-setting", productId: 3 }, { contentTheme: "product-spotlight", productId: 4 }];
+  const recent: RotationEntry[] = [{ contentTheme: "gifting-story", visualTreatment: "documentary-gifting", productId: 1 }, { contentTheme: "home-styling", productId: 2 }];
+  const published: RotationEntry[] = [{ contentTheme: "flower-care", visualTreatment: "architectural-interior", productId: 3 }, { contentTheme: "product-spotlight", productId: 4 }];
   for (const random of [0, 0.2, 0.5, 0.999]) {
     const plan = createRotationPlan(catalog, recent, published, quietDay, () => random);
     assert.ok(!["gifting-story", "home-styling", "flower-care", "product-spotlight"].includes(plan.contentTheme));
-    assert.ok(!["bouquet-detail", "room-setting"].includes(plan.visualTreatment));
+    assert.ok(!["documentary-gifting", "architectural-interior"].includes(plan.visualTreatment));
     assert.deepEqual(plan.candidates.map(p => p.id), [5, 6, 7]);
   }
 });

@@ -5,6 +5,8 @@ import { creativeBriefSchema } from "./strategy.schema.js";
 const scenes = ["PRODUCT_STUDIO", "HUMAN_GIFTING_MOMENT", "EDITORIAL_CONTENT", "OCCASION_SCENE"] as const;
 const roles = ["hero", "supporting", "optional", "optional"] as const;
 const types = ["product", "lifestyle", "informational", "occasion"] as const;
+const artDirections = ["sculptural-studio", "documentary-gifting", "flower-care-demonstration", "seasonal-cinematic"] as const;
+const copyLayouts = ["top-left-editorial", "lower-right-caption", "full-bleed-left-gradient", "top-right-editorial"] as const;
 
 const variant = (order: number) => ({
   order,
@@ -21,6 +23,8 @@ const variant = (order: number) => ({
   compositionStyle: `Composition ${order}`,
   lightingStyle: `Lighting ${order}`,
   sceneType: `Scene ${order}`,
+  artDirection: artDirections[order - 1],
+  copyLayout: copyLayouts[order - 1],
 });
 
 const base = {
@@ -42,6 +46,9 @@ test("independent campaigns require four genuinely varied creative directions", 
   assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.slice(0, 3) }).success, false);
   assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map(v => ({ ...v, sceneStrategy: "PRODUCT_STUDIO" })) }).success, false);
   assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map(v => ({ ...v, compositionStyle: "Same composition", sceneType: "Same scene" })) }).success, false);
+  assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map(v => ({ ...v, artDirection: "sculptural-studio" })) }).success, false);
+  assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map(v => ({ ...v, copyLayout: "top-left-editorial" })) }).success, false);
+  assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map((v, index) => index === 0 ? { ...v, artDirection: "doorstep-delivery" } : v) }).success, false);
   assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map(v => ({ ...v, productRole: "hero" })) }).success, false);
   assert.equal(creativeBriefSchema.safeParse({
     ...base,

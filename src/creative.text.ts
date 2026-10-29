@@ -305,11 +305,13 @@ export function buildCreativeTextOverlay(
       <filter id="text-shadow" x="-20%" y="-20%" width="140%" height="140%">
         <feDropShadow dx="0" dy="1" stdDeviation="${tone === "light" ? "2.4" : "1.8"}" flood-color="${tone === "light" ? "#000000" : "#ffffff"}" flood-opacity="${tone === "light" ? "0.72" : "0.82"}"/>
       </filter>
-      <filter id="copy-backdrop-blur" x="-15%" y="-20%" width="130%" height="140%">
-        <feGaussianBlur stdDeviation="32"/>
-      </filter>
+      <linearGradient id="copy-gradient" x1="${side === "left" ? "0%" : "100%"}" y1="0%" x2="${side === "left" ? "100%" : "0%"}" y2="0%">
+        <stop offset="0%" stop-color="${tone === "light" ? "#000000" : "#ffffff"}" stop-opacity="${tone === "light" ? "0.58" : "0.68"}"/>
+        <stop offset="46%" stop-color="${tone === "light" ? "#000000" : "#ffffff"}" stop-opacity="${tone === "light" ? "0.34" : "0.42"}"/>
+        <stop offset="72%" stop-color="${tone === "light" ? "#000000" : "#ffffff"}" stop-opacity="0"/>
+      </linearGradient>
     </defs>
-    <rect x="${side === "left" ? 0 : Math.round(width * 0.5)}" y="${vertical === "lower" ? Math.round(height * 0.45) : 0}" width="${Math.round(width * 0.5)}" height="${vertical === "lower" ? Math.round(height * 0.45) : Math.round(height * (contentPoints.length ? 0.85 : 0.8))}" fill="${tone === "light" ? "#000000" : "#ffffff"}" fill-opacity="${tone === "light" ? "0.3" : "0.34"}" filter="url(#copy-backdrop-blur)"/>
+    <rect x="0" y="${vertical === "lower" ? Math.round(height * 0.43) : 0}" width="${width}" height="${vertical === "lower" ? Math.round(height * 0.49) : Math.round(height * (contentPoints.length ? 0.85 : 0.8))}" fill="url(#copy-gradient)"/>
     <text font-family="${typography.family}" font-size="${fitted.size}" font-weight="${typography.weight}" letter-spacing="-1.2" filter="url(#text-shadow)">${headlineSvg}</text>
     ${subLines.length ? `<text x="${x}" text-anchor="${anchor}" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${subSize}" font-weight="500" fill="${palette.secondary}" filter="url(#text-shadow)">${subSvg}</text>` : ""}
     ${ctaPillSvg}

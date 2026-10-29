@@ -145,6 +145,9 @@ ${JSON.stringify(recentHistory)}
 Avoid repeating scenarios, marketing angles and compositions in either history.
 Theme and visual cooldowns are already enforced. Product cooldown relaxed for seasonal
 fit or a limited catalog: ${rotation.productCooldownRelaxed}. Use only the eligible catalog.
+Published-history artDirections and copyLayouts describe the actual recent visual systems.
+Use them as anti-repetition evidence: do not recommend a scenario that naturally recreates
+the same camera behavior, setting and layout combination as the newest published campaign.
 
 FACT AND EVIDENCE RULES:
 - selectedProductId must be a NUMBER from the eligible catalog; selectedProductName must

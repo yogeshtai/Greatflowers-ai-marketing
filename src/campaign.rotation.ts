@@ -2,6 +2,7 @@ import type { MarketingProduct } from "./greatflowers.products.js";
 import type { SavedCampaign } from "./campaign.store.js";
 import type { RecommendationHistoryItem } from "./recommendation.store.js";
 import { getActiveOccasions } from "./occasion.calendar.js";
+import { ART_DIRECTIONS } from "./creative.direction.js";
 
 export const CONTENT_THEMES = [
   "gifting-story", "home-styling", "flower-care", "product-spotlight",
@@ -10,9 +11,7 @@ export const CONTENT_THEMES = [
   "self-care-ritual", "milestone-moment", "relationship-appreciation",
   "occasion-planning", "mood-expression", "design-details",
 ] as const;
-export const VISUAL_TREATMENTS = [
-  "bouquet-detail", "room-setting", "human-moment", "editorial-flatlay", "educational-layout",
-] as const;
+export const VISUAL_TREATMENTS = ART_DIRECTIONS;
 export type ContentTheme = typeof CONTENT_THEMES[number];
 export type VisualTreatment = typeof VISUAL_TREATMENTS[number];
 export type RotationEntry = {
@@ -24,97 +23,97 @@ const themes: Record<ContentTheme, { goal: string; priority: string; guidance: s
     goal: "Generate orders",
     priority: "Conversions",
     guidance: "A fresh, specific reason to give flowers. Vary relationships and situations, not just occasion labels.",
-    visuals: ["human-moment", "room-setting", "editorial-flatlay"],
+    visuals: ["documentary-gifting", "bouquet-in-motion", "unboxing-reveal", "doorstep-delivery"],
   },
   "home-styling": {
     goal: "Build brand awareness",
     priority: "Awareness",
     guidance: "Practical inspiration for a home or workspace using a real GreatFlowers arrangement. No forced gift story.",
-    visuals: ["room-setting", "editorial-flatlay", "human-moment"],
+    visuals: ["architectural-interior", "color-block-editorial", "magazine-product-feature"],
   },
   "flower-care": {
     goal: "Encourage saves and shares",
     priority: "Engagement",
     guidance: "Useful general flower-care education connected naturally to GreatFlowers. Do not invent species, longevity guarantees or product-specific care facts; omit uncertain advice. Invite saves or shares.",
-    visuals: ["educational-layout", "bouquet-detail", "editorial-flatlay"],
+    visuals: ["flower-care-demonstration", "florist-workbench", "botanical-macro"],
   },
   "product-spotlight": {
     goal: "Drive product discovery",
     priority: "Consideration",
     guidance: "Explore verified details of a real catalog bouquet, with a natural invitation to discover it. Do not invent flower varieties or craftsmanship claims.",
-    visuals: ["bouquet-detail", "editorial-flatlay", "room-setting"],
+    visuals: ["sculptural-studio", "botanical-macro", "magazine-product-feature"],
   },
   "seasonal-inspiration": {
     goal: "Build brand awareness",
     priority: "Awareness",
     guidance: "Seasonal colors, styling or a relevant active holiday. Use the current US season; do not invent a holiday or imply seasonal demand is measured.",
-    visuals: ["room-setting", "editorial-flatlay", "bouquet-detail"],
+    visuals: ["seasonal-cinematic", "hosting-tablescape", "architectural-interior"],
   },
   "conversation-starter": {
     goal: "Encourage comments and shares",
     priority: "Engagement",
     guidance: "An inviting flower preference question or everyday conversation tied to GreatFlowers. No fake polls, testimonials, giveaways or unsupported product comparisons.",
-    visuals: ["educational-layout", "human-moment", "bouquet-detail"],
+    visuals: ["color-block-editorial", "botanical-macro", "bouquet-in-motion"],
   },
   "recipient-spotlight": {
     goal: "Help customers choose confidently",
     priority: "Consideration",
     guidance: "Build a practical selection idea around one specific hypothetical recipient type, such as a mentor, host, close friend or new parent. Focus on their context and taste; do not claim demographic behavior or turn it into a generic occasion post.",
-    visuals: ["human-moment", "bouquet-detail", "room-setting"],
+    visuals: ["documentary-gifting", "unboxing-reveal", "magazine-product-feature"],
   },
   "color-story": {
     goal: "Drive visual discovery",
     priority: "Awareness",
     guidance: "Center the campaign on the verified color palette visible in one real arrangement and the atmosphere those colors can create. Do not invent flower varieties, symbolism or color details not supported by the product image and catalog.",
-    visuals: ["bouquet-detail", "editorial-flatlay", "room-setting"],
+    visuals: ["color-block-editorial", "botanical-macro", "sculptural-studio"],
   },
   "hosting-tablescape": {
     goal: "Inspire occasion hosting",
     priority: "Consideration",
     guidance: "Show a concrete hosting or tablescape use for a real arrangement: dinner, brunch, welcome table or small gathering. Make the setting the story and avoid unsupported claims about size, fragrance or longevity.",
-    visuals: ["room-setting", "editorial-flatlay", "bouquet-detail"],
+    visuals: ["hosting-tablescape", "editorial-flatlay", "architectural-interior"],
   },
   "workplace-appreciation": {
     goal: "Expand professional gifting consideration",
     priority: "Consideration",
     guidance: "Create a specific professional appreciation or workplace moment for a colleague, mentor, team member or client. Keep it warm and appropriate; do not invent corporate services, bulk pricing or delivery guarantees.",
-    visuals: ["human-moment", "room-setting", "editorial-flatlay"],
+    visuals: ["documentary-gifting", "doorstep-delivery", "architectural-interior"],
   },
   "self-care-ritual": {
     goal: "Build an everyday flower habit",
     priority: "Awareness",
     guidance: "Frame flowers as part of a grounded personal ritual, reset or small act of self-kindness. Avoid medical, therapeutic or guaranteed mood claims and do not convert it into a gifting story.",
-    visuals: ["human-moment", "room-setting", "bouquet-detail"],
+    visuals: ["bouquet-in-motion", "architectural-interior", "botanical-macro"],
   },
   "milestone-moment": {
     goal: "Generate orders for life moments",
     priority: "Conversions",
     guidance: "Choose one specific achievement or transition—new job, graduation, new home, retirement or personal goal—and dramatize the recognition moment. Keep it distinct from birthdays and generic congratulations.",
-    visuals: ["human-moment", "room-setting", "editorial-flatlay"],
+    visuals: ["documentary-gifting", "unboxing-reveal", "doorstep-delivery"],
   },
   "relationship-appreciation": {
     goal: "Create thoughtful gifting intent",
     priority: "Conversions",
     guidance: "Celebrate one clearly defined relationship and an everyday reason for appreciation without relying on a calendar holiday. Make the bond and message specific; do not use a testimonial or repeat a generic gift exchange.",
-    visuals: ["human-moment", "editorial-flatlay", "room-setting"],
+    visuals: ["documentary-gifting", "bouquet-in-motion", "unboxing-reveal"],
   },
   "occasion-planning": {
     goal: "Help customers plan ahead",
     priority: "Consideration",
     guidance: "Offer a concise planning angle for choosing flowers for one upcoming moment, covering decisions such as recipient, setting, palette or message. Do not claim delivery windows, availability or policies unless supplied by live evidence.",
-    visuals: ["educational-layout", "editorial-flatlay", "bouquet-detail"],
+    visuals: ["editorial-flatlay", "magazine-product-feature", "hosting-tablescape"],
   },
   "mood-expression": {
     goal: "Connect flowers with personal expression",
     priority: "Engagement",
     guidance: "Start with one non-medical emotional tone—joyful, calm, bold, warm or reflective—and use a verified arrangement as a way to express it. Avoid therapy claims, guaranteed emotional outcomes and unsupported symbolism.",
-    visuals: ["bouquet-detail", "human-moment", "editorial-flatlay"],
+    visuals: ["seasonal-cinematic", "color-block-editorial", "botanical-macro"],
   },
   "design-details": {
     goal: "Deepen product consideration",
     priority: "Consideration",
     guidance: "Invite a closer look at verified visible design elements such as palette, silhouette, contrast, texture or container. Use only catalog facts and visible image evidence; do not invent flower varieties, techniques or florist craftsmanship claims.",
-    visuals: ["bouquet-detail", "editorial-flatlay", "educational-layout"],
+    visuals: ["botanical-macro", "sculptural-studio", "magazine-product-feature"],
   },
 };
 
@@ -130,6 +129,8 @@ export function publishedRotationHistory(campaigns: SavedCampaign[]): RotationEn
       creativeScenario: c.input.creativeScenario || c.strategy.creativeBrief?.creativeScenario,
       marketingAngle: c.strategy.marketingAngle,
       visualDirection: c.strategy.creativeBrief?.backgroundDirection,
+      artDirections: [...new Set((c.strategy.creativeBrief?.variants ?? []).flatMap(v => v.artDirection ? [v.artDirection] : []))],
+      copyLayouts: [...new Set((c.strategy.creativeBrief?.variants ?? []).flatMap(v => v.copyLayout ? [v.copyLayout] : []))],
     }));
 }
 

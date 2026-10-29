@@ -17,6 +17,7 @@ import sharp from "sharp";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { CODEX_SPAWN_OPTIONS, codexLimitArgs, guardCodexProcess } from "./ai.limits.js";
 import { addCreativeText, buildCreativeTextOverlay, CREATIVE_LOGO_WIDTH_RATIO as LOGO_WIDTH_RATIO, CREATIVE_MARGIN_RATIO, type CreativeTextSide, type CreativeTextVertical } from "./creative.text.js";
+import { ART_DIRECTION_GUIDANCE, fallbackArtDirection, fallbackCopyLayout, type ArtDirection, type CopyLayout } from "./creative.direction.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CODEX_GENERATED_IMAGES_DIR =
@@ -118,6 +119,8 @@ export interface CreativeVariant {
   compositionStyle: string;
   lightingStyle: string;
   sceneType: string;
+  artDirection?: ArtDirection;
+  copyLayout?: CopyLayout;
 }
 
 export interface CreativeBrief {
@@ -140,6 +143,8 @@ export interface CreativeResult {
   headline: string;
   subheadline: string;
   cta: string;
+  artDirection: ArtDirection;
+  copyLayout: CopyLayout;
   success: boolean;
   error?: string;
 }
@@ -151,14 +156,13 @@ export function shouldUseProductReference(
 }
 
 export function layoutForCreativeVariant(
-  variant: Pick<CreativeVariant, "order" | "contentPoints">
+  variant: Pick<CreativeVariant, "order" | "contentPoints" | "copyLayout">
 ): { logoPosition: "top-left" | "top-right"; textSide: CreativeTextSide; textVertical: CreativeTextVertical } {
-  const even = variant.order % 2 === 0;
+  const copyLayout = variant.copyLayout ?? fallbackCopyLayout(variant.order);
   const hasContentPoints = Boolean(variant.contentPoints?.length);
-  const textVertical: CreativeTextVertical = hasContentPoints || variant.order === 1 || variant.order === 4
-    ? "top"
-    : "lower";
-  const textSide: CreativeTextSide = even ? "right" : "left";
+  const textSide: CreativeTextSide = copyLayout.includes("right") ? "right" : "left";
+  const textVertical: CreativeTextVertical = hasContentPoints || copyLayout.startsWith("top-")
+    ? "top" : "lower";
   return {
     // The logo anchors the top of the text column (brand block), like the approved ad references.
     logoPosition: textSide === "left" ? "top-left" : "top-right",
@@ -396,16 +400,21 @@ Generate from the strategic concept.`;
   }
 
   const { logoPosition, textSide, textVertical } = layoutForCreativeVariant(variant);
+  const artDirection = variant.artDirection ?? fallbackArtDirection(variant.sceneStrategy);
+  const copyLayout = variant.copyLayout ?? fallbackCopyLayout(variant.order);
+  const fullBleedCopy = copyLayout.startsWith("full-bleed");
   const hasContentPoints = (variant.contentPoints?.length || 0) > 0;
   const showWebsiteCta = shouldShowWebsiteCta(variant);
   const typographySafeArea = hasContentPoints
     ? `outer ${textSide} 46% of the upper 82%`
+    : fullBleedCopy
+      ? `${textSide} 46% of the ${textVertical === "lower" ? "lower-middle" : "upper"} frame, retaining soft photographic detail beneath a natural tonal gradient`
     : textVertical === "lower"
       ? `outer ${textSide} 42% of the lower-middle band, from about 48% to 82% of the image height`
       : `outer ${textSide} 42% of the upper half`;
   const otherDirections = creativeBrief.variants
     .filter((candidate) => candidate.order !== variant.order)
-    .map((candidate) => `- Variant ${candidate.order}: ${candidate.creativeType}; ${candidate.sceneStrategy}; ${candidate.compositionStyle}; ${candidate.sceneType}`)
+    .map((candidate) => `- Variant ${candidate.order}: ${candidate.creativeType}; ${candidate.sceneStrategy}; ${candidate.artDirection ?? fallbackArtDirection(candidate.sceneStrategy)}; ${candidate.copyLayout ?? fallbackCopyLayout(candidate.order)}; ${candidate.compositionStyle}; ${candidate.sceneType}`)
     .join("\n");
 
   return `Create a TEXT-FREE 1:1 premium social media campaign base image for GreatFlowers.
@@ -433,6 +442,11 @@ ${variant.concept}
 ${sceneStrategyInstructions}
 ${productInstructions}${contextInstructions}
 
+ART DIRECTION (MANDATORY): ${artDirection}
+${ART_DIRECTION_GUIDANCE[artDirection]}
+Treat this as a photographic production brief. The camera angle, action, environment and flower
+scale must visibly express this direction; changing only props or colors is not sufficient.
+
 FLOWER COMMERCE RELEVANCE (CRITICAL):
 This is a GreatFlowers marketing creative. Flowers must be immediately visible and relevant
 to the idea, even when the exact catalog product is not used. The image should make someone
@@ -441,14 +455,16 @@ feathers, candles and other props may establish context, but must never become t
 subject or visually replace the flowers. For human scenes, show an active flower-related
 moment such as giving, receiving, arranging, carrying, delivering or unboxing.
 
-LOGO + TEXT COLUMN (CRITICAL):
-The ${textSide} side of the image is one continuous brand column: the official GreatFlowers logo at the top ${logoPosition === "top-left" ? "left" : "right"} corner, with large editorial typography beneath it.
-This whole column MUST remain free of faces, flowers, important objects and decorative details.
+COPY LAYOUT (CRITICAL): ${copyLayout}
+The official GreatFlowers logo will be placed in the top ${logoPosition === "top-left" ? "left" : "right"} corner and the approved copy will use the assigned ${textVertical} ${textSide} zone.
+Keep faces and the most important flower details out of those exact overlay zones, but do not empty
+an entire half of the photograph. The scene must remain visually complete and intentional.
 Do not generate, spell, draw, or recreate GreatFlowers branding or logo.
 
 TYPOGRAPHY SAFE AREA (CRITICAL):
-Reserve the ${typographySafeArea} as a smooth, almost solid, very light-toned surface — like a plaster wall, pale marble or soft-focus backdrop.
-Keep faces, flowers and important objects out of that zone. Texture must stay minimal and uniform: no mottled highlights, deep shadows, strong grain or busy details, so large high-contrast editorial typography reads perfectly clean.
+Reserve the ${typographySafeArea} as calm natural negative space with controlled contrast.
+Keep faces and important flower details out of that zone. Natural wall, room, fabric, sky or soft-focus
+scene detail may continue through it; avoid busy edges directly behind the copy.
 Do not create a white rectangle, translucent card, blank paper panel or fake text box.
 The application will typeset the approved headline, subheadline${hasContentPoints ? " and numbered content points" : ""} in this zone after generation.
 ${hasContentPoints ? "Do not draw empty circles, unlabeled icons, arrows, process diagrams or step placeholders." : ""}
@@ -872,9 +888,9 @@ export async function generateCreativeVariant(
     );
 
     // Step 1: Codex generates the creative (no logo)
-    // Hero and supporting concepts use the catalog image so product-linked
-    // messaging cannot drift into a generic or invented bouquet. Optional and
-    // product-free concepts remain unconstrained for genuine campaign variety.
+    // Every independent role currently receives the catalog reference so the
+    // bouquet cannot drift. Art direction, camera behavior and scale create
+    // variety without inventing a different sellable product.
     const generationReference = shouldUseProductReference(variant) ? productImagePath : null;
     const generatedPath = await executeCodex(
       prompt,
@@ -928,6 +944,8 @@ export async function generateCreativeVariant(
       headline: variant.headline,
       subheadline: variant.subheadline,
       cta: variant.cta,
+      artDirection: variant.artDirection ?? fallbackArtDirection(variant.sceneStrategy),
+      copyLayout: variant.copyLayout ?? fallbackCopyLayout(variant.order),
       success: true,
     };
   } catch (error) {
@@ -943,6 +961,8 @@ export async function generateCreativeVariant(
       headline: variant.headline,
       subheadline: variant.subheadline,
       cta: variant.cta,
+      artDirection: variant.artDirection ?? fallbackArtDirection(variant.sceneStrategy),
+      copyLayout: variant.copyLayout ?? fallbackCopyLayout(variant.order),
       success: false,
       error:
         error instanceof Error

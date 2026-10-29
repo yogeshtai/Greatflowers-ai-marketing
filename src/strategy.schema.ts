@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ART_DIRECTIONS, ART_DIRECTIONS_BY_SCENE, COPY_LAYOUTS } from "./creative.direction.js";
 
 export const creativeVariantSchema = z.object({
   order: z.number().int().min(1).max(4),
@@ -35,6 +36,8 @@ export const creativeVariantSchema = z.object({
   compositionStyle: z.string().min(1),
   lightingStyle: z.string().min(1),
   sceneType: z.string().min(1),
+  artDirection: z.enum(ART_DIRECTIONS).optional(),
+  copyLayout: z.enum(COPY_LAYOUTS).optional(),
   brandRole: z.enum(["none", "subtle", "reveal"]).optional(),
   sceneChange: z.string().min(1).optional(),
   cameraDirection: z.string().min(1).optional(),
@@ -164,6 +167,12 @@ export const creativeBriefSchema = z.object({
     if (uniqueCount(brief.variants.map(v => v.compositionStyle)) < 3 || uniqueCount(brief.variants.map(v => v.sceneType)) < 3) {
       ctx.addIssue({ code: "custom", path: ["variants"], message: "Independent creatives require at least 3 different compositions and scene types" });
     }
+    if (brief.variants.some(v => !v.artDirection) || uniqueCount(brief.variants.map(v => v.artDirection || "")) !== 4) {
+      ctx.addIssue({ code: "custom", path: ["variants"], message: "Independent creatives require four explicit, different artDirection values" });
+    }
+    if (brief.variants.some(v => !v.copyLayout) || uniqueCount(brief.variants.map(v => v.copyLayout || "")) < 3) {
+      ctx.addIssue({ code: "custom", path: ["variants"], message: "Independent creatives require explicit copyLayout values with at least three different layouts" });
+    }
     if (brief.variants.filter(v => v.productRole === "hero").length > 1) {
       ctx.addIssue({ code: "custom", path: ["variants"], message: "Only one independent creative may use the catalog product as the hero" });
     }
@@ -185,6 +194,12 @@ export const creativeBriefSchema = z.object({
     }
 
     brief.variants.forEach((v, i) => {
+      if (v.artDirection && !ART_DIRECTIONS_BY_SCENE[v.sceneStrategy]?.includes(v.artDirection)) {
+        ctx.addIssue({ code: "custom", path: ["variants", i, "artDirection"], message: `${v.artDirection} is incompatible with ${v.sceneStrategy}` });
+      }
+      if (v.contentPoints?.length && v.copyLayout?.startsWith("lower-")) {
+        ctx.addIssue({ code: "custom", path: ["variants", i, "copyLayout"], message: "Informational content points require a top or full-bleed copy layout" });
+      }
       if (!v.cta.length) ctx.addIssue({ code: "custom", path: ["variants", i, "cta"], message: "CTA required" });
       if (wordCount(v.headline) > 6) {
         ctx.addIssue({ code: "custom", path: ["variants", i, "headline"], message: "Independent creative headlines must be no more than 6 words" });

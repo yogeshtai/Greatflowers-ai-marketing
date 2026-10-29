@@ -42,6 +42,8 @@ const variant = (overrides: Partial<CreativeVariant> = {}): CreativeVariant => (
   compositionStyle: "Person right, negative space left",
   lightingStyle: "Golden natural light",
   sceneType: "Birthday gifting moment",
+  artDirection: "documentary-gifting",
+  copyLayout: "top-left-editorial",
   ...overrides,
 });
 
@@ -88,8 +90,8 @@ test("headline typography applies controlled pink emphasis to a meaningful phras
 test("independent creative styling rotates layout while the palette and logo stay on-brand", () => {
   // The logo anchors the top of the text column on the same side, like the reference ads.
   assert.deepEqual(layoutForCreativeVariant(variant({ order: 1 })), { logoPosition: "top-left", textSide: "left", textVertical: "top" });
-  assert.deepEqual(layoutForCreativeVariant(variant({ order: 2 })), { logoPosition: "top-right", textSide: "right", textVertical: "lower" });
-  assert.equal(layoutForCreativeVariant(variant({ order: 2, contentPoints: ["One useful point", "Another useful point"] })).textVertical, "top");
+  assert.deepEqual(layoutForCreativeVariant(variant({ order: 2, copyLayout: "lower-right-caption" })), { logoPosition: "top-right", textSide: "right", textVertical: "lower" });
+  assert.equal(layoutForCreativeVariant(variant({ order: 2, copyLayout: "lower-right-caption", contentPoints: ["One useful point", "Another useful point"] })).textVertical, "top");
   assert.equal(textPaletteForCreative(variant({ order: 1 })).primary, CREATIVE_TEXT_PURPLE);
   assert.equal(textPaletteForCreative(variant({ order: 2 })).primary, CREATIVE_TEXT_PURPLE);
   assert.equal(textPaletteForCreative(variant({ order: 3 })).accent, CREATIVE_TEXT_PINK);
@@ -177,7 +179,7 @@ test("image generation reserves clear zones and never renders its own text", () 
 });
 
 test("only the fourth independent creative reserves space for the website pill", () => {
-  const creative = variant({ order: 4 });
+  const creative = variant({ order: 4, copyLayout: "top-right-editorial" });
   const prompt = buildCodexPrompt(creative, brief(creative));
 
   assert.match(prompt, /lower-center 12%/);
@@ -186,7 +188,7 @@ test("only the fourth independent creative reserves space for the website pill",
 });
 
 test("middle variants reserve and render a genuinely different lower text structure", () => {
-  const creative = variant({ order: 2 });
+  const creative = variant({ order: 2, copyLayout: "lower-right-caption" });
   const prompt = buildCodexPrompt(creative, brief(creative));
   const svg = buildCreativeTextOverlay(creative, "right", 1024, 1024, "lower").toString();
 
@@ -208,7 +210,7 @@ test("creative typography automatically switches contrast for dark and light pho
     const lightTextSvg = buildCreativeTextOverlay(variant(), "left", 1024, 1024, "top", "light").toString();
     assert.match(lightTextSvg, /fill="#ffffff"/);
     assert.match(lightTextSvg, /flood-color="#000000"/);
-    assert.match(lightTextSvg, /copy-backdrop-blur/);
+    assert.match(lightTextSvg, /copy-gradient/);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -224,6 +226,8 @@ test("hero and supporting creatives use the real product reference", () => {
   const prompt = buildCodexPrompt(supporting, brief(supporting));
   assert.match(prompt, /Use the supplied product image as the actual bouquet/);
   assert.match(prompt, /Preserve its recognizable flower mix, colors, arrangement and container/);
+  assert.match(prompt, /ART DIRECTION \(MANDATORY\): documentary-gifting/);
+  assert.match(prompt, /COPY LAYOUT \(CRITICAL\): top-left-editorial/);
 
   const optional = variant({ productRole: "optional" });
   const optionalPrompt = buildCodexPrompt(optional, brief(optional));

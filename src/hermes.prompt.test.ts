@@ -28,4 +28,7 @@ test("campaign strategy prompt forbids unexplained prop metaphors", () => {
   assert.match(prompt, /Every independent visual must unmistakably market flowers/);
   assert.match(prompt, /props remain secondary atmosphere rather than the subject/);
   assert.match(prompt, /include at least one gentle purchase or product-discovery action/);
+  assert.match(prompt, /Assign four different artDirection values/);
+  assert.match(prompt, /at least three different copyLayout values/);
+  assert.match(prompt, /full-bleed gradient layout should retain photographic detail/);
 });

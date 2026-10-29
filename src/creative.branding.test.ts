@@ -23,10 +23,11 @@ test("creative branding matches the approved logo scale and website CTA", () => 
 });
 
 test("the logo scrim only engages when the corner behind it is too bright or too dark", () => {
-  assert.equal(logoScrimTone(235), "dark");
-  assert.equal(logoScrimTone(150), "dark");
-  assert.equal(logoScrimTone(20), "light");
-  assert.equal(logoScrimTone(55), "light");
+  // A dark wordmark on a bright studio backdrop already reads; a scrim there is just a smudge.
+  assert.equal(logoScrimTone(235), null);
+  assert.equal(logoScrimTone(150), null);
   assert.equal(logoScrimTone(120), null);
-  assert.equal(logoScrimTone(90), null);
+  assert.equal(logoScrimTone(71), null);
+  assert.equal(logoScrimTone(70), "light");
+  assert.equal(logoScrimTone(20), "light");
 });

@@ -716,8 +716,9 @@ function resolveLogoPosition(
 // corners. Measure what is actually behind it and lay down a soft gradient only when the contrast
 // is too low to read.
 export function logoScrimTone(meanLuminance: number): "dark" | "light" | null {
-  if (meanLuminance >= 150) return "dark";
-  if (meanLuminance <= 55) return "light";
+  // The wordmark is dark purple, so a bright corner already gives it good contrast and a scrim
+  // there only shows up as a smudge. Only lift it off genuinely dark backgrounds.
+  if (meanLuminance <= 70) return "light";
   return null;
 }
 
@@ -756,8 +757,8 @@ async function logoScrim(
   const svg = `<svg width="${scrimWidth}" height="${scrimHeight}" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <radialGradient id="g" cx="50%" cy="50%" r="62%">
-        <stop offset="0%" stop-color="rgb(${colour})" stop-opacity="0.5"/>
-        <stop offset="60%" stop-color="rgb(${colour})" stop-opacity="0.26"/>
+        <stop offset="0%" stop-color="rgb(${colour})" stop-opacity="0.34"/>
+        <stop offset="60%" stop-color="rgb(${colour})" stop-opacity="0.16"/>
         <stop offset="100%" stop-color="rgb(${colour})" stop-opacity="0"/>
       </radialGradient>
     </defs>

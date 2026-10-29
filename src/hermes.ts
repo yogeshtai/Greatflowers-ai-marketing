@@ -517,12 +517,15 @@ You may adapt slightly based on the product, but the meaning must remain.
 headline:
 
 Short primary ad headline suitable for image creative.
-Avoid long paragraphs.
-Keep concise.
+HARD LIMIT: at most 6 words. This is validated and a longer headline fails the whole campaign, so
+count the words before returning. Prefer 3-5 words. Articles, prepositions and hyphenated pairs all
+count as words.
 
 subheadline:
 
 One short supporting sentence.
+HARD LIMIT: at most 10 words, also validated. Leave it empty for product, lifestyle and occasion
+concepts rather than padding it.
 Must not invent unsupported claims.
 
 contentPoints:

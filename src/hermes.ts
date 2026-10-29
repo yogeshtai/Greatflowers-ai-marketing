@@ -9,7 +9,7 @@ import {
 } from "./strategy.schema.js";
 import { hermesDispatcher, hermesSignal } from "./ai.limits.js";
 import { parseModelJSON } from "./model.json.js";
-import { ART_DIRECTIONS } from "./creative.direction.js";
+import { ART_DIRECTIONS, artDirectionPreferences } from "./creative.direction.js";
 
 export interface CampaignInput {
   campaignGoal: string;
@@ -862,6 +862,14 @@ artDirection:
 Choose one production-ready direction from the allowed enum. It controls the kind of photograph,
 camera behavior and action—not merely adjectives. Use four different values across independent
 variants. Match the concept honestly; for example, do not choose doorstep-delivery for a flat lay.
+These directions suit each sceneStrategy most naturally:
+${artDirectionPreferences()}
+Treat those pairings as strong preferences rather than a closed list. Choose a direction outside the
+preferred set when the concept genuinely calls for it and the resulting photograph still makes sense
+for the scene, but never pick one that contradicts the scene.
+The assigned campaign Visual Treatment outranks these preferences: one variant must still use it as
+its artDirection. Give that variant a sceneStrategy the treatment suits instead of dropping the
+treatment, since every direction above fits at least one scene.
 
 copyLayout:
 Choose the intended branded-copy zone from the allowed enum. Use at least three different values

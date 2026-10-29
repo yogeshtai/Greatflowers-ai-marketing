@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { creativeBriefSchema } from "./strategy.schema.js";
+import { creativeBriefSchema, SCENE_STRATEGIES } from "./strategy.schema.js";
+import { ART_DIRECTIONS, PREFERRED_ART_DIRECTIONS, fallbackArtDirection } from "./creative.direction.js";
 
 const scenes = ["PRODUCT_STUDIO", "HUMAN_GIFTING_MOMENT", "EDITORIAL_CONTENT", "OCCASION_SCENE"] as const;
 const roles = ["hero", "supporting", "optional", "optional"] as const;
@@ -48,7 +49,6 @@ test("independent campaigns require four genuinely varied creative directions", 
   assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map(v => ({ ...v, compositionStyle: "Same composition", sceneType: "Same scene" })) }).success, false);
   assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map(v => ({ ...v, artDirection: "sculptural-studio" })) }).success, false);
   assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map(v => ({ ...v, copyLayout: "top-left-editorial" })) }).success, false);
-  assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map((v, index) => index === 0 ? { ...v, artDirection: "doorstep-delivery" } : v) }).success, false);
   assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map(v => ({ ...v, productRole: "hero" })) }).success, false);
   assert.equal(creativeBriefSchema.safeParse({
     ...base,
@@ -68,6 +68,36 @@ test("independent campaigns require four genuinely varied creative directions", 
   assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map(v => ({ ...v, cta: "Save this idea" })) }).success, false);
   assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map(v => ({ ...v, cta: "Send this to a friend" })) }).success, false);
   assert.equal(creativeBriefSchema.safeParse({ ...base, variants: variants.map((v, index) => index === 0 ? { ...v, headline: "This headline has far too many words today" } : v) }).success, false);
+});
+
+test("every art direction stays reachable so an assigned visual treatment is always usable", () => {
+  const suggested = new Set(Object.values(PREFERRED_ART_DIRECTIONS).flat());
+  for (const direction of ART_DIRECTIONS) {
+    assert.ok(suggested.has(direction), `${direction} can be assigned as a campaign visual treatment but no scene prefers it`);
+  }
+  for (const scene of SCENE_STRATEGIES) {
+    const preferred = PREFERRED_ART_DIRECTIONS[scene];
+    assert.ok(preferred?.length, `${scene} has no preferred art directions`);
+    assert.ok(preferred.includes(fallbackArtDirection(scene)), `${scene} fallback is not among its preferred directions`);
+  }
+});
+
+test("scene strategy never hard-blocks an art direction", () => {
+  const variants = [1, 2, 3, 4].map(variant);
+  const parseWithLastVariant = (sceneStrategy: string, artDirection: string) => creativeBriefSchema.safeParse({
+    ...base,
+    variants: variants.map((item, index) => index === 3 ? { ...item, sceneStrategy, artDirection } : item),
+  });
+
+  assert.equal(parseWithLastVariant("BRAND_STORY", "color-block-editorial").success, true);
+
+  const taken = new Set<string>(artDirections.slice(0, 3));
+  for (const scene of SCENE_STRATEGIES) {
+    for (const direction of ART_DIRECTIONS.filter(value => !taken.has(value))) {
+      const result = parseWithLastVariant(scene, direction);
+      assert.equal(result.success, true, `${direction} should be allowed with ${scene}: ${result.error?.message}`);
+    }
+  }
 });
 
 test("copy that promises a process must include every meaningful content point", () => {

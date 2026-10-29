@@ -31,4 +31,6 @@ test("campaign strategy prompt forbids unexplained prop metaphors", () => {
   assert.match(prompt, /Assign four different artDirection values/);
   assert.match(prompt, /at least three different copyLayout values/);
   assert.match(prompt, /full-bleed gradient layout should retain photographic detail/);
+  assert.match(prompt, /- BRAND_STORY: .*color-block-editorial/);
+  assert.match(prompt, /strong preferences rather than a closed list/);
 });

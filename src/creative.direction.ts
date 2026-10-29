@@ -45,17 +45,23 @@ export const ART_DIRECTION_GUIDANCE: Record<ArtDirection, string> = {
   "magazine-product-feature": "Premium magazine-style product feature with an unusual crop, strong hierarchy and refined styling. Avoid the standard centered ecommerce composition.",
 };
 
-export const ART_DIRECTIONS_BY_SCENE: Record<string, readonly ArtDirection[]> = {
-  PRODUCT_STUDIO: ["sculptural-studio", "botanical-macro", "color-block-editorial", "magazine-product-feature"],
+export const PREFERRED_ART_DIRECTIONS: Record<string, readonly ArtDirection[]> = {
+  PRODUCT_STUDIO: ["sculptural-studio", "botanical-macro", "color-block-editorial", "magazine-product-feature", "editorial-flatlay"],
   HUMAN_GIFTING_MOMENT: ["documentary-gifting", "doorstep-delivery", "bouquet-in-motion", "unboxing-reveal", "seasonal-cinematic"],
-  HUMAN_LIFESTYLE: ["florist-workbench", "bouquet-in-motion", "architectural-interior", "hosting-tablescape", "flower-care-demonstration"],
+  HUMAN_LIFESTYLE: ["bouquet-in-motion", "florist-workbench", "hosting-tablescape", "architectural-interior", "flower-care-demonstration"],
   OCCASION_SCENE: ["seasonal-cinematic", "hosting-tablescape", "documentary-gifting", "doorstep-delivery", "architectural-interior"],
-  EDITORIAL_CONTENT: ["editorial-flatlay", "botanical-macro", "color-block-editorial", "magazine-product-feature", "flower-care-demonstration"],
-  INFORMATIONAL_GRAPHIC: ["flower-care-demonstration", "florist-workbench", "botanical-macro", "editorial-flatlay"],
-  LOCATION_STORY: ["architectural-interior", "doorstep-delivery", "seasonal-cinematic", "hosting-tablescape"],
-  FEATURE_DEMO: ["florist-workbench", "unboxing-reveal", "flower-care-demonstration", "botanical-macro"],
-  BRAND_STORY: ["editorial-flatlay", "architectural-interior", "documentary-gifting", "magazine-product-feature"],
+  EDITORIAL_CONTENT: ["magazine-product-feature", "editorial-flatlay", "botanical-macro", "color-block-editorial", "flower-care-demonstration"],
+  INFORMATIONAL_GRAPHIC: ["flower-care-demonstration", "florist-workbench", "botanical-macro", "editorial-flatlay", "color-block-editorial"],
+  LOCATION_STORY: ["architectural-interior", "doorstep-delivery", "seasonal-cinematic", "hosting-tablescape", "florist-workbench"],
+  FEATURE_DEMO: ["florist-workbench", "unboxing-reveal", "flower-care-demonstration", "botanical-macro", "magazine-product-feature"],
+  BRAND_STORY: ["editorial-flatlay", "architectural-interior", "documentary-gifting", "magazine-product-feature", "color-block-editorial", "sculptural-studio"],
 };
+
+export function artDirectionPreferences(): string {
+  return Object.entries(PREFERRED_ART_DIRECTIONS)
+    .map(([scene, directions]) => `- ${scene}: ${directions.join(", ")}`)
+    .join("\n");
+}
 
 export function fallbackArtDirection(sceneStrategy: string): ArtDirection {
   const byScene: Record<string, ArtDirection> = {

@@ -1,5 +1,17 @@
 import { z } from "zod";
-import { ART_DIRECTIONS, ART_DIRECTIONS_BY_SCENE, COPY_LAYOUTS } from "./creative.direction.js";
+import { ART_DIRECTIONS, COPY_LAYOUTS } from "./creative.direction.js";
+
+export const SCENE_STRATEGIES = [
+  "PRODUCT_STUDIO",
+  "HUMAN_GIFTING_MOMENT",
+  "HUMAN_LIFESTYLE",
+  "OCCASION_SCENE",
+  "EDITORIAL_CONTENT",
+  "INFORMATIONAL_GRAPHIC",
+  "LOCATION_STORY",
+  "FEATURE_DEMO",
+  "BRAND_STORY",
+] as const;
 
 export const creativeVariantSchema = z.object({
   order: z.number().int().min(1).max(4),
@@ -12,17 +24,7 @@ export const creativeVariantSchema = z.object({
     "informational",
     "brand-awareness",
   ]),
-  sceneStrategy: z.enum([
-    "PRODUCT_STUDIO",
-    "HUMAN_GIFTING_MOMENT",
-    "HUMAN_LIFESTYLE",
-    "OCCASION_SCENE",
-    "EDITORIAL_CONTENT",
-    "INFORMATIONAL_GRAPHIC",
-    "LOCATION_STORY",
-    "FEATURE_DEMO",
-    "BRAND_STORY",
-  ]),
+  sceneStrategy: z.enum(SCENE_STRATEGIES),
   concept: z.string().min(1),
   headline: z.string().min(1),
   subheadline: z.string(),
@@ -194,9 +196,6 @@ export const creativeBriefSchema = z.object({
     }
 
     brief.variants.forEach((v, i) => {
-      if (v.artDirection && !ART_DIRECTIONS_BY_SCENE[v.sceneStrategy]?.includes(v.artDirection)) {
-        ctx.addIssue({ code: "custom", path: ["variants", i, "artDirection"], message: `${v.artDirection} is incompatible with ${v.sceneStrategy}` });
-      }
       if (v.contentPoints?.length && v.copyLayout?.startsWith("lower-")) {
         ctx.addIssue({ code: "custom", path: ["variants", i, "copyLayout"], message: "Informational content points require a top or full-bleed copy layout" });
       }

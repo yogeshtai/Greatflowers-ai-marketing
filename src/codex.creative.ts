@@ -147,6 +147,8 @@ export interface CreativeResult {
   cta: string;
   artDirection: ArtDirection;
   copyLayout: CopyLayout;
+  environment: SceneEnvironment;
+  lightingSetup: LightingSetup;
   success: boolean;
   error?: string;
 }
@@ -1017,6 +1019,8 @@ export async function generateCreativeVariant(
       cta: variant.cta,
       artDirection: variant.artDirection ?? fallbackArtDirection(variant.sceneStrategy),
       copyLayout: variant.copyLayout ?? fallbackCopyLayout(variant.order),
+      environment: variant.environment ?? fallbackEnvironment(variant.order),
+      lightingSetup: variant.lightingSetup ?? fallbackLightingSetup(variant.order),
       success: true,
     };
   } catch (error) {
@@ -1034,6 +1038,8 @@ export async function generateCreativeVariant(
       cta: variant.cta,
       artDirection: variant.artDirection ?? fallbackArtDirection(variant.sceneStrategy),
       copyLayout: variant.copyLayout ?? fallbackCopyLayout(variant.order),
+      environment: variant.environment ?? fallbackEnvironment(variant.order),
+      lightingSetup: variant.lightingSetup ?? fallbackLightingSetup(variant.order),
       success: false,
       error:
         error instanceof Error

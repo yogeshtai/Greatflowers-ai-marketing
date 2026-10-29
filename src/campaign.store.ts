@@ -71,6 +71,8 @@ export interface SavedCampaign {
     cta: string;
     artDirection?: string;
     copyLayout?: string;
+    environment?: string;
+    lightingSetup?: string;
     success: boolean;
     error?: string;
   }>;

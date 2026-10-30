@@ -472,6 +472,10 @@ moment such as giving, receiving, arranging, carrying, delivering or unboxing.
 
 COPY LAYOUT (CRITICAL): ${copyLayout}
 The official GreatFlowers logo will be placed in the top ${logoPosition === "top-left" ? "left" : "right"} corner and the approved copy will use the assigned ${textVertical} ${textSide} zone.
+That logo corner must be an evenly LIT, LIGHT, uncluttered area - pale wall, bright window light, sky,
+light fabric or soft-focus highlight. The wordmark is a dark indigo-to-magenta gradient that only reads
+on a light backdrop, so never place a dark window frame, deep shadow, doorway, silhouette or saturated
+dark object there, and never let that corner be half bright and half dark.
 Keep faces and the most important flower details out of those exact overlay zones, but do not empty
 an entire half of the photograph. The scene must remain visually complete and intentional.
 Do not generate, spell, draw, or recreate GreatFlowers branding or logo.
@@ -728,6 +732,10 @@ function resolveLogoPosition(
 // corner only reads badly when it sits close to these in contrast terms.
 const LOGO_COLOURS = ["#351E6A", "#701888", "#A52E7F", "#B32C7E", "#DB2173"] as const;
 const MIN_LOGO_CONTRAST = 3;
+const MIN_LOGO_SCRIM_OPACITY = 0.2;
+const MAX_LOGO_SCRIM_OPACITY = 0.45;
+const LOGO_SAMPLE_COLUMNS = 4;
+const LOGO_SAMPLE_ROWS = 3;
 
 function relativeLuminance(r: number, g: number, b: number): number {
   const channel = (value: number) => {
@@ -742,24 +750,58 @@ function contrastRatio(a: number, b: number): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
+const LOGO_LUMINANCES = LOGO_COLOURS.map((hex) => relativeLuminance(
+  parseInt(hex.slice(1, 3), 16),
+  parseInt(hex.slice(3, 5), 16),
+  parseInt(hex.slice(5, 7), 16)
+));
+
+// The wordmark only reads when its hardest stop reads: the indigo end vanishes into dark corners
+// long before the magenta end does, which leaves half the name invisible.
+function logoWeakestContrast(r: number, g: number, b: number): number {
+  const background = relativeLuminance(r, g, b);
+  return Math.min(...LOGO_LUMINANCES.map((logo) => contrastRatio(background, logo)));
+}
+
+// Every scrim lightens. Darkening is unsound for this wordmark: its stops span luminance 0.027 to
+// 0.174, so rescuing the magenta end needs a background below 0.025, where the indigo end collapses
+// to about 1:1 - strictly worse than the problem it set out to fix. Lightening improves both ends
+// at once, so the only question is how much is needed.
+// Aim a little past the threshold: the opacity is solved on a grey equivalent of the corner, but
+// compositing happens per channel, so landing exactly on 3:1 rounds back under it.
+const LOGO_SCRIM_CONTRAST_MARGIN = 1.08;
+const LOGO_SCRIM_TARGET_LUMINANCE =
+  MIN_LOGO_CONTRAST * LOGO_SCRIM_CONTRAST_MARGIN * (Math.max(...LOGO_LUMINANCES) + 0.05) - 0.05;
+
 // A scrim is only worth adding when the wordmark genuinely cannot be read against the corner behind
 // it; laying one over a clean backdrop just leaves a smudge.
-export function logoScrimTone(r: number, g: number, b: number): "dark" | "light" | null {
-  const background = relativeLuminance(r, g, b);
-  // The wordmark only reads when its hardest stop reads: the indigo end vanishes into dark corners
-  // long before the magenta end does, which leaves half the name invisible.
-  const weakest = Math.min(
-    ...LOGO_COLOURS.map((hex) => contrastRatio(
-      background,
-      relativeLuminance(
-        parseInt(hex.slice(1, 3), 16),
-        parseInt(hex.slice(3, 5), 16),
-        parseInt(hex.slice(5, 7), 16)
-      )
-    ))
-  );
-  if (weakest >= MIN_LOGO_CONTRAST) return null;
-  return background < 0.18 ? "light" : "dark";
+export function logoScrimTone(r: number, g: number, b: number): "light" | null {
+  return logoWeakestContrast(r, g, b) >= MIN_LOGO_CONTRAST ? null : "light";
+}
+
+// One average over the whole corner hides a split background. A wordmark lying half on a bright
+// wall and half on a dark window frame averages to a comfortable mid-tone while the dark half is
+// unreadable, so judge the corner cell by cell and let the worst cell decide.
+export function logoScrimToneForCells(
+  cells: ReadonlyArray<readonly [number, number, number]>
+): "light" | null {
+  return cells.some((cell) => logoScrimTone(cell[0], cell[1], cell[2])) ? "light" : null;
+}
+
+function luminanceToChannel(luminance: number): number {
+  const clamped = Math.min(1, Math.max(0, luminance));
+  return (clamped <= 0.0031308 ? clamped * 12.92 : 1.055 * Math.pow(clamped, 1 / 2.4) - 0.055) * 255;
+}
+
+// A fixed strength is a guess: 0.34 white over a near-black window frame still leaves the indigo
+// end under 3:1. Solve for the opacity the measured corner actually needs, so a corner that is
+// merely dull gets a wash too faint to notice and only a genuinely black one gets a strong plate.
+// The cap keeps a hopeless corner from turning into a solid white box.
+export function logoScrimOpacity(r: number, g: number, b: number): number {
+  const current = luminanceToChannel(relativeLuminance(r, g, b));
+  if (current >= 255) return MIN_LOGO_SCRIM_OPACITY;
+  const needed = (luminanceToChannel(LOGO_SCRIM_TARGET_LUMINANCE) - current) / (255 - current);
+  return Math.min(MAX_LOGO_SCRIM_OPACITY, Math.max(MIN_LOGO_SCRIM_OPACITY, needed));
 }
 
 async function logoScrim(
@@ -779,27 +821,41 @@ async function logoScrim(
   const scrimHeight = Math.min(imageHeight - scrimTop, logoHeight + padY * 2);
   if (scrimWidth <= 0 || scrimHeight <= 0) return null;
 
-  let tone: "dark" | "light" | null = null;
+  let tone: "light" | null = null;
+  let worstCell: [number, number, number] | null = null;
   try {
-    const region = await sharp(imagePath)
+    // Downsampling to a grid gives one averaged sample per cell, so a corner that is bright on one
+    // side and dark on the other is judged by its worst patch instead of its mean.
+    const { data, info } = await sharp(imagePath)
       .extract({ left, top, width: Math.min(logoWidth, imageWidth - left), height: Math.min(logoHeight, imageHeight - top) })
-      .stats();
-    const [r, g, b] = region.channels;
-    if (!r || !g || !b) return null;
-    tone = logoScrimTone(r.mean, g.mean, b.mean);
+      .resize(LOGO_SAMPLE_COLUMNS, LOGO_SAMPLE_ROWS, { fit: "fill" })
+      .removeAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const cells: Array<[number, number, number]> = [];
+    for (let index = 0; index + 2 < data.length; index += info.channels) {
+      cells.push([data[index]!, data[index + 1]!, data[index + 2]!]);
+    }
+    if (!cells.length) return null;
+    tone = logoScrimToneForCells(cells);
+    worstCell = cells.reduce((worst, cell) =>
+      logoWeakestContrast(cell[0], cell[1], cell[2]) < logoWeakestContrast(worst[0], worst[1], worst[2]) ? cell : worst
+    );
   } catch {
     // A sampling failure must never cost us the creative; fall back to the bare logo.
     return null;
   }
-  if (!tone) return null;
+  if (!tone || !worstCell) return null;
 
-  const colour = tone === "dark" ? "0,0,0" : "255,255,255";
+  const opacity = logoScrimOpacity(worstCell[0], worstCell[1], worstCell[2]);
+  // Hold full strength across the wordmark itself, then fall to nothing by the edge of the patch,
+  // so the scrim never ends on a visible boundary.
   const svg = `<svg width="${scrimWidth}" height="${scrimHeight}" xmlns="http://www.w3.org/2000/svg">
     <defs>
-      <radialGradient id="g" cx="50%" cy="50%" r="62%">
-        <stop offset="0%" stop-color="rgb(${colour})" stop-opacity="0.34"/>
-        <stop offset="60%" stop-color="rgb(${colour})" stop-opacity="0.16"/>
-        <stop offset="100%" stop-color="rgb(${colour})" stop-opacity="0"/>
+      <radialGradient id="g" cx="50%" cy="50%" r="72%">
+        <stop offset="0%" stop-color="rgb(255,255,255)" stop-opacity="${opacity.toFixed(3)}"/>
+        <stop offset="45%" stop-color="rgb(255,255,255)" stop-opacity="${opacity.toFixed(3)}"/>
+        <stop offset="100%" stop-color="rgb(255,255,255)" stop-opacity="0"/>
       </radialGradient>
     </defs>
     <rect width="${scrimWidth}" height="${scrimHeight}" fill="url(#g)"/>

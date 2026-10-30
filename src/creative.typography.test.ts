@@ -285,6 +285,8 @@ test("image generation reserves clear zones and never renders its own text", () 
   assert.doesNotMatch(prompt, /lower-center 12%/);
   assert.match(prompt, /Do NOT render any text, letters, numbers/);
   assert.match(prompt, /Do not draw empty circles, unlabeled icons/);
+  assert.match(prompt, /logo corner must be an evenly LIT, LIGHT, uncluttered area/);
+  assert.match(prompt, /never let that corner be half bright and half dark/);
   assert.doesNotMatch(prompt, /TEXT OVERLAY \(verbatim\)/);
   assert.doesNotMatch(prompt, /Three exact care steps/);
 });

@@ -488,25 +488,32 @@ ${showWebsiteCta ? `WEBSITE CTA SAFE AREA:
 Keep the lower-center 12% clear of faces, flowers and important objects for the website pill added later.` : `NO WEBSITE PILL:
 Use the lower portion of the frame naturally. No button or URL will be added to this variant.`}
 
-CAMPAIGN BACKGROUND DIRECTION (reinterpret it for this variant; do not repeat another variant's room, surface or framing):
+PRECEDENCE (CRITICAL): the ENVIRONMENT and LIGHTING assigned above are campaign-level decisions and
+outrank every descriptive field that follows. The fields below describe atmosphere, styling and
+emotion WITHIN that setting and light. Where they conflict, the assigned ENVIRONMENT and LIGHTING
+win. A seasonal or occasion mood must never convert the assigned light into candlelight or darkness:
+if the assigned lighting is bright daylight or diffused overcast, the photograph is bright, however
+moody the occasion is.
+
+CAMPAIGN BACKGROUND DIRECTION (reinterpret it for this variant; do not repeat another variant's room, surface or framing; it must not change the assigned environment):
 ${creativeBrief.backgroundDirection}
 
-MOOD:
+MOOD (emotional tone only — it does not set the time of day or the light level):
 ${creativeBrief.mood}
 
 VISUAL DIRECTION FOR THIS VARIANT:
 ${variant.visualDirection}
 
-COLOR PALETTE:
+COLOR PALETTE (props and styling only; it must not darken a brightly lit assignment):
 ${variant.colorPalette}
 
 COMPOSITION STYLE:
 ${variant.compositionStyle}
 
-LIGHTING STYLE:
+LIGHTING STYLE (supporting detail for the assigned ${lightingSetup} lighting — elaborate it, never replace it):
 ${variant.lightingStyle}
 
-SCENE TYPE:
+SCENE TYPE (detail within the assigned ${environment} environment, not a different place):
 ${variant.sceneType}
 
 CREATIVE GOAL:
@@ -717,11 +724,42 @@ function resolveLogoPosition(
 // The wordmark is a fixed-colour SVG composited blind, so it disappears into bright or busy
 // corners. Measure what is actually behind it and lay down a soft gradient only when the contrast
 // is too low to read.
-export function logoScrimTone(meanLuminance: number): "dark" | "light" | null {
-  // The wordmark is dark purple, so a bright corner already gives it good contrast and a scrim
-  // there only shows up as a smudge. Only lift it off genuinely dark backgrounds.
-  if (meanLuminance <= 70) return "light";
-  return null;
+// Sampled from the published wordmark: a gradient from indigo to magenta. Every stop is dark, so a
+// corner only reads badly when it sits close to these in contrast terms.
+const LOGO_COLOURS = ["#351E6A", "#701888", "#A52E7F", "#B32C7E", "#DB2173"] as const;
+const MIN_LOGO_CONTRAST = 3;
+
+function relativeLuminance(r: number, g: number, b: number): number {
+  const channel = (value: number) => {
+    const c = value / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+}
+
+function contrastRatio(a: number, b: number): number {
+  const [hi, lo] = a > b ? [a, b] : [b, a];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+// A scrim is only worth adding when the wordmark genuinely cannot be read against the corner behind
+// it; laying one over a clean backdrop just leaves a smudge.
+export function logoScrimTone(r: number, g: number, b: number): "dark" | "light" | null {
+  const background = relativeLuminance(r, g, b);
+  // The wordmark only reads when its hardest stop reads: the indigo end vanishes into dark corners
+  // long before the magenta end does, which leaves half the name invisible.
+  const weakest = Math.min(
+    ...LOGO_COLOURS.map((hex) => contrastRatio(
+      background,
+      relativeLuminance(
+        parseInt(hex.slice(1, 3), 16),
+        parseInt(hex.slice(3, 5), 16),
+        parseInt(hex.slice(5, 7), 16)
+      )
+    ))
+  );
+  if (weakest >= MIN_LOGO_CONTRAST) return null;
+  return background < 0.18 ? "light" : "dark";
 }
 
 async function logoScrim(
@@ -748,7 +786,7 @@ async function logoScrim(
       .stats();
     const [r, g, b] = region.channels;
     if (!r || !g || !b) return null;
-    tone = logoScrimTone(0.2126 * r.mean + 0.7152 * g.mean + 0.0722 * b.mean);
+    tone = logoScrimTone(r.mean, g.mean, b.mean);
   } catch {
     // A sampling failure must never cost us the creative; fall back to the bare logo.
     return null;

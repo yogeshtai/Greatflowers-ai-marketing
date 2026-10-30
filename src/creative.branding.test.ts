@@ -22,12 +22,20 @@ test("creative branding matches the approved logo scale and website CTA", () => 
   assert.match(svg, /www\.greatflowers\.net/);
 });
 
-test("the logo scrim only engages when the corner behind it is too bright or too dark", () => {
-  // A dark wordmark on a bright studio backdrop already reads; a scrim there is just a smudge.
-  assert.equal(logoScrimTone(235), null);
-  assert.equal(logoScrimTone(150), null);
-  assert.equal(logoScrimTone(120), null);
-  assert.equal(logoScrimTone(71), null);
-  assert.equal(logoScrimTone(70), "light");
-  assert.equal(logoScrimTone(20), "light");
+test("the logo scrim only engages when the corner cannot carry the wordmark", () => {
+  // A clean bright backdrop carries both ends of the gradient; a scrim there is only a smudge.
+  assert.equal(logoScrimTone(255, 255, 255), null);
+  assert.equal(logoScrimTone(240, 232, 236), null);
+
+  // Dark corners swallow the indigo end, leaving half the name invisible.
+  assert.equal(logoScrimTone(0, 0, 0), "light");
+  assert.equal(logoScrimTone(32, 28, 40), "light");
+  assert.equal(logoScrimTone(96, 84, 92), "light");
+
+  // Mid pinks and mauves wash out the magenta end even though they are bright.
+  assert.equal(logoScrimTone(214, 198, 205), "dark");
+  assert.equal(logoScrimTone(190, 150, 170), "dark");
+
+  // A saturated magenta corner clashes with the wordmark from the other direction.
+  assert.equal(logoScrimTone(198, 42, 120), "light");
 });

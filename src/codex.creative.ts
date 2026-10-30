@@ -734,6 +734,10 @@ const LOGO_COLOURS = ["#351E6A", "#701888", "#A52E7F", "#B32C7E", "#DB2173"] as 
 const MIN_LOGO_CONTRAST = 3;
 const MIN_LOGO_SCRIM_OPACITY = 0.2;
 const MAX_LOGO_SCRIM_OPACITY = 0.45;
+export const LOGO_SCRIM_PAD_X = 0.35;
+export const LOGO_SCRIM_PAD_Y = 0.9;
+export const LOGO_SCRIM_PLATEAU = 62;
+export const LOGO_SCRIM_RADIUS = 50;
 const LOGO_SAMPLE_COLUMNS = 4;
 const LOGO_SAMPLE_ROWS = 3;
 
@@ -804,6 +808,24 @@ export function logoScrimOpacity(r: number, g: number, b: number): number {
   return Math.min(MAX_LOGO_SCRIM_OPACITY, Math.max(MIN_LOGO_SCRIM_OPACITY, needed));
 }
 
+// In objectBoundingBox units the rectangle's edge midpoints sit at distance 0.5 and its corners at
+// 0.707, so any radius above 50% leaves the gradient still visible where the rectangle stops - and
+// the scrim then shows up as exactly the light box it exists to avoid. At 50% it reaches zero on
+// every edge and stays there into the corners. The plateau holds full strength across the wordmark,
+// whose far end sits at 1 / (1 + 2 * LOGO_SCRIM_PAD_X) of the radius.
+export function buildLogoScrimSvg(width: number, height: number, opacity: number): string {
+  return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="g" cx="50%" cy="50%" r="${LOGO_SCRIM_RADIUS}%">
+        <stop offset="0%" stop-color="rgb(255,255,255)" stop-opacity="${opacity.toFixed(3)}"/>
+        <stop offset="${LOGO_SCRIM_PLATEAU}%" stop-color="rgb(255,255,255)" stop-opacity="${opacity.toFixed(3)}"/>
+        <stop offset="100%" stop-color="rgb(255,255,255)" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <rect width="${width}" height="${height}" fill="url(#g)"/>
+  </svg>`;
+}
+
 async function logoScrim(
   imagePath: string,
   left: number,
@@ -813,8 +835,8 @@ async function logoScrim(
   imageWidth: number,
   imageHeight: number
 ): Promise<{ buffer: Buffer; left: number; top: number } | null> {
-  const padX = Math.round(logoWidth * 0.35);
-  const padY = Math.round(logoHeight * 0.9);
+  const padX = Math.round(logoWidth * LOGO_SCRIM_PAD_X);
+  const padY = Math.round(logoHeight * LOGO_SCRIM_PAD_Y);
   const scrimLeft = Math.max(0, left - padX);
   const scrimTop = Math.max(0, top - padY);
   const scrimWidth = Math.min(imageWidth - scrimLeft, logoWidth + padX * 2);
@@ -848,18 +870,7 @@ async function logoScrim(
   if (!tone || !worstCell) return null;
 
   const opacity = logoScrimOpacity(worstCell[0], worstCell[1], worstCell[2]);
-  // Hold full strength across the wordmark itself, then fall to nothing by the edge of the patch,
-  // so the scrim never ends on a visible boundary.
-  const svg = `<svg width="${scrimWidth}" height="${scrimHeight}" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <radialGradient id="g" cx="50%" cy="50%" r="72%">
-        <stop offset="0%" stop-color="rgb(255,255,255)" stop-opacity="${opacity.toFixed(3)}"/>
-        <stop offset="45%" stop-color="rgb(255,255,255)" stop-opacity="${opacity.toFixed(3)}"/>
-        <stop offset="100%" stop-color="rgb(255,255,255)" stop-opacity="0"/>
-      </radialGradient>
-    </defs>
-    <rect width="${scrimWidth}" height="${scrimHeight}" fill="url(#g)"/>
-  </svg>`;
+  const svg = buildLogoScrimSvg(scrimWidth, scrimHeight, opacity);
   return { buffer: await sharp(Buffer.from(svg)).png().toBuffer(), left: scrimLeft, top: scrimTop };
 }
 

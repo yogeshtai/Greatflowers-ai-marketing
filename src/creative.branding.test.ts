@@ -7,6 +7,9 @@ import {
   logoScrimTone,
   logoScrimToneForCells,
   logoScrimOpacity,
+  buildLogoScrimSvg,
+  LOGO_SCRIM_PAD_X,
+  LOGO_SCRIM_PAD_Y,
 } from "./codex.creative.js";
 
 test("creative branding matches the approved logo scale and website CTA", () => {
@@ -105,4 +108,37 @@ test("the logo scrim is strong enough to clear the threshold it just measured", 
 
   // A corner barely below the line gets a wash too faint to see, not a plate.
   assert.ok(logoScrimOpacity(200, 196, 200) < logoScrimOpacity(40, 36, 44));
+});
+
+test("the logo scrim reaches zero before the patch ends, so it is never a visible box", () => {
+  const svg = buildLogoScrimSvg(418, 274, 0.45);
+  const radius = Number(svg.match(/r="([\d.]+)%"/)?.[1]) / 100;
+  const stops = [...svg.matchAll(/<stop offset="([\d.]+)%"[^>]*stop-opacity="([\d.]+)"/g)]
+    .map(match => ({ offset: Number(match[1]) / 100, opacity: Number(match[2]) }));
+
+  // Opacity at a point `distance` from the centre, in objectBoundingBox units.
+  const opacityAt = (distance: number) => {
+    const offset = distance / radius;
+    if (offset >= 1) return 0;
+    for (let index = 1; index < stops.length; index += 1) {
+      const [from, to] = [stops[index - 1]!, stops[index]!];
+      if (offset <= to.offset) {
+        return from.opacity + (to.opacity - from.opacity) * ((offset - from.offset) / (to.offset - from.offset));
+      }
+    }
+    return 0;
+  };
+
+  // The rectangle's own geometry: edges at 0.5 from centre, corners at 0.707.
+  assert.equal(opacityAt(0.5), 0, "the scrim must be gone by the edge of its patch");
+  assert.equal(opacityAt(0.707), 0, "the scrim must be gone in the corners of its patch");
+
+  // A radius past 50% is what put a hard-edged light rectangle behind the wordmark twice.
+  assert.ok(radius <= 0.5, `radius ${radius} lets the gradient run past the rectangle`);
+
+  // The wordmark itself still sits at full strength, or lifting the corner achieves nothing.
+  const wordmarkEdgeX = 0.5 / (1 + 2 * LOGO_SCRIM_PAD_X);
+  const wordmarkEdgeY = 0.5 / (1 + 2 * LOGO_SCRIM_PAD_Y);
+  assert.equal(opacityAt(wordmarkEdgeX), 0.45, "the far end of the wordmark lost its scrim");
+  assert.equal(opacityAt(wordmarkEdgeY), 0.45, "the top of the wordmark lost its scrim");
 });

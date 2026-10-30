@@ -23,6 +23,7 @@ import {
   headlineWords,
   shortCtaLabel,
   stripPrices,
+  ctaAccentForCreative,
   textPaletteForCreative,
   typographyForCreative,
 } from "./creative.text.js";
@@ -110,6 +111,56 @@ test("independent creative styling rotates layout while the palette and logo sta
   );
   assert.equal(shouldShowWebsiteCta(variant({ order: 1 })), false);
   assert.equal(shouldShowWebsiteCta(variant({ order: 4 })), true);
+});
+
+test("rotated accents are visibly different colours, not four shades of one hue", () => {
+  // A previous version of this file only checked that the four accents were different VALUES, which
+  // four near-identical pinks satisfy while still looking like one template on the finished ad.
+  const rgb = (hex: string) => [1, 3, 5].map(index => parseInt(hex.slice(index, index + 2), 16));
+  const hue = (hex: string) => {
+    const [r, g, b] = rgb(hex).map(value => value / 255) as [number, number, number];
+    const max = Math.max(r, g, b);
+    const delta = max - Math.min(r, g, b);
+    if (!delta) return 0;
+    const raw = max === r ? ((g - b) / delta) % 6 : max === g ? (b - r) / delta + 2 : (r - g) / delta + 4;
+    return (raw * 60 + 360) % 360;
+  };
+  const luminance = (hex: string) => {
+    const [r, g, b] = rgb(hex).map(value => {
+      const channel = value / 255;
+      return channel <= 0.03928 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
+    }) as [number, number, number];
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const contrast = (a: string, b: string) => {
+    const high = Math.max(luminance(a), luminance(b));
+    const low = Math.min(luminance(a), luminance(b));
+    return (high + 0.05) / (low + 0.05);
+  };
+  const apart = (a: string, b: string) => {
+    const gap = Math.abs(hue(a) - hue(b));
+    return Math.min(gap, 360 - gap);
+  };
+
+  const orders = [1, 2, 3, 4];
+  for (const tone of ["dark", "light"] as const) {
+    const accents = orders.map(order => textPaletteForCreative(variant({ order }), tone).accent);
+    for (let i = 0; i < accents.length; i += 1) {
+      for (let j = i + 1; j < accents.length; j += 1) {
+        assert.ok(
+          apart(accents[i]!, accents[j]!) >= 20,
+          `${tone} accents ${accents[i]} and ${accents[j]} are only ${apart(accents[i]!, accents[j]!).toFixed(0)}° apart`
+        );
+      }
+    }
+  }
+
+  // Dark-tone accents sit as text on a light photograph; CTA pills carry white text on the same fill.
+  for (const order of orders) {
+    const accent = textPaletteForCreative(variant({ order }), "dark").accent;
+    assert.ok(contrast(accent, "#ffffff") >= 4.5, `${accent} is unreadable on a light photograph`);
+    assert.ok(contrast(ctaAccentForCreative(order), "#ffffff") >= 4.5, `CTA pill ${ctaAccentForCreative(order)} cannot carry white text`);
+  }
 });
 
 test("headline and subheadline keep compact spacing and preserve color-boundary spaces", () => {

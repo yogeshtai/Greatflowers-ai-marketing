@@ -23,10 +23,14 @@ export const CREATIVE_LOGO_ASPECT = 98 / 246;
 export const CREATIVE_TEXT_PURPLE = "#32105f";
 export const CREATIVE_TEXT_PINK = "#d61572";
 
+// Dark-tone accents must span the colour wheel the way the light-tone ones do. Four shades of one
+// pink read as a single washed-out accent at headline and pill scale, which is the template look
+// these palettes exist to break. Every accent here clears 4.9:1 against white in both directions,
+// so it is legible as text on a light photograph and as white text on a CTA pill.
 const CREATIVE_TEXT_PALETTES = [
   { primary: CREATIVE_TEXT_PURPLE, accent: CREATIVE_TEXT_PINK, secondary: "#3f3a44" },
-  { primary: "#25232a", accent: "#a62962", secondary: "#4d4850" },
-  { primary: "#294039", accent: "#9a3f68", secondary: "#46534f" },
+  { primary: "#25232a", accent: "#96660f", secondary: "#4d4850" },
+  { primary: "#294039", accent: "#1f6f5c", secondary: "#46534f" },
   { primary: "#3b2b2c", accent: "#a84d3c", secondary: "#554747" },
 ] as const;
 

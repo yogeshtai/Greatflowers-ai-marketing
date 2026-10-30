@@ -8,6 +8,7 @@ type TypographyCreative = {
   order?: number;
   creativeType: string;
   sceneStrategy: string;
+  artDirection?: string;
   headline: string;
   subheadline: string;
   cta?: string;
@@ -37,26 +38,52 @@ const CREATIVE_LIGHT_TEXT_PALETTES = [
 ] as const;
 
 export function textPaletteForCreative(
-  _creative: Pick<TypographyCreative, "order">,
+  creative: Pick<TypographyCreative, "order">,
   tone: CreativeTextTone = "dark",
 ) {
-  // Locked to the approved brand palette (purple + magenta) so every creative looks like the reference ads.
+  // The primary stays on the approved brand colour so every creative still reads as GreatFlowers;
+  // only the accent rotates, so four creatives in one campaign stop looking like one template.
   const palettes = tone === "light" ? CREATIVE_LIGHT_TEXT_PALETTES : CREATIVE_TEXT_PALETTES;
-  return palettes[0]!;
+  const base = palettes[0]!;
+  const index = Math.max(0, ((creative.order ?? 1) - 1)) % palettes.length;
+  return { ...base, accent: palettes[index]!.accent };
+}
+
+// CTA pills carry white text, so their fill must stay saturated: the pastel light-tone accents
+// would leave the label unreadable.
+export function ctaAccentForCreative(order?: number): string {
+  const index = Math.max(0, ((order ?? 1) - 1)) % CREATIVE_TEXT_PALETTES.length;
+  return CREATIVE_TEXT_PALETTES[index]!.accent;
 }
 
 export type CreativeTypography = {
-  mode: "editorial-serif" | "modern-sans";
+  mode: "editorial-serif" | "modern-sans" | "documentary-grotesque";
   family: string;
   weight: number;
 };
 
+const GROTESQUE_DIRECTIONS = new Set([
+  "documentary-gifting",
+  "doorstep-delivery",
+  "bouquet-in-motion",
+  "unboxing-reveal",
+  "florist-workbench",
+]);
 const SANS_TYPES = new Set(["informational", "feature"]);
 const SANS_SCENES = new Set(["INFORMATIONAL_GRAPHIC", "FEATURE_DEMO"]);
 
 export function typographyForCreative(
-  creative: Pick<TypographyCreative, "creativeType" | "sceneStrategy">
+  creative: Pick<TypographyCreative, "creativeType" | "sceneStrategy" | "artDirection">
 ): CreativeTypography {
+  // Art direction decides the voice of the type before content type does, so a documentary gifting
+  // frame and a magazine product feature stop sharing one serif.
+  if (creative.artDirection && GROTESQUE_DIRECTIONS.has(creative.artDirection)) {
+    return {
+      mode: "documentary-grotesque",
+      family: "Helvetica Neue, Helvetica, Inter, Arial, Liberation Sans, sans-serif",
+      weight: 700,
+    };
+  }
   const isStructuredGraphic = SANS_SCENES.has(creative.sceneStrategy);
   const hasExplicitEditorialDirection = creative.sceneStrategy === "EDITORIAL_CONTENT";
   if (isStructuredGraphic || (!hasExplicitEditorialDirection && SANS_TYPES.has(creative.creativeType))) {
@@ -263,7 +290,7 @@ export function buildCreativeTextOverlay(
   const contentStart = subLines.length ? subFirstY + subLines.length * subLineHeight : lastHeadlineY + Math.round(fitted.size * 0.4);
   const pillY = contentStart + Math.round(height * 0.025);
   const ctaPillSvg = showCtaPill
-    ? `<rect x="${pillX}" y="${pillY}" width="${pillWidth}" height="${pillHeight}" rx="${Math.round(pillHeight / 2)}" fill="${CREATIVE_TEXT_PINK}"/>
+    ? `<rect x="${pillX}" y="${pillY}" width="${pillWidth}" height="${pillHeight}" rx="${Math.round(pillHeight / 2)}" fill="${ctaAccentForCreative(creative.order)}"/>
        <text x="${pillX + Math.round(pillWidth / 2)}" y="${pillY + Math.round(pillHeight * 0.66)}" text-anchor="middle" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${pillFont}" font-weight="700" fill="#ffffff">${escapeXml(ctaLabel)} →</text>`
     : "";
   const pointSize = Math.max(22, Math.round(width * 0.024));

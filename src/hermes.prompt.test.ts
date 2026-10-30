@@ -37,5 +37,6 @@ test("campaign strategy prompt forbids unexplained prop metaphors", () => {
   assert.match(prompt, /at least three different lightingSetup/);
   assert.match(prompt, /HARD LIMIT: at most 6 words/);
   assert.match(prompt, /HARD LIMIT: at most 10 words/);
+  assert.match(prompt, /must NOT name a room, a surface, a time of day, a light\s*\n?level or a colour scheme/);
   assert.match(prompt, /wording that differs\s*\n?while the photograph stays the same does not count as variety/);
 });

@@ -60,13 +60,19 @@ const brief = (creative: CreativeVariant): CreativeBrief => ({
   variants: [creative],
 });
 
-test("typography mode follows the creative purpose", () => {
-  assert.equal(typographyForCreative(variant()).mode, "editorial-serif");
+test("typography mode follows the art direction, then the creative purpose", () => {
+  // Reportage-style directions take the grotesque so they stop sharing the editorial serif.
+  assert.equal(typographyForCreative(variant()).mode, "documentary-grotesque");
+  assert.equal(typographyForCreative(variant({ artDirection: "unboxing-reveal" })).mode, "documentary-grotesque");
+
+  assert.equal(typographyForCreative(variant({ artDirection: "magazine-product-feature" })).mode, "editorial-serif");
   assert.equal(typographyForCreative(variant({
+    artDirection: "editorial-flatlay",
     creativeType: "informational",
     sceneStrategy: "INFORMATIONAL_GRAPHIC",
   })).mode, "modern-sans");
   assert.equal(typographyForCreative(variant({
+    artDirection: "editorial-flatlay",
     creativeType: "informational",
     sceneStrategy: "EDITORIAL_CONTENT",
   })).mode, "editorial-serif");
@@ -79,7 +85,7 @@ test("headline typography applies controlled pink emphasis to a meaningful phras
     ["Chosen", "on", "Purpose"]
   );
 
-  const svg = buildCreativeTextOverlay(variant(), "left").toString();
+  const svg = buildCreativeTextOverlay(variant({ artDirection: "magazine-product-feature" }), "left").toString();
   assert.match(svg, new RegExp(CREATIVE_TEXT_PURPLE));
   assert.match(svg, new RegExp(CREATIVE_TEXT_PINK));
   assert.match(svg, /Bodoni 72, Didot, Georgia/);
@@ -92,9 +98,16 @@ test("independent creative styling rotates layout while the palette and logo sta
   assert.deepEqual(layoutForCreativeVariant(variant({ order: 1 })), { logoPosition: "top-left", textSide: "left", textVertical: "top" });
   assert.deepEqual(layoutForCreativeVariant(variant({ order: 2, copyLayout: "lower-right-caption" })), { logoPosition: "top-right", textSide: "right", textVertical: "lower" });
   assert.equal(layoutForCreativeVariant(variant({ order: 2, copyLayout: "lower-right-caption", contentPoints: ["One useful point", "Another useful point"] })).textVertical, "top");
+  // The brand primary is locked; only the accent rotates, so one campaign is not four identical ads.
   assert.equal(textPaletteForCreative(variant({ order: 1 })).primary, CREATIVE_TEXT_PURPLE);
   assert.equal(textPaletteForCreative(variant({ order: 2 })).primary, CREATIVE_TEXT_PURPLE);
-  assert.equal(textPaletteForCreative(variant({ order: 3 })).accent, CREATIVE_TEXT_PINK);
+  assert.equal(textPaletteForCreative(variant({ order: 4 })).primary, CREATIVE_TEXT_PURPLE);
+  assert.equal(textPaletteForCreative(variant({ order: 1 })).accent, CREATIVE_TEXT_PINK);
+  assert.notEqual(textPaletteForCreative(variant({ order: 3 })).accent, CREATIVE_TEXT_PINK);
+  assert.equal(
+    new Set([1, 2, 3, 4].map(order => textPaletteForCreative(variant({ order })).accent)).size,
+    4
+  );
   assert.equal(shouldShowWebsiteCta(variant({ order: 1 })), false);
   assert.equal(shouldShowWebsiteCta(variant({ order: 4 })), true);
 });

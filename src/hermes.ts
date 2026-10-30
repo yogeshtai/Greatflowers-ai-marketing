@@ -570,12 +570,17 @@ Examples:
 
 backgroundDirection:
 
-Describe the surrounding scene/environment for the image generator.
+Campaign-wide craft standard for the image generator. Each variant already carries its own
+environment and lightingSetup, so this field must NOT name a room, a surface, a time of day, a light
+level or a colour scheme: doing so pins all four creatives to one look and wastes the per-variant
+assignments.
+
+Describe only the production qualities every variant should share.
 
 Example:
-"Soft premium interior with natural window light, neutral tones and subtle botanical elements."
+"Premium photography with real depth, honest materials and uncluttered staging; props stay secondary
+to the flowers."
 
-Describe environment only.
 Do NOT tell the generator to replace or redesign the bouquet.
 
 logoPlacement:

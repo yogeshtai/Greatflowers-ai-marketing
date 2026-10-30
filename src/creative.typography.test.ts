@@ -26,6 +26,7 @@ import {
   stripPrices,
   accentIndexForImage,
   ctaAccentForCreative,
+  copyBackingFromCells,
   dominantHueFromPixels,
   textPaletteForCreative,
   typographyForCreative,
@@ -220,9 +221,9 @@ test("the CTA pill is the site's own button colour on every creative", () => {
 
 test("the copy scrim fades out instead of ending in a visible panel edge", () => {
   const cases = [
-    { vertical: "top" as const, overrides: {}, plateauBottom: Math.round(1024 * 0.8) },
-    { vertical: "top" as const, overrides: { contentPoints: ["Trim the stems", "Use a clean vase", "Refresh the water"] }, plateauBottom: Math.round(1024 * 0.85) },
-    { vertical: "lower" as const, overrides: { copyLayout: "lower-right-caption" }, plateauBottom: Math.round(1024 * 0.92) },
+    { vertical: "top" as const, overrides: {} },
+    { vertical: "top" as const, overrides: { contentPoints: ["Trim the stems", "Use a clean vase", "Refresh the water"] } },
+    { vertical: "lower" as const, overrides: { copyLayout: "lower-right-caption" } },
   ];
 
   for (const current of cases) {
@@ -237,25 +238,63 @@ test("the copy scrim fades out instead of ending in a visible panel edge", () =>
     assert.ok(rect, `${current.vertical} scrim rect not found`);
     const [top, span] = [Number(rect[1]), Number(rect[2])];
 
-    // Scope this to the vertical fade: the horizontal copy-gradient also uses white stops.
     const fade = svg.match(/<linearGradient id="copy-fade"[^>]*>([\s\S]*?)<\/linearGradient>/);
     assert.ok(fade, `${current.vertical} copy-fade gradient not found`);
     const stops = [...fade[1]!.matchAll(/<stop offset="([\d.]+)%" stop-color="#ffffff" stop-opacity="([\d.]+)"\/>/g)]
       .map(match => ({ offset: Number(match[1]), opacity: Number(match[2]) }));
     assert.deepEqual(stops.at(-1), { offset: 100, opacity: 0 }, "the scrim must reach zero at its lower edge");
 
-    // Full-strength coverage still reaches the boundary the solid rectangle used to end at, so
-    // softening the edge cannot cost legibility under the copy.
+    // Full strength must still cover every piece of copy. The band is sized to the text now rather
+    // than to a fixed fraction of the frame, so this is the invariant that matters: whatever the
+    // band ends up being, no glyph may sit past the point where it starts fading.
     const plateau = stops.filter(stop => stop.opacity === 1);
     assert.equal(plateau.length, 2);
+    const plateauBottom = top + (span * plateau.at(-1)!.offset) / 100;
+    const lowestCopy = Math.max(
+      ...[...svg.matchAll(/<tspan[^>]*\sy="(\d+)"/g)].map(match => Number(match[1])),
+      ...[...svg.matchAll(/<rect x="\d+" y="(\d+)" width="\d+" height="(\d+)" rx=/g)].map(m => Number(m[1]) + Number(m[2])),
+    );
     assert.ok(
-      top + (span * plateau.at(-1)!.offset) / 100 >= current.plateauBottom - 1,
-      `${current.vertical} scrim weakens at ${top + (span * plateau.at(-1)!.offset) / 100} before ${current.plateauBottom}`
+      plateauBottom >= lowestCopy,
+      `${current.vertical} scrim weakens at ${plateauBottom} but copy runs to ${lowestCopy}`
+    );
+
+    // And it must not be bleaching far more of the photograph than the copy occupies.
+    assert.ok(
+      plateauBottom - lowestCopy <= 1024 * 0.08,
+      `${current.vertical} scrim runs ${Math.round(plateauBottom - lowestCopy)}px past the copy`
     );
 
     // A band floating in the middle of the frame must fade in at the top as well.
     assert.equal(stops[0]!.opacity, current.vertical === "lower" ? 0 : 1);
   }
+});
+
+test("a photograph that already carries the copy gets no scrim at all", () => {
+  const warmWall = Array.from({ length: 12 }, () => [209, 176, 140] as [number, number, number]);
+  const darkRoom = Array.from({ length: 12 }, () => [34, 30, 36] as [number, number, number]);
+
+  // The brand purple reads at 4.7:1 on the bare warm wall, so nothing needs bleaching.
+  assert.equal(copyBackingFromCells(warmWall, GF_PRIMARY, "dark").scrim, 0);
+
+  // The brand magenta does not, so that accent - and only that accent - earns a wash.
+  assert.ok(copyBackingFromCells(warmWall, GF_SECONDARY, "dark").scrim > 0);
+
+  // White copy on a genuinely dark room needs nothing either.
+  assert.equal(copyBackingFromCells(darkRoom, "#ff7fbd", "light").scrim, 0);
+
+  // Whatever wash is applied must actually clear the threshold it measured.
+  const backing = copyBackingFromCells(warmWall, GF_SECONDARY, "dark");
+  const lifted = [209, 176, 140].map(c => Math.round(255 * backing.scrim + c * (1 - backing.scrim))) as [number, number, number];
+  assert.equal(copyBackingFromCells([lifted], GF_SECONDARY, "dark").scrim, 0);
+
+  // An unmeasured frame keeps the old unconditional wash rather than leaving copy bare.
+  const unmeasured = buildCreativeTextOverlay(variant(), "left", 1024, 1024, "top").toString();
+  assert.match(unmeasured, /fill="url\(#copy-gradient\)"/);
+  const measured = buildCreativeTextOverlay(
+    variant(), "left", 1024, 1024, "top", "dark", null, { luminance: 0.46, scrim: 0 }
+  ).toString();
+  assert.doesNotMatch(measured, /fill="url\(#copy-gradient\)"/);
 });
 
 test("headline and subheadline keep compact spacing and preserve color-boundary spaces", () => {

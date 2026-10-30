@@ -60,6 +60,37 @@ const ACCENT_HUES = CREATIVE_TEXT_PALETTES.map(palette => hueOf(palette.accent))
 // Only accents nearly as close to the photograph as the closest one may be chosen. A wider window
 // let a magenta accent win on a warm amber frame simply because it was that creative's turn.
 const ACCENT_SPREAD = 20;
+
+// Large display copy needs 3:1. Aim past it so a background measured as an average does not leave
+// the real pixels under a letter sitting on the line.
+export const COPY_CONTRAST_TARGET = 3.3;
+const MAX_COPY_SCRIM = 0.55;
+const MIN_VISIBLE_COPY_SCRIM = 0.05;
+
+export function relativeLuminance(r: number, g: number, b: number): number {
+  const channel = (value: number) => {
+    const v = value / 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+}
+
+function luminanceOf(hex: string): number {
+  return relativeLuminance(
+    parseInt(hex.slice(1, 3), 16),
+    parseInt(hex.slice(3, 5), 16),
+    parseInt(hex.slice(5, 7), 16)
+  );
+}
+
+export function contrastRatio(a: number, b: number): number {
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+}
+
+function luminanceToChannel(luminance: number): number {
+  const clamped = Math.min(1, Math.max(0, luminance));
+  return (clamped <= 0.0031308 ? clamped * 12.92 : 1.055 * Math.pow(clamped, 1 / 2.4) - 0.055) * 255;
+}
 const HUE_BUCKETS = 24;
 const MIN_HUE_EVIDENCE = 20;
 
@@ -71,10 +102,29 @@ function hueDistance(a: number, b: number): number {
 // Rotating the accent purely by position puts a magenta headline on a dark green Halloween table.
 // Choose the accent that echoes a colour already in the photograph instead, and keep the positional
 // rotation only to spread the choice across the accents that all suit it equally well.
-export function accentIndexForImage(imageHue: number | null, order?: number): number {
+export function accentIndexForImage(
+  imageHue: number | null,
+  order?: number,
+  backgroundLuminance: number | null = null,
+  tone: CreativeTextTone = "dark",
+): number {
   const rotation = Math.max(0, (order ?? 1) - 1) % ACCENT_HUES.length;
-  if (imageHue === null) return rotation;
-  const distances = ACCENT_HUES.map(accent => hueDistance(accent, imageHue));
+
+  // Both accents are on brand, so legibility decides between them before taste does. On a warm
+  // light wall the magenta sits at 2.3:1 and the purple at 4.7:1, and bleaching the photograph to
+  // rescue the magenta is a far worse answer than simply using the brand's other colour.
+  const readable = backgroundLuminance === null ? null : (tone === "light" ? CREATIVE_LIGHT_TEXT_PALETTES : CREATIVE_TEXT_PALETTES)
+    .map((palette, index) => ({ index, contrast: contrastRatio(backgroundLuminance, luminanceOf(palette.accent)) }))
+    .filter(entry => entry.contrast >= COPY_CONTRAST_TARGET)
+    .map(entry => entry.index);
+
+  if (imageHue === null) {
+    if (readable?.length) return readable[rotation % readable.length]!;
+    return rotation;
+  }
+  const distances = ACCENT_HUES.map((accent, index) =>
+    readable && readable.length && !readable.includes(index) ? Number.POSITIVE_INFINITY : hueDistance(accent, imageHue)
+  );
   const nearest = Math.min(...distances);
   const limit = nearest + ACCENT_SPREAD;
   const candidates = distances
@@ -132,12 +182,13 @@ export function textPaletteForCreative(
   creative: Pick<TypographyCreative, "order">,
   tone: CreativeTextTone = "dark",
   imageHue: number | null = null,
+  backgroundLuminance: number | null = null,
 ) {
   // The primary stays on the approved brand colour so every creative still reads as GreatFlowers;
   // only the accent moves, so four creatives in one campaign stop looking like one template.
   const palettes = tone === "light" ? CREATIVE_LIGHT_TEXT_PALETTES : CREATIVE_TEXT_PALETTES;
   const base = palettes[0]!;
-  return { ...base, accent: palettes[accentIndexForImage(imageHue, creative.order)]!.accent };
+  return { ...base, accent: palettes[accentIndexForImage(imageHue, creative.order, backgroundLuminance, tone)]!.accent };
 }
 
 // Every button on greatflowers.net is --gf-primary, so the pill is too - on every creative, over
@@ -331,9 +382,12 @@ export function buildCreativeTextOverlay(
   vertical: CreativeTextVertical = "top",
   tone: CreativeTextTone = "dark",
   imageHue: number | null = null,
+  backing: Pick<CreativeCopyBacking, "luminance" | "scrim"> | null = null,
 ): Buffer {
   const typography = typographyForCreative(creative);
-  const palette = textPaletteForCreative(creative, tone, imageHue);
+  const palette = textPaletteForCreative(creative, tone, imageHue, backing?.luminance ?? null);
+  // Without a measurement, fall back to the old unconditional wash rather than leaving copy bare.
+  const scrimStrength = backing ? backing.scrim : (tone === "light" ? 0.52 : 0.6);
   const margin = Math.round(width * CREATIVE_MARGIN_RATIO);
   const usableWidth = Math.round(width * ((creative.contentPoints ?? []).some((point) => point.trim()) ? 0.46 : 0.42));
   const x = side === "left" ? margin : width - margin;
@@ -423,10 +477,17 @@ export function buildCreativeTextOverlay(
   // made the copy read as a sticker laid on the photo rather than part of it. Keep the full-strength
   // band exactly where it was and extend it with a faded tail, so legibility over the text is
   // unchanged and only the boundary disappears.
-  const scrimPlateauTop = vertical === "lower" ? Math.round(height * 0.43) : 0;
-  const scrimPlateauBottom = vertical === "lower"
-    ? Math.round(height * 0.92)
-    : Math.round(height * (contentPoints.length ? 0.85 : 0.8));
+  // Size the scrim to the copy that needs it. It used to cover a fixed 80% of the frame while the
+  // text occupied about a third of that, bleaching photograph that was never in question.
+  const copyBottom = contentPoints.length
+    ? contentBottom
+    : showCtaPill
+      ? pillY + pillHeight
+      : subLines.length
+        ? subFirstY + (subLines.length - 1) * subLineHeight
+        : lastHeadlineY;
+  const scrimPlateauTop = vertical === "lower" ? Math.max(0, firstY - Math.round(fitted.size * 1.1)) : 0;
+  const scrimPlateauBottom = Math.min(height, copyBottom + Math.round(height * 0.02));
   const scrimFade = Math.round(height * 0.1);
   const scrimTop = Math.max(0, scrimPlateauTop - (vertical === "lower" ? scrimFade : 0));
   const scrimHeight = Math.min(height, scrimPlateauBottom + scrimFade) - scrimTop;
@@ -445,14 +506,14 @@ export function buildCreativeTextOverlay(
         <feDropShadow dx="0" dy="1" stdDeviation="${tone === "light" ? "2.4" : "1.8"}" flood-color="${tone === "light" ? "#000000" : "#ffffff"}" flood-opacity="${tone === "light" ? "0.72" : "0.82"}"/>
       </filter>
       <linearGradient id="copy-gradient" x1="${side === "left" ? "0%" : "100%"}" y1="0%" x2="${side === "left" ? "100%" : "0%"}" y2="0%">
-        <stop offset="0%" stop-color="${tone === "light" ? "#000000" : "#ffffff"}" stop-opacity="${tone === "light" ? "0.52" : "0.60"}"/>
-        <stop offset="46%" stop-color="${tone === "light" ? "#000000" : "#ffffff"}" stop-opacity="${tone === "light" ? "0.30" : "0.37"}"/>
+        <stop offset="0%" stop-color="${tone === "light" ? "#000000" : "#ffffff"}" stop-opacity="${scrimStrength.toFixed(3)}"/>
+        <stop offset="46%" stop-color="${tone === "light" ? "#000000" : "#ffffff"}" stop-opacity="${(scrimStrength * 0.62).toFixed(3)}"/>
         <stop offset="72%" stop-color="${tone === "light" ? "#000000" : "#ffffff"}" stop-opacity="0"/>
       </linearGradient>
       <linearGradient id="copy-fade" x1="0%" y1="0%" x2="0%" y2="100%">${scrimFadeStops}</linearGradient>
       <mask id="copy-mask"><rect x="0" y="${scrimTop}" width="${width}" height="${scrimHeight}" fill="url(#copy-fade)"/></mask>
     </defs>
-    <rect x="0" y="${scrimTop}" width="${width}" height="${scrimHeight}" fill="url(#copy-gradient)" mask="url(#copy-mask)"/>
+    ${scrimStrength > 0 ? `<rect x="0" y="${scrimTop}" width="${width}" height="${scrimHeight}" fill="url(#copy-gradient)" mask="url(#copy-mask)"/>` : ""}
     <text font-family="${typography.family}" font-size="${fitted.size}" font-weight="${typography.weight}" letter-spacing="-1.2" filter="url(#text-shadow)">${headlineSvg}</text>
     ${subLines.length ? `<text x="${x}" text-anchor="${anchor}" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${subSize}" font-weight="500" fill="${palette.secondary}" filter="url(#text-shadow)">${subSvg}</text>` : ""}
     ${ctaPillSvg}
@@ -460,26 +521,102 @@ export function buildCreativeTextOverlay(
   </svg>`);
 }
 
+// The copy column, not a quarter of the frame. Sampling a half-frame quadrant dragged flowers and
+// furniture into a decision about pixels that only ever sit behind text, which called for a wash
+// over backgrounds the copy never touches.
+export function copyRegionBounds(
+  width: number,
+  height: number,
+  side: CreativeTextSide,
+  vertical: CreativeTextVertical,
+  hasSteps = false,
+) {
+  const margin = Math.round(width * CREATIVE_MARGIN_RATIO);
+  const columnWidth = Math.max(1, Math.round(width * (hasSteps ? 0.46 : 0.42)));
+  const top = Math.round(height * (vertical === "lower" ? 0.5 : 0.14));
+  const bottom = Math.round(height * (vertical === "lower" ? 0.9 : hasSteps ? 0.86 : 0.56));
+  return {
+    left: Math.max(0, side === "left" ? margin : width - margin - columnWidth),
+    top,
+    width: Math.min(columnWidth, width),
+    height: Math.max(1, Math.min(bottom, height) - top),
+  };
+}
+
+// sharp's .stats() silently ignores a preceding .extract(), so the old sampling here reported the
+// whole frame's average no matter which region it asked for. Resizing to a grid and reading the
+// raw pixels does respect the crop, and gives one sample per patch so a region that is bright on
+// one side and dark on the other is not averaged into a comfortable middle.
+export async function sampleCopyRegion(
+  imagePath: string,
+  side: CreativeTextSide,
+  vertical: CreativeTextVertical,
+  hasSteps = false,
+): Promise<Array<[number, number, number]>> {
+  const metadata = await sharp(imagePath).metadata();
+  const bounds = copyRegionBounds(metadata.width || 1024, metadata.height || 1024, side, vertical, hasSteps);
+  const { data, info } = await sharp(imagePath)
+    .extract(bounds)
+    .resize(4, 3, { fit: "fill" })
+    .removeAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const cells: Array<[number, number, number]> = [];
+  for (let index = 0; index + 2 < data.length; index += info.channels) {
+    cells.push([data[index]!, data[index + 1]!, data[index + 2]!]);
+  }
+  return cells;
+}
+
+export type CreativeCopyBacking = {
+  tone: CreativeTextTone;
+  /** Mean luminance of the copy region, for choosing an accent that reads on it. */
+  luminance: number;
+  /** 0 when the photograph already carries the copy; otherwise the strength the scrim needs. */
+  scrim: number;
+};
+
+export function copyBackingFromCells(
+  cells: ReadonlyArray<readonly [number, number, number]>,
+  accent: string,
+  tone?: CreativeTextTone,
+): CreativeCopyBacking {
+  if (!cells.length) return { tone: tone ?? "dark", luminance: 1, scrim: 0 };
+  const luminances = cells.map(cell => relativeLuminance(cell[0], cell[1], cell[2]));
+  const mean = luminances.reduce((total, value) => total + value, 0) / luminances.length;
+  const resolved = tone ?? (mean < 0.21 ? "light" : "dark");
+
+  // Dark copy is rescued by lightening and light copy by darkening, so the patch that decides is
+  // the darkest one under dark copy and the brightest one under light copy.
+  const worst = resolved === "dark" ? Math.min(...luminances) : Math.max(...luminances);
+  const text = luminanceOf(accent);
+  if (contrastRatio(worst, text) >= COPY_CONTRAST_TARGET) {
+    return { tone: resolved, luminance: mean, scrim: 0 };
+  }
+
+  const target = resolved === "dark"
+    ? COPY_CONTRAST_TARGET * (text + 0.05) - 0.05
+    : (text + 0.05) / COPY_CONTRAST_TARGET - 0.05;
+  const current = luminanceToChannel(worst);
+  const wash = resolved === "dark" ? 255 : 0;
+  const needed = wash === current ? MAX_COPY_SCRIM : (luminanceToChannel(target) - current) / (wash - current);
+  // A wash this faint changes nothing a reader can see, so do not paint one at all.
+  if (needed < MIN_VISIBLE_COPY_SCRIM) return { tone: resolved, luminance: mean, scrim: 0 };
+  return { tone: resolved, luminance: mean, scrim: Math.min(MAX_COPY_SCRIM, needed) };
+}
+
 export async function detectCreativeTextTone(
   imagePath: string,
   side: CreativeTextSide,
   vertical: CreativeTextVertical,
+  hasSteps = false,
 ): Promise<CreativeTextTone> {
-  const image = sharp(imagePath);
-  const metadata = await image.metadata();
-  const width = metadata.width || 1024;
-  const height = metadata.height || 1024;
-  const regionWidth = Math.max(1, Math.floor(width * 0.5));
-  const regionHeight = Math.max(1, Math.floor(height * (vertical === "lower" ? 0.4 : 0.5)));
-  const left = side === "left" ? 0 : width - regionWidth;
-  const top = vertical === "lower" ? Math.floor(height * 0.45) : 0;
-  const safeHeight = Math.min(regionHeight, height - top);
-  const { channels } = await image
-    .extract({ left, top, width: regionWidth, height: safeHeight })
-    .greyscale()
-    .stats();
-  const mean = channels[0]?.mean ?? 255;
-  return mean < 145 ? "light" : "dark";
+  const cells = await sampleCopyRegion(imagePath, side, vertical, hasSteps);
+  if (!cells.length) return "dark";
+  const mean = cells
+    .map(cell => relativeLuminance(cell[0], cell[1], cell[2]))
+    .reduce((total, value) => total + value, 0) / cells.length;
+  return mean < 0.21 ? "light" : "dark";
 }
 
 export async function addCreativeText(
@@ -492,12 +629,22 @@ export async function addCreativeText(
   const metadata = await sharp(imagePath).metadata();
   const width = metadata.width || 1024;
   const height = metadata.height || 1024;
-  const [tone, imageHue] = await Promise.all([
-    detectCreativeTextTone(imagePath, side, vertical),
+  const hasSteps = (creative.contentPoints ?? []).some(point => point.trim());
+  const [cells, imageHue] = await Promise.all([
+    sampleCopyRegion(imagePath, side, vertical, hasSteps),
     dominantImageHue(imagePath),
   ]);
+  const tone = await detectCreativeTextTone(imagePath, side, vertical, hasSteps);
+  // The accent is picked first, against the measured background, because the two brand accents
+  // differ enough in luminance that the choice decides whether a scrim is needed at all.
+  const mean = cells.length
+    ? cells.map(cell => relativeLuminance(cell[0], cell[1], cell[2])).reduce((total, value) => total + value, 0) / cells.length
+    : 1;
+  const accent = textPaletteForCreative(creative, tone, imageHue, mean).accent;
+  const backing = copyBackingFromCells(cells, accent, tone);
   await sharp(imagePath)
-    .composite([{ input: buildCreativeTextOverlay(creative, side, width, height, vertical, tone, imageHue), left: 0, top: 0 }])
+    .composite([{ input: buildCreativeTextOverlay(creative, side, width, height, vertical, tone, imageHue, backing), left: 0, top: 0 }])
     .png()
     .toFile(outputPath);
 }
+

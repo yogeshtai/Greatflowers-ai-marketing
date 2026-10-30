@@ -23,7 +23,9 @@ import {
   headlineWords,
   shortCtaLabel,
   stripPrices,
+  accentIndexForImage,
   ctaAccentForCreative,
+  dominantHueFromPixels,
   textPaletteForCreative,
   typographyForCreative,
 } from "./creative.text.js";
@@ -167,6 +169,60 @@ test("rotated accents are visibly different colours, not four shades of one hue"
       `${accent} only reaches ${contrast(accent, WARM_SCRIMMED_PHOTO).toFixed(2)}:1 on a warm photograph`
     );
     assert.ok(contrast(ctaAccentForCreative(order), "#ffffff") >= 4.5, `CTA pill ${ctaAccentForCreative(order)} cannot carry white text`);
+  }
+});
+
+test("the dominant hue comes from the saturated subject, not walls or shadows", () => {
+  const repeat = (pixel: readonly [number, number, number], count: number) =>
+    Array.from({ length: count }, () => pixel);
+
+  const amber = [230, 150, 60] as const;
+  const scene = [
+    ...repeat(amber, 120),
+    ...repeat([128, 128, 128], 2000),   // neutral wall
+    ...repeat([10, 10, 10], 2000),      // shadow
+    ...repeat([250, 250, 250], 800),    // blown highlight
+    ...repeat([200, 215, 195], 1200),   // pale roses: real, but too washed out to name a colour
+  ];
+  const hue = dominantHueFromPixels(scene);
+  assert.ok(hue !== null && Math.abs(hue - 32) <= 8, `expected a warm amber hue, got ${hue}`);
+
+  // A frame with nothing saturated in it has no colour to echo.
+  assert.equal(dominantHueFromPixels(repeat([128, 128, 128], 4096)), null);
+  assert.equal(dominantHueFromPixels([]), null);
+});
+
+test("the accent echoes a colour the photograph actually contains", () => {
+  const ACCENTS = { pink: 0, gold: 1, teal: 2, coral: 3 };
+
+  // The complaint this fixes: a warm candlelit Halloween table was given a magenta headline purely
+  // because it was that creative's turn in the rotation.
+  for (const order of [1, 2, 3, 4]) {
+    const chosen = accentIndexForImage(23, order);
+    assert.notEqual(chosen, ACCENTS.pink, `warm amber frame must not take the magenta accent (order ${order})`);
+    assert.notEqual(chosen, ACCENTS.teal, `warm amber frame must not take the teal accent (order ${order})`);
+  }
+
+  // Each photograph pulls the accent toward what is in it.
+  assert.equal(accentIndexForImage(110, 1), ACCENTS.teal);   // green foliage
+  assert.equal(accentIndexForImage(320, 1), ACCENTS.pink);   // magenta blooms
+  assert.equal(accentIndexForImage(15, 1), ACCENTS.coral);   // warm terracotta
+
+  // Position only breaks ties between accents that suit the frame equally well, and the closest
+  // match always goes first.
+  assert.equal(accentIndexForImage(23, 1), ACCENTS.coral);
+  assert.notEqual(accentIndexForImage(23, 2), accentIndexForImage(23, 1));
+
+  // With nothing to echo, the old positional rotation still applies.
+  assert.deepEqual([1, 2, 3, 4].map(order => accentIndexForImage(null, order)), [0, 1, 2, 3]);
+});
+
+test("the CTA pill carries the same accent as the headline it sits under", () => {
+  for (const hue of [23, 110, 320, null]) {
+    for (const order of [1, 2, 3, 4]) {
+      const headline = textPaletteForCreative(variant({ order }), "dark", hue).accent;
+      assert.equal(ctaAccentForCreative(order, hue), headline, `pill and headline disagree at hue ${hue}, order ${order}`);
+    }
   }
 });
 

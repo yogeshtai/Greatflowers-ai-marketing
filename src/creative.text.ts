@@ -41,23 +41,106 @@ const CREATIVE_LIGHT_TEXT_PALETTES = [
   { primary: "#ffffff", accent: "#ff9c88", secondary: "#fff2ef" },
 ] as const;
 
+function hueOf(hex: string): number {
+  const [r, g, b] = [1, 3, 5].map(index => parseInt(hex.slice(index, index + 2), 16) / 255) as [number, number, number];
+  const max = Math.max(r, g, b);
+  const delta = max - Math.min(r, g, b);
+  if (!delta) return 0;
+  const raw = max === r ? ((g - b) / delta) % 6 : max === g ? (b - r) / delta + 2 : (r - g) / delta + 4;
+  return (raw * 60 + 360) % 360;
+}
+
+// Both palettes run pink, amber, green, coral in the same order, so one index picks the matching
+// accent whichever tone the photograph calls for.
+const ACCENT_HUES = CREATIVE_TEXT_PALETTES.map(palette => hueOf(palette.accent));
+// Only accents nearly as close to the photograph as the closest one may be chosen. A wider window
+// let a magenta accent win on a warm amber frame simply because it was that creative's turn.
+const ACCENT_SPREAD = 20;
+const HUE_BUCKETS = 24;
+const MIN_HUE_EVIDENCE = 20;
+
+function hueDistance(a: number, b: number): number {
+  const gap = Math.abs(a - b);
+  return Math.min(gap, 360 - gap);
+}
+
+// Rotating the accent purely by position puts a magenta headline on a dark green Halloween table.
+// Choose the accent that echoes a colour already in the photograph instead, and keep the positional
+// rotation only to spread the choice across the accents that all suit it equally well.
+export function accentIndexForImage(imageHue: number | null, order?: number): number {
+  const rotation = Math.max(0, (order ?? 1) - 1) % ACCENT_HUES.length;
+  if (imageHue === null) return rotation;
+  const distances = ACCENT_HUES.map(accent => hueDistance(accent, imageHue));
+  const nearest = Math.min(...distances);
+  const limit = nearest + ACCENT_SPREAD;
+  const candidates = distances
+    .map((distance, index) => ({ distance, index }))
+    .filter(entry => entry.distance <= limit)
+    .sort((a, b) => a.distance - b.distance)
+    .map(entry => entry.index);
+  return candidates[rotation % candidates.length] ?? rotation;
+}
+
+// Weight each hue by how saturated it is and ignore near-neutral, blown-out and near-black pixels,
+// so the answer comes from the flowers and props rather than from a wall or a shadow.
+export function dominantHueFromPixels(
+  pixels: ReadonlyArray<readonly [number, number, number]>
+): number | null {
+  const weights = new Array<number>(HUE_BUCKETS).fill(0);
+  for (const pixel of pixels) {
+    const [r, g, b] = [pixel[0] / 255, pixel[1] / 255, pixel[2] / 255] as [number, number, number];
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const delta = max - min;
+    const lightness = (max + min) / 2;
+    if (!delta || lightness < 0.12 || lightness > 0.9) continue;
+    const saturation = delta / (1 - Math.abs(2 * lightness - 1));
+    if (saturation < 0.22) continue;
+    const raw = max === r ? ((g - b) / delta) % 6 : max === g ? (b - r) / delta + 2 : (r - g) / delta + 4;
+    const hue = (raw * 60 + 360) % 360;
+    weights[Math.floor(hue / (360 / HUE_BUCKETS)) % HUE_BUCKETS]! += saturation;
+  }
+  if (weights.reduce((total, weight) => total + weight, 0) < MIN_HUE_EVIDENCE) return null;
+  let best = 0;
+  for (let index = 1; index < HUE_BUCKETS; index += 1) if (weights[index]! > weights[best]!) best = index;
+  return (best + 0.5) * (360 / HUE_BUCKETS);
+}
+
+export async function dominantImageHue(imagePath: string): Promise<number | null> {
+  try {
+    const { data, info } = await sharp(imagePath)
+      .resize(64, 64, { fit: "fill" })
+      .removeAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const pixels: Array<[number, number, number]> = [];
+    for (let index = 0; index + 2 < data.length; index += info.channels) {
+      pixels.push([data[index]!, data[index + 1]!, data[index + 2]!]);
+    }
+    return dominantHueFromPixels(pixels);
+  } catch {
+    // Losing the hue only costs us the positional fallback; it must never cost us the creative.
+    return null;
+  }
+}
+
 export function textPaletteForCreative(
   creative: Pick<TypographyCreative, "order">,
   tone: CreativeTextTone = "dark",
+  imageHue: number | null = null,
 ) {
   // The primary stays on the approved brand colour so every creative still reads as GreatFlowers;
-  // only the accent rotates, so four creatives in one campaign stop looking like one template.
+  // only the accent moves, so four creatives in one campaign stop looking like one template.
   const palettes = tone === "light" ? CREATIVE_LIGHT_TEXT_PALETTES : CREATIVE_TEXT_PALETTES;
   const base = palettes[0]!;
-  const index = Math.max(0, ((creative.order ?? 1) - 1)) % palettes.length;
-  return { ...base, accent: palettes[index]!.accent };
+  return { ...base, accent: palettes[accentIndexForImage(imageHue, creative.order)]!.accent };
 }
 
 // CTA pills carry white text, so their fill must stay saturated: the pastel light-tone accents
-// would leave the label unreadable.
-export function ctaAccentForCreative(order?: number): string {
-  const index = Math.max(0, ((order ?? 1) - 1)) % CREATIVE_TEXT_PALETTES.length;
-  return CREATIVE_TEXT_PALETTES[index]!.accent;
+// would leave the label unreadable. The pill tracks the headline accent so one creative shows one
+// accent colour rather than two.
+export function ctaAccentForCreative(order?: number, imageHue: number | null = null): string {
+  return CREATIVE_TEXT_PALETTES[accentIndexForImage(imageHue, order)]!.accent;
 }
 
 export type CreativeTypography = {
@@ -243,9 +326,10 @@ export function buildCreativeTextOverlay(
   height = 1024,
   vertical: CreativeTextVertical = "top",
   tone: CreativeTextTone = "dark",
+  imageHue: number | null = null,
 ): Buffer {
   const typography = typographyForCreative(creative);
-  const palette = textPaletteForCreative(creative, tone);
+  const palette = textPaletteForCreative(creative, tone, imageHue);
   const margin = Math.round(width * CREATIVE_MARGIN_RATIO);
   const usableWidth = Math.round(width * ((creative.contentPoints ?? []).some((point) => point.trim()) ? 0.46 : 0.42));
   const x = side === "left" ? margin : width - margin;
@@ -294,7 +378,7 @@ export function buildCreativeTextOverlay(
   const contentStart = subLines.length ? subFirstY + subLines.length * subLineHeight : lastHeadlineY + Math.round(fitted.size * 0.4);
   const pillY = contentStart + Math.round(height * 0.025);
   const ctaPillSvg = showCtaPill
-    ? `<rect x="${pillX}" y="${pillY}" width="${pillWidth}" height="${pillHeight}" rx="${Math.round(pillHeight / 2)}" fill="${ctaAccentForCreative(creative.order)}"/>
+    ? `<rect x="${pillX}" y="${pillY}" width="${pillWidth}" height="${pillHeight}" rx="${Math.round(pillHeight / 2)}" fill="${ctaAccentForCreative(creative.order, imageHue)}"/>
        <text x="${pillX + Math.round(pillWidth / 2)}" y="${pillY + Math.round(pillHeight * 0.66)}" text-anchor="middle" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${pillFont}" font-weight="700" fill="#ffffff">${escapeXml(ctaLabel)} →</text>`
     : "";
   const pointSize = Math.max(22, Math.round(width * 0.024));
@@ -404,9 +488,12 @@ export async function addCreativeText(
   const metadata = await sharp(imagePath).metadata();
   const width = metadata.width || 1024;
   const height = metadata.height || 1024;
-  const tone = await detectCreativeTextTone(imagePath, side, vertical);
+  const [tone, imageHue] = await Promise.all([
+    detectCreativeTextTone(imagePath, side, vertical),
+    dominantImageHue(imagePath),
+  ]);
   await sharp(imagePath)
-    .composite([{ input: buildCreativeTextOverlay(creative, side, width, height, vertical, tone), left: 0, top: 0 }])
+    .composite([{ input: buildCreativeTextOverlay(creative, side, width, height, vertical, tone, imageHue), left: 0, top: 0 }])
     .png()
     .toFile(outputPath);
 }

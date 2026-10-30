@@ -267,6 +267,21 @@ test("the copy scrim fades out instead of ending in a visible panel edge", () =>
 
     // A band floating in the middle of the frame must fade in at the top as well.
     assert.equal(stops[0]!.opacity, current.vertical === "lower" ? 0 : 1);
+
+    // Sideways, the same rule: full strength everywhere a glyph can land, fading only beyond the
+    // copy column. The fade used to start inside the text, so the end of a long line got half the
+    // support its first word did - and the longest lines are the ones that need it most.
+    const across = [...svg.matchAll(/<stop offset="([\d.]+)%" stop-color="#(?:ffffff|000000)" stop-opacity="([\d.]+)"\/>/g)]
+      .map(match => ({ offset: Number(match[1]), opacity: Number(match[2]) }));
+    assert.ok(across.length >= 3, "copy gradient stops not found");
+    const peak = across[0]!.opacity;
+    const holdsTo = across.filter(stop => stop.opacity === peak).at(-1)!.offset;
+    const columnEdge = ((56 + 1024 * (current.overrides.contentPoints ? 0.46 : 0.42)) / 1024) * 100;
+    assert.ok(
+      holdsTo >= columnEdge,
+      `${current.vertical} scrim weakens at ${holdsTo}% but copy runs to ${columnEdge.toFixed(1)}%`
+    );
+    assert.equal(across.at(-1)!.opacity, 0, "the sideways fade must reach zero");
   }
 });
 

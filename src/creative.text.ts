@@ -66,6 +66,11 @@ const ACCENT_SPREAD = 20;
 export const COPY_CONTRAST_TARGET = 3.3;
 const MAX_COPY_SCRIM = 0.55;
 const MIN_VISIBLE_COPY_SCRIM = 0.05;
+const COPY_SAMPLE_COLUMNS = 8;
+const COPY_SAMPLE_ROWS = 6;
+// Ignore the darkest tenth of the column: a letter may cross one twig without the whole frame
+// needing a wash. Anything more widespread than that is background the copy genuinely sits on.
+const COPY_WORST_PERCENTILE = 0.1;
 
 export function relativeLuminance(r: number, g: number, b: number): number {
   const channel = (value: number) => {
@@ -486,6 +491,11 @@ export function buildCreativeTextOverlay(
       : subLines.length
         ? subFirstY + (subLines.length - 1) * subLineHeight
         : lastHeadlineY;
+  // The horizontal fade used to begin at the frame edge and decay straight through the text, so a
+  // long line ended on half the scrim its first word got. Hold full strength to the end of the copy
+  // column, then fade outside it.
+  const scrimPlateauEdge = Math.min(72, ((margin + usableWidth) / width) * 100 + 3);
+  const scrimFadeEdge = Math.min(96, scrimPlateauEdge + 24);
   const scrimPlateauTop = vertical === "lower" ? Math.max(0, firstY - Math.round(fitted.size * 1.1)) : 0;
   const scrimPlateauBottom = Math.min(height, copyBottom + Math.round(height * 0.02));
   const scrimFade = Math.round(height * 0.1);
@@ -507,8 +517,8 @@ export function buildCreativeTextOverlay(
       </filter>
       <linearGradient id="copy-gradient" x1="${side === "left" ? "0%" : "100%"}" y1="0%" x2="${side === "left" ? "100%" : "0%"}" y2="0%">
         <stop offset="0%" stop-color="${tone === "light" ? "#000000" : "#ffffff"}" stop-opacity="${scrimStrength.toFixed(3)}"/>
-        <stop offset="46%" stop-color="${tone === "light" ? "#000000" : "#ffffff"}" stop-opacity="${(scrimStrength * 0.62).toFixed(3)}"/>
-        <stop offset="72%" stop-color="${tone === "light" ? "#000000" : "#ffffff"}" stop-opacity="0"/>
+        <stop offset="${scrimPlateauEdge.toFixed(1)}%" stop-color="${tone === "light" ? "#000000" : "#ffffff"}" stop-opacity="${scrimStrength.toFixed(3)}"/>
+        <stop offset="${scrimFadeEdge.toFixed(1)}%" stop-color="${tone === "light" ? "#000000" : "#ffffff"}" stop-opacity="0"/>
       </linearGradient>
       <linearGradient id="copy-fade" x1="0%" y1="0%" x2="0%" y2="100%">${scrimFadeStops}</linearGradient>
       <mask id="copy-mask"><rect x="0" y="${scrimTop}" width="${width}" height="${scrimHeight}" fill="url(#copy-fade)"/></mask>
@@ -557,7 +567,7 @@ export async function sampleCopyRegion(
   const bounds = copyRegionBounds(metadata.width || 1024, metadata.height || 1024, side, vertical, hasSteps);
   const { data, info } = await sharp(imagePath)
     .extract(bounds)
-    .resize(4, 3, { fit: "fill" })
+    .resize(COPY_SAMPLE_COLUMNS, COPY_SAMPLE_ROWS, { fit: "fill" })
     .removeAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
@@ -586,9 +596,15 @@ export function copyBackingFromCells(
   const mean = luminances.reduce((total, value) => total + value, 0) / luminances.length;
   const resolved = tone ?? (mean < 0.21 ? "light" : "dark");
 
-  // Dark copy is rescued by lightening and light copy by darkening, so the patch that decides is
-  // the darkest one under dark copy and the brightest one under light copy.
-  const worst = resolved === "dark" ? Math.min(...luminances) : Math.max(...luminances);
+  // Dark copy is rescued by lightening and light copy by darkening, so the patches that decide are
+  // the darkest ones under dark copy and the brightest ones under light copy. Take a percentile
+  // rather than the single extreme, so one dark speck cannot demand a full wash while a genuinely
+  // busy background still does.
+  const sorted = [...luminances].sort((a, b) => a - b);
+  const index = resolved === "dark"
+    ? Math.floor(sorted.length * COPY_WORST_PERCENTILE)
+    : Math.ceil(sorted.length * (1 - COPY_WORST_PERCENTILE)) - 1;
+  const worst = sorted[Math.min(sorted.length - 1, Math.max(0, index))]!;
   const text = luminanceOf(accent);
   if (contrastRatio(worst, text) >= COPY_CONTRAST_TARGET) {
     return { tone: resolved, luminance: mean, scrim: 0 };

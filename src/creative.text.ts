@@ -20,25 +20,29 @@ export const CREATIVE_MARGIN_RATIO = 0.055;
 export const CREATIVE_LOGO_WIDTH_RATIO = 0.24;
 export const CREATIVE_LOGO_ASPECT = 98 / 246;
 
-export const CREATIVE_TEXT_PURPLE = "#32105f";
-export const CREATIVE_TEXT_PINK = "#d61572";
+// The site's own deep brand purple, used for headline copy. The near-miss values this replaced
+// (#32105f, #d61572) were close enough to look right in isolation and wrong beside the real site.
+export const CREATIVE_TEXT_PURPLE = "#261943";
 
-// Dark-tone accents must span the colour wheel the way the light-tone ones do. Four shades of one
-// pink read as a single washed-out accent at headline and pill scale, which is the template look
-// these palettes exist to break. Every accent here clears 4.9:1 against white in both directions,
-// so it is legible as text on a light photograph and as white text on a CTA pill.
+// Taken from the live site's own design tokens, read out of its stylesheet: --gf-primary is the
+// fill on every button on greatflowers.net and --gf-secondary is its accent. Creative chrome that
+// drifts off these reads as someone else's ad, however well it suits the photograph.
+export const GF_PRIMARY = "#701888";
+export const GF_SECONDARY = "#db2173";
+
+// Only brand hues are available as accents. The photograph decides which of them is used, not
+// whether the creative is on brand at all: purple for violet and lilac flowers, magenta otherwise.
+// Variety belongs to the photography - environment, lighting and art direction already carry it.
 const CREATIVE_TEXT_PALETTES = [
-  { primary: CREATIVE_TEXT_PURPLE, accent: CREATIVE_TEXT_PINK, secondary: "#3f3a44" },
-  { primary: "#25232a", accent: "#7d5408", secondary: "#4d4850" },
-  { primary: "#294039", accent: "#1f6f5c", secondary: "#46534f" },
-  { primary: "#3b2b2c", accent: "#a84d3c", secondary: "#554747" },
+  { primary: CREATIVE_TEXT_PURPLE, accent: GF_PRIMARY, secondary: "#3f3a44" },
+  { primary: CREATIVE_TEXT_PURPLE, accent: GF_SECONDARY, secondary: "#3f3a44" },
 ] as const;
 
+// White copy sits on dark photographs, where the brand colours themselves are too dark to read, so
+// these are the same two hues lifted into tints rather than different colours.
 const CREATIVE_LIGHT_TEXT_PALETTES = [
+  { primary: "#ffffff", accent: "#bf97c9", secondary: "#f7f1f5" },
   { primary: "#ffffff", accent: "#ff7fbd", secondary: "#f7f1f5" },
-  { primary: "#ffffff", accent: "#f2b56f", secondary: "#f8f3ed" },
-  { primary: "#ffffff", accent: "#91d8bd", secondary: "#eff8f4" },
-  { primary: "#ffffff", accent: "#ff9c88", secondary: "#fff2ef" },
 ] as const;
 
 function hueOf(hex: string): number {
@@ -136,11 +140,11 @@ export function textPaletteForCreative(
   return { ...base, accent: palettes[accentIndexForImage(imageHue, creative.order)]!.accent };
 }
 
-// CTA pills carry white text, so their fill must stay saturated: the pastel light-tone accents
-// would leave the label unreadable. The pill tracks the headline accent so one creative shows one
-// accent colour rather than two.
-export function ctaAccentForCreative(order?: number, imageHue: number | null = null): string {
-  return CREATIVE_TEXT_PALETTES[accentIndexForImage(imageHue, order)]!.accent;
+// Every button on greatflowers.net is --gf-primary, so the pill is too - on every creative, over
+// every photograph. A call to action is the one element that has to be instantly recognisable as
+// the brand's, so it does not follow the image the way the headline accent does.
+export function ctaAccentForCreative(): string {
+  return GF_PRIMARY;
 }
 
 export type CreativeTypography = {
@@ -378,7 +382,7 @@ export function buildCreativeTextOverlay(
   const contentStart = subLines.length ? subFirstY + subLines.length * subLineHeight : lastHeadlineY + Math.round(fitted.size * 0.4);
   const pillY = contentStart + Math.round(height * 0.025);
   const ctaPillSvg = showCtaPill
-    ? `<rect x="${pillX}" y="${pillY}" width="${pillWidth}" height="${pillHeight}" rx="${Math.round(pillHeight / 2)}" fill="${ctaAccentForCreative(creative.order, imageHue)}"/>
+    ? `<rect x="${pillX}" y="${pillY}" width="${pillWidth}" height="${pillHeight}" rx="${Math.round(pillHeight / 2)}" fill="${ctaAccentForCreative()}"/>
        <text x="${pillX + Math.round(pillWidth / 2)}" y="${pillY + Math.round(pillHeight * 0.66)}" text-anchor="middle" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${pillFont}" font-weight="700" fill="#ffffff">${escapeXml(ctaLabel)} →</text>`
     : "";
   const pointSize = Math.max(22, Math.round(width * 0.024));

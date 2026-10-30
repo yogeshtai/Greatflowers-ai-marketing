@@ -17,7 +17,8 @@ import {
   CREATIVE_LOGO_ASPECT,
   CREATIVE_LOGO_WIDTH_RATIO,
   CREATIVE_MARGIN_RATIO,
-  CREATIVE_TEXT_PINK,
+  GF_PRIMARY,
+  GF_SECONDARY,
   CREATIVE_TEXT_PURPLE,
   detectCreativeTextTone,
   headlineWords,
@@ -81,7 +82,7 @@ test("typography mode follows the art direction, then the creative purpose", () 
   })).mode, "editorial-serif");
 });
 
-test("headline typography applies controlled pink emphasis to a meaningful phrase", () => {
+test("headline typography applies controlled brand emphasis to a meaningful phrase", () => {
   const words = headlineWords("Tuesday Flowers, Chosen on Purpose");
   assert.deepEqual(
     words.filter(word => word.accented).map(word => word.text),
@@ -90,7 +91,7 @@ test("headline typography applies controlled pink emphasis to a meaningful phras
 
   const svg = buildCreativeTextOverlay(variant({ artDirection: "magazine-product-feature" }), "left").toString();
   assert.match(svg, new RegExp(CREATIVE_TEXT_PURPLE));
-  assert.match(svg, new RegExp(CREATIVE_TEXT_PINK));
+  assert.match(svg, new RegExp(`${GF_PRIMARY}|${GF_SECONDARY}`));
   assert.match(svg, /Bodoni 72, Didot, Georgia/);
   assert.match(svg, /Bring the[\s\S]*Blooms/);
   assert.match(svg, /A thoughtful surprise for[\s\S]*their day\./);
@@ -101,16 +102,15 @@ test("independent creative styling rotates layout while the palette and logo sta
   assert.deepEqual(layoutForCreativeVariant(variant({ order: 1 })), { logoPosition: "top-left", textSide: "left", textVertical: "top" });
   assert.deepEqual(layoutForCreativeVariant(variant({ order: 2, copyLayout: "lower-right-caption" })), { logoPosition: "top-right", textSide: "right", textVertical: "lower" });
   assert.equal(layoutForCreativeVariant(variant({ order: 2, copyLayout: "lower-right-caption", contentPoints: ["One useful point", "Another useful point"] })).textVertical, "top");
-  // The brand primary is locked; only the accent rotates, so one campaign is not four identical ads.
-  assert.equal(textPaletteForCreative(variant({ order: 1 })).primary, CREATIVE_TEXT_PURPLE);
-  assert.equal(textPaletteForCreative(variant({ order: 2 })).primary, CREATIVE_TEXT_PURPLE);
-  assert.equal(textPaletteForCreative(variant({ order: 4 })).primary, CREATIVE_TEXT_PURPLE);
-  assert.equal(textPaletteForCreative(variant({ order: 1 })).accent, CREATIVE_TEXT_PINK);
-  assert.notEqual(textPaletteForCreative(variant({ order: 3 })).accent, CREATIVE_TEXT_PINK);
-  assert.equal(
-    new Set([1, 2, 3, 4].map(order => textPaletteForCreative(variant({ order })).accent)).size,
-    4
-  );
+  // The brand primary is locked on every creative, and the accent may only ever be one of the two
+  // colours the website itself uses.
+  for (const order of [1, 2, 3, 4]) {
+    assert.equal(textPaletteForCreative(variant({ order })).primary, CREATIVE_TEXT_PURPLE);
+    assert.ok(
+      [GF_PRIMARY, GF_SECONDARY].includes(textPaletteForCreative(variant({ order })).accent),
+      `order ${order} uses an accent that is not on the site's palette`
+    );
+  }
   assert.equal(shouldShowWebsiteCta(variant({ order: 1 })), false);
   assert.equal(shouldShowWebsiteCta(variant({ order: 4 })), true);
 });
@@ -146,7 +146,8 @@ test("rotated accents are visibly different colours, not four shades of one hue"
 
   const orders = [1, 2, 3, 4];
   for (const tone of ["dark", "light"] as const) {
-    const accents = orders.map(order => textPaletteForCreative(variant({ order }), tone).accent);
+    const accents = [...new Set(orders.map(order => textPaletteForCreative(variant({ order }), tone).accent))];
+    assert.ok(accents.length >= 2, `${tone} offers no choice of accent at all`);
     for (let i = 0; i < accents.length; i += 1) {
       for (let j = i + 1; j < accents.length; j += 1) {
         assert.ok(
@@ -168,8 +169,8 @@ test("rotated accents are visibly different colours, not four shades of one hue"
       contrast(accent, WARM_SCRIMMED_PHOTO) >= 3,
       `${accent} only reaches ${contrast(accent, WARM_SCRIMMED_PHOTO).toFixed(2)}:1 on a warm photograph`
     );
-    assert.ok(contrast(ctaAccentForCreative(order), "#ffffff") >= 4.5, `CTA pill ${ctaAccentForCreative(order)} cannot carry white text`);
   }
+  assert.ok(contrast(ctaAccentForCreative(), "#ffffff") >= 4.5, `CTA pill ${ctaAccentForCreative()} cannot carry white text`);
 });
 
 test("the dominant hue comes from the saturated subject, not walls or shadows", () => {
@@ -193,35 +194,26 @@ test("the dominant hue comes from the saturated subject, not walls or shadows", 
 });
 
 test("the accent echoes a colour the photograph actually contains", () => {
-  const ACCENTS = { pink: 0, gold: 1, teal: 2, coral: 3 };
+  const ACCENTS = { purple: 0, magenta: 1 };
 
-  // The complaint this fixes: a warm candlelit Halloween table was given a magenta headline purely
-  // because it was that creative's turn in the rotation.
-  for (const order of [1, 2, 3, 4]) {
-    const chosen = accentIndexForImage(23, order);
-    assert.notEqual(chosen, ACCENTS.pink, `warm amber frame must not take the magenta accent (order ${order})`);
-    assert.notEqual(chosen, ACCENTS.teal, `warm amber frame must not take the teal accent (order ${order})`);
-  }
+  // Violet and lilac flowers pull the accent to the brand purple; everything else takes magenta.
+  assert.equal(accentIndexForImage(285, 1), ACCENTS.purple);
+  assert.equal(accentIndexForImage(23, 1), ACCENTS.magenta);
+  assert.equal(accentIndexForImage(110, 1), ACCENTS.magenta);
 
-  // Each photograph pulls the accent toward what is in it.
-  assert.equal(accentIndexForImage(110, 1), ACCENTS.teal);   // green foliage
-  assert.equal(accentIndexForImage(320, 1), ACCENTS.pink);   // magenta blooms
-  assert.equal(accentIndexForImage(15, 1), ACCENTS.coral);   // warm terracotta
-
-  // Position only breaks ties between accents that suit the frame equally well, and the closest
-  // match always goes first.
-  assert.equal(accentIndexForImage(23, 1), ACCENTS.coral);
-  assert.notEqual(accentIndexForImage(23, 2), accentIndexForImage(23, 1));
-
-  // With nothing to echo, the old positional rotation still applies.
-  assert.deepEqual([1, 2, 3, 4].map(order => accentIndexForImage(null, order)), [0, 1, 2, 3]);
+  // With nothing to echo, position still decides.
+  assert.deepEqual([1, 2, 3, 4].map(order => accentIndexForImage(null, order)), [0, 1, 0, 1]);
 });
 
-test("the CTA pill carries the same accent as the headline it sits under", () => {
+test("the CTA pill is the site's own button colour on every creative", () => {
+  // Buttons on greatflowers.net are all --gf-primary. The headline accent may follow the
+  // photograph; the call to action may not, because it is the element a reader recognises.
+  assert.equal(ctaAccentForCreative(), GF_PRIMARY);
+
   for (const hue of [23, 110, 320, null]) {
     for (const order of [1, 2, 3, 4]) {
-      const headline = textPaletteForCreative(variant({ order }), "dark", hue).accent;
-      assert.equal(ctaAccentForCreative(order, hue), headline, `pill and headline disagree at hue ${hue}, order ${order}`);
+      const svg = buildCreativeTextOverlay(variant({ order, cta: "Shop Now" }), "left", 1024, 1024, "top", "dark", hue).toString();
+      assert.match(svg, new RegExp(`rx="\\d+" fill="${GF_PRIMARY}"`), `pill drifted off brand at hue ${hue}, order ${order}`);
     }
   }
 });

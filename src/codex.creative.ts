@@ -185,7 +185,8 @@ const GREATFLOWERS_LOGO_URL =
   "https://greatflowers.net/assets/svg/greatflowers-logo.svg";
 
 export const CREATIVE_LOGO_WIDTH_RATIO = LOGO_WIDTH_RATIO;
-export const CREATIVE_CTA_PURPLE = "#32105f";
+// The website pill matches the site's header and footer purple.
+export const CREATIVE_CTA_PURPLE = "#261943";
 
 const OUTPUT_DIR = join(process.cwd(), "test-creatives");
 

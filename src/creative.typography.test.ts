@@ -26,6 +26,7 @@ import {
   stripPrices,
   accentIndexForImage,
   ctaAccentForCreative,
+  contrastingLabel,
   copyBackingFromCells,
   dominantHueFromPixels,
   textPaletteForCreative,
@@ -488,4 +489,41 @@ test("prices are never baked into creative copy", () => {
   assert.equal(stripPrices("Only $57.97 today"), "today");
   const svg = buildCreativeTextOverlay(variant({ subheadline: "Orange mums in a bucket — $40.97." }), "left").toString();
   assert.doesNotMatch(svg, /\$40/);
+});
+
+test("step markers carry a numeral that can actually be read inside them", () => {
+  const rgb = (hex: string) => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+  const luminance = (hex: string) => {
+    const [r, g, b] = rgb(hex).map(v => {
+      const c = v / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    }) as [number, number, number];
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const contrast = (a: string, b: string) =>
+    (Math.max(luminance(a), luminance(b)) + 0.05) / (Math.min(luminance(a), luminance(b)) + 0.05);
+
+  // Every accent a marker can be filled with, in either tone.
+  for (const order of [1, 2, 3, 4]) {
+    for (const tone of ["dark", "light"] as const) {
+      const fill = textPaletteForCreative(variant({ order }), tone).accent;
+      assert.ok(
+        contrast(contrastingLabel(fill), fill) >= 4.5,
+        `numeral on ${fill} only reaches ${contrast(contrastingLabel(fill), fill).toFixed(2)}:1`
+      );
+    }
+  }
+
+  // White used to be hardcoded, and on the light tints it sits at 2.3:1.
+  assert.equal(contrastingLabel("#ff7fbd"), CREATIVE_TEXT_PURPLE);
+  assert.equal(contrastingLabel(GF_PRIMARY), "#ffffff");
+
+  const svg = buildCreativeTextOverlay(variant({
+    creativeType: "informational",
+    sceneStrategy: "INFORMATIONAL_GRAPHIC",
+    contentPoints: ["Trim the stems", "Use a clean vase", "Refresh the water"],
+  }), "left", 1024, 1024, "top", "light").toString();
+  const fill = svg.match(/<circle[^>]*fill="(#[0-9a-f]{6})"/)?.[1];
+  assert.ok(fill, "step marker not found");
+  assert.match(svg, new RegExp(`fill="${contrastingLabel(fill)}">1</text>`));
 });

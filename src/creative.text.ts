@@ -92,6 +92,16 @@ export function contrastRatio(a: number, b: number): number {
   return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 }
 
+// The numerals in the step markers are small, so they need 4.5:1 against the marker they sit in.
+// White was hardcoded, which holds on the deep brand accents and fails on the light tints used
+// over dark photographs - exactly where the markers are most used.
+export function contrastingLabel(fill: string): string {
+  const background = luminanceOf(fill);
+  return contrastRatio(background, 1) >= contrastRatio(background, luminanceOf(CREATIVE_TEXT_PURPLE))
+    ? "#ffffff"
+    : CREATIVE_TEXT_PURPLE;
+}
+
 function luminanceToChannel(luminance: number): number {
   const clamped = Math.min(1, Math.max(0, luminance));
   return (clamped <= 0.0031308 ? clamped * 12.92 : 1.055 * Math.pow(clamped, 1 / 2.4) - 0.055) * 255;
@@ -465,7 +475,7 @@ export function buildCreativeTextOverlay(
     }
     const firstBaseline = pointY + pointSize;
     pointSvg.push(`<circle cx="${numberX}" cy="${firstBaseline - Math.round(pointSize * 0.35)}" r="${numberRadius}" fill="${palette.accent}"/>`);
-    pointSvg.push(`<text x="${numberX}" y="${firstBaseline - Math.round(pointSize * 0.13)}" text-anchor="middle" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${Math.round(pointSize * 0.72)}" font-weight="700" fill="#ffffff">${index + 1}</text>`);
+    pointSvg.push(`<text x="${numberX}" y="${firstBaseline - Math.round(pointSize * 0.13)}" text-anchor="middle" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${Math.round(pointSize * 0.72)}" font-weight="700" fill="${contrastingLabel(palette.accent)}">${index + 1}</text>`);
     pointSvg.push(`<text x="${pointTextX}" text-anchor="${pointAnchor}" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${pointSize}" font-weight="600" fill="${palette.primary}" filter="url(#text-shadow)">${lines.map((line, lineIndex) =>
       `<tspan x="${pointTextX}" y="${firstBaseline + lineIndex * pointLineHeight}">${escapeXml(line)}</tspan>`
     ).join("")}</text>`);

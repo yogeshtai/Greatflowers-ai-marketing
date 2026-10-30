@@ -29,7 +29,7 @@ export const CREATIVE_TEXT_PINK = "#d61572";
 // so it is legible as text on a light photograph and as white text on a CTA pill.
 const CREATIVE_TEXT_PALETTES = [
   { primary: CREATIVE_TEXT_PURPLE, accent: CREATIVE_TEXT_PINK, secondary: "#3f3a44" },
-  { primary: "#25232a", accent: "#96660f", secondary: "#4d4850" },
+  { primary: "#25232a", accent: "#7d5408", secondary: "#4d4850" },
   { primary: "#294039", accent: "#1f6f5c", secondary: "#46534f" },
   { primary: "#3b2b2c", accent: "#a84d3c", secondary: "#554747" },
 ] as const;
@@ -331,18 +331,40 @@ export function buildCreativeTextOverlay(
     throw new Error("Creative content points are too long to fit without overlapping the website CTA");
   }
 
+  // The scrim fades smoothly left-to-right but used to stop at a hard horizontal cut, which is what
+  // made the copy read as a sticker laid on the photo rather than part of it. Keep the full-strength
+  // band exactly where it was and extend it with a faded tail, so legibility over the text is
+  // unchanged and only the boundary disappears.
+  const scrimPlateauTop = vertical === "lower" ? Math.round(height * 0.43) : 0;
+  const scrimPlateauBottom = vertical === "lower"
+    ? Math.round(height * 0.92)
+    : Math.round(height * (contentPoints.length ? 0.85 : 0.8));
+  const scrimFade = Math.round(height * 0.1);
+  const scrimTop = Math.max(0, scrimPlateauTop - (vertical === "lower" ? scrimFade : 0));
+  const scrimHeight = Math.min(height, scrimPlateauBottom + scrimFade) - scrimTop;
+  const plateauStart = ((scrimPlateauTop - scrimTop) / scrimHeight) * 100;
+  const plateauEnd = ((scrimPlateauBottom - scrimTop) / scrimHeight) * 100;
+  const scrimFadeStops = [
+    ...(plateauStart > 0.5 ? [`<stop offset="0%" stop-color="#ffffff" stop-opacity="0"/>`] : []),
+    `<stop offset="${plateauStart.toFixed(2)}%" stop-color="#ffffff" stop-opacity="1"/>`,
+    `<stop offset="${plateauEnd.toFixed(2)}%" stop-color="#ffffff" stop-opacity="1"/>`,
+    `<stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>`,
+  ].join("");
+
   return Buffer.from(`<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <filter id="text-shadow" x="-20%" y="-20%" width="140%" height="140%">
         <feDropShadow dx="0" dy="1" stdDeviation="${tone === "light" ? "2.4" : "1.8"}" flood-color="${tone === "light" ? "#000000" : "#ffffff"}" flood-opacity="${tone === "light" ? "0.72" : "0.82"}"/>
       </filter>
       <linearGradient id="copy-gradient" x1="${side === "left" ? "0%" : "100%"}" y1="0%" x2="${side === "left" ? "100%" : "0%"}" y2="0%">
-        <stop offset="0%" stop-color="${tone === "light" ? "#000000" : "#ffffff"}" stop-opacity="${tone === "light" ? "0.58" : "0.68"}"/>
-        <stop offset="46%" stop-color="${tone === "light" ? "#000000" : "#ffffff"}" stop-opacity="${tone === "light" ? "0.34" : "0.42"}"/>
+        <stop offset="0%" stop-color="${tone === "light" ? "#000000" : "#ffffff"}" stop-opacity="${tone === "light" ? "0.52" : "0.60"}"/>
+        <stop offset="46%" stop-color="${tone === "light" ? "#000000" : "#ffffff"}" stop-opacity="${tone === "light" ? "0.30" : "0.37"}"/>
         <stop offset="72%" stop-color="${tone === "light" ? "#000000" : "#ffffff"}" stop-opacity="0"/>
       </linearGradient>
+      <linearGradient id="copy-fade" x1="0%" y1="0%" x2="0%" y2="100%">${scrimFadeStops}</linearGradient>
+      <mask id="copy-mask"><rect x="0" y="${scrimTop}" width="${width}" height="${scrimHeight}" fill="url(#copy-fade)"/></mask>
     </defs>
-    <rect x="0" y="${vertical === "lower" ? Math.round(height * 0.43) : 0}" width="${width}" height="${vertical === "lower" ? Math.round(height * 0.49) : Math.round(height * (contentPoints.length ? 0.85 : 0.8))}" fill="url(#copy-gradient)"/>
+    <rect x="0" y="${scrimTop}" width="${width}" height="${scrimHeight}" fill="url(#copy-gradient)" mask="url(#copy-mask)"/>
     <text font-family="${typography.family}" font-size="${fitted.size}" font-weight="${typography.weight}" letter-spacing="-1.2" filter="url(#text-shadow)">${headlineSvg}</text>
     ${subLines.length ? `<text x="${x}" text-anchor="${anchor}" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${subSize}" font-weight="500" fill="${palette.secondary}" filter="url(#text-shadow)">${subSvg}</text>` : ""}
     ${ctaPillSvg}

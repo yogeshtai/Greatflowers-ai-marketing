@@ -155,11 +155,58 @@ test("rotated accents are visibly different colours, not four shades of one hue"
     }
   }
 
-  // Dark-tone accents sit as text on a light photograph; CTA pills carry white text on the same fill.
+  // Measuring an accent against pure white flatters it: the real backdrop is a warm cream
+  // photograph seen through the scrim, which is darker and in the same hue family as the warm
+  // accents. Check the accent against that, at the large-text threshold it is actually used at
+  // (bold display headlines), and check the CTA fill against the white label it carries.
+  const WARM_SCRIMMED_PHOTO = "#e8d5bf";
   for (const order of orders) {
     const accent = textPaletteForCreative(variant({ order }), "dark").accent;
-    assert.ok(contrast(accent, "#ffffff") >= 4.5, `${accent} is unreadable on a light photograph`);
+    assert.ok(
+      contrast(accent, WARM_SCRIMMED_PHOTO) >= 3,
+      `${accent} only reaches ${contrast(accent, WARM_SCRIMMED_PHOTO).toFixed(2)}:1 on a warm photograph`
+    );
     assert.ok(contrast(ctaAccentForCreative(order), "#ffffff") >= 4.5, `CTA pill ${ctaAccentForCreative(order)} cannot carry white text`);
+  }
+});
+
+test("the copy scrim fades out instead of ending in a visible panel edge", () => {
+  const cases = [
+    { vertical: "top" as const, overrides: {}, plateauBottom: Math.round(1024 * 0.8) },
+    { vertical: "top" as const, overrides: { contentPoints: ["Trim the stems", "Use a clean vase", "Refresh the water"] }, plateauBottom: Math.round(1024 * 0.85) },
+    { vertical: "lower" as const, overrides: { copyLayout: "lower-right-caption" }, plateauBottom: Math.round(1024 * 0.92) },
+  ];
+
+  for (const current of cases) {
+    const svg = buildCreativeTextOverlay(
+      variant(current.overrides as Partial<CreativeVariant>), "left", 1024, 1024, current.vertical
+    ).toString();
+
+    // The band is masked rather than cut off, so it has no hard horizontal boundary.
+    assert.match(svg, /fill="url\(#copy-gradient\)" mask="url\(#copy-mask\)"/);
+
+    const rect = svg.match(/<rect x="0" y="(\d+)" width="1024" height="(\d+)" fill="url\(#copy-gradient\)"/);
+    assert.ok(rect, `${current.vertical} scrim rect not found`);
+    const [top, span] = [Number(rect[1]), Number(rect[2])];
+
+    // Scope this to the vertical fade: the horizontal copy-gradient also uses white stops.
+    const fade = svg.match(/<linearGradient id="copy-fade"[^>]*>([\s\S]*?)<\/linearGradient>/);
+    assert.ok(fade, `${current.vertical} copy-fade gradient not found`);
+    const stops = [...fade[1]!.matchAll(/<stop offset="([\d.]+)%" stop-color="#ffffff" stop-opacity="([\d.]+)"\/>/g)]
+      .map(match => ({ offset: Number(match[1]), opacity: Number(match[2]) }));
+    assert.deepEqual(stops.at(-1), { offset: 100, opacity: 0 }, "the scrim must reach zero at its lower edge");
+
+    // Full-strength coverage still reaches the boundary the solid rectangle used to end at, so
+    // softening the edge cannot cost legibility under the copy.
+    const plateau = stops.filter(stop => stop.opacity === 1);
+    assert.equal(plateau.length, 2);
+    assert.ok(
+      top + (span * plateau.at(-1)!.offset) / 100 >= current.plateauBottom - 1,
+      `${current.vertical} scrim weakens at ${top + (span * plateau.at(-1)!.offset) / 100} before ${current.plateauBottom}`
+    );
+
+    // A band floating in the middle of the frame must fade in at the top as well.
+    assert.equal(stops[0]!.opacity, current.vertical === "lower" ? 0 : 1);
   }
 });
 

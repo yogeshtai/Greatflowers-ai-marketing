@@ -10,6 +10,8 @@ import {
   shouldUseProductReference,
   shouldShowWebsiteCta,
   type CreativeBrief,
+  copyZoneCorrection,
+  COPY_ZONE_RETRY_SCRIM,
   type CreativeVariant,
 } from "./codex.creative.js";
 import {
@@ -390,6 +392,14 @@ test("image generation reserves clear zones and never renders its own text", () 
   assert.match(prompt, /Do not draw empty circles, unlabeled icons/);
   assert.match(prompt, /logo corner must be an evenly LIT, LIGHT, uncluttered area/);
   assert.match(prompt, /never let that corner be half bright and half dark/);
+
+  // The safe area is described as a surface the model can actually compose, and given a tonal
+  // requirement. "Calm negative space" alone permitted a dark, busy florist's workbench.
+  assert.match(prompt, /must read as ONE continuous, evenly lit surface/);
+  assert.match(prompt, /No hands, tools,\s*\n?stems, leaves, furniture edges/);
+  assert.match(prompt, /hold a SINGLE tonal value across its full width and height/);
+  assert.match(prompt, /bright at one end and dark at the other fails/);
+  assert.match(prompt, /genuine scene surface, not a graphic panel/);
   assert.doesNotMatch(prompt, /TEXT OVERLAY \(verbatim\)/);
   assert.doesNotMatch(prompt, /Three exact care steps/);
 });
@@ -526,4 +536,21 @@ test("step markers carry a numeral that can actually be read inside them", () =>
   const fill = svg.match(/<circle[^>]*fill="(#[0-9a-f]{6})"/)?.[1];
   assert.ok(fill, "step marker not found");
   assert.match(svg, new RegExp(`fill="${contrastingLabel(fill)}">1</text>`));
+});
+
+test("a frame that fails its copy zone is told what to fix, not just asked again", () => {
+  const note = copyZoneCorrection("left", "dark");
+
+  // The retry has to name the actual failure, or the model has no reason to compose differently.
+  assert.match(note, /THE PREVIOUS ATTEMPT FAILED ITS TYPOGRAPHY SAFE AREA/);
+  assert.match(note, /outer left column came out too dark and too cluttered/);
+  assert.match(note, /one plain, evenly lit, uninterrupted surface/);
+
+  // And it must not undo the art direction while fixing the composition.
+  assert.match(note, /Keep the same product,\s*\n?environment, lighting mood and art direction/);
+
+  assert.match(copyZoneCorrection("right", "light"), /outer right column came out too bright and too busy/);
+
+  // The gate only fires for a scrim heavy enough to be visible over the photograph.
+  assert.ok(COPY_ZONE_RETRY_SCRIM > 0.05 && COPY_ZONE_RETRY_SCRIM < 0.55);
 });

@@ -16,7 +16,7 @@ import fetch from "node-fetch";
 import sharp from "sharp";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { CODEX_SPAWN_OPTIONS, codexLimitArgs, guardCodexProcess } from "./ai.limits.js";
-import { addCreativeText, buildCreativeTextOverlay, CREATIVE_LOGO_WIDTH_RATIO as LOGO_WIDTH_RATIO, CREATIVE_MARGIN_RATIO, type CreativeTextSide, type CreativeTextVertical } from "./creative.text.js";
+import { addCreativeText, buildCreativeTextOverlay, measureCopyZone, CREATIVE_LOGO_WIDTH_RATIO as LOGO_WIDTH_RATIO, CREATIVE_MARGIN_RATIO, type CreativeTextSide, type CreativeTextVertical } from "./creative.text.js";
 import { ART_DIRECTION_GUIDANCE, ENVIRONMENT_GUIDANCE, LIGHTING_GUIDANCE, fallbackArtDirection, fallbackCopyLayout, fallbackEnvironment, fallbackLightingSetup, type ArtDirection, type CopyLayout, type SceneEnvironment, type LightingSetup } from "./creative.direction.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -482,10 +482,18 @@ an entire half of the photograph. The scene must remain visually complete and in
 Do not generate, spell, draw, or recreate GreatFlowers branding or logo.
 
 TYPOGRAPHY SAFE AREA (CRITICAL):
-Reserve the ${typographySafeArea} as calm natural negative space with controlled contrast.
-Keep faces and important flower details out of that zone. Natural wall, room, fabric, sky or soft-focus
-scene detail may continue through it; avoid busy edges directly behind the copy.
-Do not create a white rectangle, translucent card, blank paper panel or fake text box.
+The ${typographySafeArea} must read as ONE continuous, evenly lit surface: a plain wall, a smooth
+expanse of fabric or tablecloth, soft out-of-focus room depth, open sky, or a clean uncluttered
+tabletop. Compose the scene so that area is genuinely empty - nothing crosses it. No hands, tools,
+stems, leaves, furniture edges, window frames, door frames, lamps, specular highlights or hard cast
+shadows anywhere inside it.
+It must hold a SINGLE tonal value across its full width and height: uniformly light, or uniformly
+deep. One colour of type has to read from the first word of a line to the last, so a zone that is
+bright at one end and dark at the other fails even when each end looks fine on its own.
+Prefer a light, softly lit surface there unless the whole photograph is a dark evening scene.
+Keep faces and important flower details out of that zone.
+Do not create a white rectangle, translucent card, blank paper panel or fake text box - the calm
+area must be genuine scene surface, not a graphic panel laid over the photograph.
 The application will typeset the approved headline, subheadline${hasContentPoints ? " and numbered content points" : ""} in this zone after generation.
 ${hasContentPoints ? "Do not draw empty circles, unlabeled icons, arrows, process diagrams or step placeholders." : ""}
 
@@ -1025,6 +1033,20 @@ export function buildWebsiteCta(
   return { input, left, top, width, height };
 }
 
+// A scrim this strong means the frame did not leave usable room for the copy. Worth one more
+// generation before falling back to painting over the photograph.
+export const COPY_ZONE_RETRY_SCRIM = 0.3;
+
+export function copyZoneCorrection(side: CreativeTextSide, tone: "dark" | "light"): string {
+  return `RETRY - THE PREVIOUS ATTEMPT FAILED ITS TYPOGRAPHY SAFE AREA:
+The outer ${side} column came out ${tone === "light" ? "too bright and too busy" : "too dark and too cluttered"}
+to carry the headline, so the copy would have to be painted over the photograph to be read.
+Recompose the shot. Move the bouquet, the people and every prop clear of that column and leave it as
+one plain, evenly lit, uninterrupted surface - a bare wall, smooth fabric, or soft out-of-focus depth
+with nothing crossing it and no hard edge or highlight anywhere inside it. Keep the same product,
+environment, lighting mood and art direction; only the composition changes.`;
+}
+
 export async function generateCreativeVariant(
   variant: CreativeVariant,
   productImageUrl: string,
@@ -1071,13 +1093,35 @@ export async function generateCreativeVariant(
     // bouquet cannot drift. Art direction, camera behavior and scale create
     // variety without inventing a different sellable product.
     const generationReference = shouldUseProductReference(variant) ? productImagePath : null;
-    const generatedPath = await executeCodex(
+    let generatedPath = await executeCodex(
       prompt,
       generationReference,
       outputFilename,
       signal
     );
     tempFiles.add(generatedPath);
+
+    // Measure the area the copy will land on. A scrim is a patch over a frame that did not leave
+    // room for the text, so spend one more generation trying to get a frame that does not need one.
+    const zone = await measureCopyZone(generatedPath, variant, textSide, textVertical);
+    if (zone.backing.scrim >= COPY_ZONE_RETRY_SCRIM) {
+      console.log(`🔁 ${variant.creativeType}: copy zone needs a ${zone.backing.scrim.toFixed(2)} scrim, regenerating once`);
+      const retryPath = await executeCodex(
+        `${prompt}\n\n${copyZoneCorrection(textSide, zone.tone)}`,
+        generationReference,
+        `retry-${outputFilename}`,
+        signal
+      );
+      tempFiles.add(retryPath);
+      const retryZone = await measureCopyZone(retryPath, variant, textSide, textVertical);
+      // A retry can come back worse, so keep whichever frame needs less painting over.
+      if (retryZone.backing.scrim < zone.backing.scrim) {
+        console.log(`✅ ${variant.creativeType}: retry needs ${retryZone.backing.scrim.toFixed(2)}, keeping it`);
+        generatedPath = retryPath;
+      } else {
+        console.log(`↩️  ${variant.creativeType}: retry was no better, keeping the original`);
+      }
+    }
 
     // Step 2: Typeset exact approved copy with purpose-specific typography.
     const textOutputPath = join(OUTPUT_DIR, `text-${outputFilename}`);

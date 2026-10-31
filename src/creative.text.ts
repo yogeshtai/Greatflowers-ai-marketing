@@ -645,6 +645,28 @@ export async function detectCreativeTextTone(
   return mean < 0.21 ? "light" : "dark";
 }
 
+// One measurement of the area the copy will land on, shared by the typesetter and by the generator
+// that decides whether the frame is worth keeping. The accent is resolved here because the two
+// brand accents differ enough in luminance to change whether a scrim is needed at all.
+export async function measureCopyZone(
+  imagePath: string,
+  creative: TypographyCreative,
+  side: CreativeTextSide,
+  vertical: CreativeTextVertical,
+): Promise<{ tone: CreativeTextTone; imageHue: number | null; backing: CreativeCopyBacking }> {
+  const hasSteps = (creative.contentPoints ?? []).some(point => point.trim());
+  const [cells, imageHue] = await Promise.all([
+    sampleCopyRegion(imagePath, side, vertical, hasSteps),
+    dominantImageHue(imagePath),
+  ]);
+  const tone = await detectCreativeTextTone(imagePath, side, vertical, hasSteps);
+  const mean = cells.length
+    ? cells.map(cell => relativeLuminance(cell[0], cell[1], cell[2])).reduce((total, value) => total + value, 0) / cells.length
+    : 1;
+  const accent = textPaletteForCreative(creative, tone, imageHue, mean).accent;
+  return { tone, imageHue, backing: copyBackingFromCells(cells, accent, tone) };
+}
+
 export async function addCreativeText(
   imagePath: string,
   outputPath: string,
@@ -653,24 +675,18 @@ export async function addCreativeText(
   vertical: CreativeTextVertical = "top",
 ): Promise<void> {
   const metadata = await sharp(imagePath).metadata();
-  const width = metadata.width || 1024;
-  const height = metadata.height || 1024;
-  const hasSteps = (creative.contentPoints ?? []).some(point => point.trim());
-  const [cells, imageHue] = await Promise.all([
-    sampleCopyRegion(imagePath, side, vertical, hasSteps),
-    dominantImageHue(imagePath),
-  ]);
-  const tone = await detectCreativeTextTone(imagePath, side, vertical, hasSteps);
-  // The accent is picked first, against the measured background, because the two brand accents
-  // differ enough in luminance that the choice decides whether a scrim is needed at all.
-  const mean = cells.length
-    ? cells.map(cell => relativeLuminance(cell[0], cell[1], cell[2])).reduce((total, value) => total + value, 0) / cells.length
-    : 1;
-  const accent = textPaletteForCreative(creative, tone, imageHue, mean).accent;
-  const backing = copyBackingFromCells(cells, accent, tone);
+  const zone = await measureCopyZone(imagePath, creative, side, vertical);
   await sharp(imagePath)
-    .composite([{ input: buildCreativeTextOverlay(creative, side, width, height, vertical, tone, imageHue, backing), left: 0, top: 0 }])
+    .composite([{
+      input: buildCreativeTextOverlay(
+        creative, side, metadata.width || 1024, metadata.height || 1024,
+        vertical, zone.tone, zone.imageHue, zone.backing
+      ),
+      left: 0,
+      top: 0,
+    }])
     .png()
     .toFile(outputPath);
 }
+
 

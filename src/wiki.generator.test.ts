@@ -45,6 +45,16 @@ test("valid wiki output resolves verified product and home links", () => {
   assert.match(wiki.html, /href="https:\/\/greatflowers\.net\/"/);
 });
 
+test("wrapped wiki JSON is recovered and wrong roots produce a concise repair error", () => {
+  const context = { subject, existingTitles: [], existingSlugs: [], products, base: "https://greatflowers.net" };
+  const wiki = validateWiki(JSON.stringify({ result: { wiki: base } }), context);
+  assert.equal(wiki.title, "Roses");
+  assert.throws(
+    () => validateWiki(JSON.stringify({ success: false, validation: [{ expected: "string", path: ["title"] }] }), context),
+    /No complete Wiki JSON object was returned.*Received keys: success, validation/,
+  );
+});
+
 test("existing one-product wiki drafts remain valid", () => {
   const oneProductHtml = html.replace(/<p>Compare it with the <a href="PRODUCT:9">Pink Rose Bouquet<\/a>\.<\/p>/, "");
   const wiki = validateWiki(JSON.stringify({ ...base, productIds: [7], html: oneProductHtml }), {
@@ -72,6 +82,7 @@ test("wiki prompt fixes the subject and requires conservative factual writing", 
   assert.match(prompt, /title must be exactly "Roses"/);
   assert.match(prompt, /Do not give medical, edible-use or pet-safety advice/);
   assert.match(prompt, /traditionally associated/);
+  assert.match(prompt, /Return this object itself at the top level/);
 });
 
 test("wiki slugs remove apostrophes instead of splitting the word", () => {

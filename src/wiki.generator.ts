@@ -1,7 +1,7 @@
 import { gfApiHost, withGfClient } from "./gf.admin.client.js";
 import { DEFAULT_WIKI_AUTHOR, isWikiAuthor, selectWikiAuthor } from "./wiki.authors.js";
 import { requestHermesJSON } from "./hermes.json.js";
-import { parseModelJSON } from "./model.json.js";
+import { parseModelJSONCandidates } from "./model.json.js";
 import { toCatalogProduct, type CatalogProduct } from "./blog.generator.js";
 import { GeneratedWikiJsonSchema, GeneratedWikiSchema, type GeneratedWiki } from "./wiki.schema.js";
 import { addWikiDraft, getWikiDrafts, updateWikiDraft } from "./wiki.store.js";
@@ -139,11 +139,53 @@ SEO
 - authorName must be exactly "${authorName}".
 - metaTitle is 35-55 characters without "Great Flowers".
 - metaDescription is 120-165 characters.
-- Return JSON only.`;
+- Return JSON only.
+
+OUTPUT CONTRACT
+Return this object itself at the top level—never a validation report, summary, wrapper, file or status object:
+{"title":"${subject.title}","slug":"${slugForWikiTitle(subject.title)}","botanicalName":"${subject.botanicalName}","authorName":"${authorName}","description":"...","metaTitle":"...","metaDescription":"...","productIds":[${products[0]?.id ?? 1}],"heroProductId":${products[0]?.id ?? 1},"imageConcept":"...","html":"<p>...</p>"}`;
 }
 
+const WIKI_KEYS = ["title", "slug", "botanicalName", "authorName", "description", "metaTitle", "metaDescription", "productIds", "heroProductId", "imageConcept", "html"] as const;
+
 export function validateWiki(output: string, context: { subject: WikiSubject; existingTitles: string[]; existingSlugs: string[]; products: CatalogProduct[]; base: string }): GeneratedWiki {
-  const wiki = GeneratedWikiSchema.parse(parseModelJSON(output));
+  const roots = parseModelJSONCandidates(output);
+  const candidates: unknown[] = [];
+  const queue: Array<{ value: unknown; depth: number }> = roots.map((value) => ({ value, depth: 0 }));
+  const seen = new Set<unknown>();
+  while (queue.length && candidates.length < 100) {
+    const current = queue.shift()!;
+    if (!current.value || typeof current.value !== "object" || seen.has(current.value)) continue;
+    seen.add(current.value);
+    candidates.push(current.value);
+    if (current.depth < 3) {
+      const children = Array.isArray(current.value) ? current.value : Object.values(current.value as Record<string, unknown>);
+      children.forEach((value) => queue.push({ value, depth: current.depth + 1 }));
+    }
+  }
+  let wiki: GeneratedWiki | undefined;
+  let bestFailure: { matches: number; keys: string[]; issues: string[] } | undefined;
+  for (const candidate of candidates) {
+    const result = GeneratedWikiSchema.safeParse(candidate);
+    if (result.success) { wiki = result.data; break; }
+    if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+      const keys = Object.keys(candidate as Record<string, unknown>);
+      const matches = WIKI_KEYS.filter((key) => keys.includes(key)).length;
+      if (!bestFailure || matches > bestFailure.matches) {
+        bestFailure = {
+          matches,
+          keys,
+          issues: result.error.issues.slice(0, 8).map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`),
+        };
+      }
+    }
+  }
+  if (!wiki) {
+    if (!bestFailure?.matches) {
+      throw new Error(`No complete Wiki JSON object was returned. The top-level object must contain: ${WIKI_KEYS.join(", ")}. Received keys: ${bestFailure?.keys.join(", ") || "none"}. Do not return a report or validation errors.`);
+    }
+    throw new Error(`Wiki JSON is incomplete or invalid (${bestFailure.matches}/${WIKI_KEYS.length} required fields found). Fix: ${bestFailure.issues.join("; ")}`);
+  }
   const expectedSlug = slugForWikiTitle(context.subject.title);
   if (wiki.title !== context.subject.title) throw new Error(`title must be exactly ${context.subject.title}`);
   if (wiki.botanicalName !== context.subject.botanicalName) throw new Error(`botanicalName must be exactly ${context.subject.botanicalName}`);
@@ -191,6 +233,7 @@ export async function generateDailyWikiDraft(signal?: AbortSignal, onDraftSaved?
     (output) => validateWiki(output, { subject, existingTitles, existingSlugs, products: promptProducts, base }),
     signal,
     GeneratedWikiJsonSchema,
+    { freshRetries: 1 },
   );
   const draft = await addWikiDraft({ ...wiki, authorName, environment });
   onDraftSaved?.();

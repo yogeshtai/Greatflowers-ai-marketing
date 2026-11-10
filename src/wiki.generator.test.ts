@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import sharp from "sharp";
 import { buildWikiPrompt, resolveWikiLinks, selectWikiSubject, validateWiki, WIKI_SUBJECTS } from "./wiki.generator.js";
+import { WIKI_DRAFT_CRON, WIKI_RECOVERY_CRONS } from "./wiki.scheduler.js";
 import { buildWikiImagePrompt, optimizeWikiImage, WIKI_IMAGE_HEIGHT, WIKI_IMAGE_MIME_TYPE, WIKI_IMAGE_WIDTH } from "./wiki.image.js";
 import { beginWikiImageRegeneration, endWikiImageRegeneration, isWikiDraftImagePending } from "./wiki.jobs.js";
 import { buildWikiPublishPayload, wikiPublishAfterFor } from "./wiki.publisher.js";
@@ -126,6 +127,11 @@ test("wiki publish mode defaults to immediate and supports scheduled mode", () =
   } finally {
     delete process.env.WIKI_PUBLISH_MODE;
   }
+});
+
+test("wiki generation retries later on scheduled evenings", () => {
+  assert.equal(WIKI_DRAFT_CRON, "0 19 * * 2,4,6");
+  assert.deepEqual(WIKI_RECOVERY_CRONS, ["30 19 * * 2,4,6", "0,30 20-23 * * 2,4,6"]);
 });
 
 test("wiki publish payload attaches products and removes legacy inline embeds", () => {

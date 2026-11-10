@@ -237,7 +237,9 @@ export async function generateDailyArticleDraft(signal?: AbortSignal, onDraftSav
   const authorName = selectContentAuthor(local.map((draft) => draft.authorName));
   const direction = selectDirection(topic, recentTopics.filter((item) => normalize(item) === normalize(topic)).length);
   const related = context.articles.filter((article: any) => Number(article.status) === 1).slice(0, 80).map((article: any) => ({ slug: String(article.slug), title: String(article.title) }));
-  const promptProducts = context.products.slice(0, 45);
+  // Twenty-four verified products are ample for the required 2-5 selections
+  // and keep the long-form Hermes request comfortably smaller.
+  const promptProducts = context.products.slice(0, 24);
   const article = await requestHermesJSON(
     buildArticlePrompt({ topic, direction, format, authorName, existingTitles, products: promptProducts, related }),
     (output) => validateArticle(output, { topic, format, authorName, existingTitles, existingSlugs, contentInventory, products: promptProducts, relatedSlugs: new Set(related.map((item) => item.slug)), base: storefrontBase() }),

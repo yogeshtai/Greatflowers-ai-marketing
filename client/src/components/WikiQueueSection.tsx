@@ -77,7 +77,7 @@ export function WikiQueueSection() {
           <span className="step">Daily Flower Wiki</span>
           <h2>Wiki Queue{awaiting > 0 ? ` (${awaiting} waiting for approval)` : ""}</h2>
           <p style={{ margin: "6px 0 0", color: "#70706a", fontSize: 13 }}>
-            A new flower encyclopedia draft is written daily at 7:00 PM IST. {publishMode === "immediate" ? "Approving an entry publishes it right away." : "Approved entries publish at 10:00 AM ET."} {liveMode ? "Live mode: entries are public." : "Safe mode: entries are created hidden."}
+            A new flower encyclopedia draft is written Tuesday, Thursday and Saturday at 7:00 PM IST. Timed-out runs retry later that evening. {publishMode === "immediate" ? "Approving an entry publishes it right away." : "Approved entries publish at 10:00 AM ET."} {liveMode ? "Live mode: entries are public." : "Safe mode: entries are created hidden."}
           </p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
@@ -92,7 +92,7 @@ export function WikiQueueSection() {
         <div role="status" style={{ margin: "0 0 16px", padding: "14px 18px", borderRadius: 12, background: "#eef7ed", border: "1px solid #c9dfc5", color: "#275b2a" }}>
           <strong>{generation.phase === "image" ? "Article ready — creating its wiki image" : "Writing a new wiki article"}... {elapsedLabel}</strong>
           <div style={{ fontSize: 13, marginTop: 4 }}>
-            {generation.trigger === "schedule" ? "Started by the daily 7:00 PM IST run. " : "Started from this page. "}
+            {generation.trigger === "schedule" ? "Started by a scheduled 7:00 PM IST run. " : "Started from this page. "}
             {generation.phase === "image"
               ? "The draft is saved below. Approval becomes available when its 4:3 botanical image finishes or the product-photo fallback is selected. "
               : "The article is written first, followed by its 4:3 botanical image. "}

@@ -4,7 +4,7 @@ import sharp from "sharp";
 import { buildArticlePrompt, resolveArticleLinks, selectArticleFormat, selectArticleTopic, validateArticle } from "./article.generator.js";
 import { buildArticleImagePrompt, optimizeArticleImage, ARTICLE_IMAGE_HEIGHT, ARTICLE_IMAGE_MIME_TYPE, ARTICLE_IMAGE_WIDTH } from "./article.image.js";
 import { articlePublishAfterFor } from "./article.publisher.js";
-import { ARTICLE_DRAFT_CRON } from "./article.scheduler.js";
+import { ARTICLE_DRAFT_CRON, ARTICLE_RECOVERY_CRON } from "./article.scheduler.js";
 
 const products = [
   { id: 7, name: "Rose Garden Bouquet", slug: "rose-garden", price: 50, imageUrl: "rose.webp", description: "Red roses arranged with greenery." },
@@ -97,4 +97,5 @@ test("article publish mode defaults to immediate and supports scheduled mode", (
 
 test("article weekly draft schedule is Sunday at 6:30 PM IST", () => {
   assert.equal(ARTICLE_DRAFT_CRON, "30 18 * * 0");
+  assert.equal(ARTICLE_RECOVERY_CRON, "0,30 19-23 * * 0");
 });

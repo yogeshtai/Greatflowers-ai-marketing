@@ -5,6 +5,10 @@ import { getArticleDrafts } from "./article.store.js";
 import { istDateKey } from "./blog.time.js";
 
 export const ARTICLE_DRAFT_CRON = "30 18 * * 0";
+// If the 18:30 Hermes request times out, retry later the same evening. The
+// date guard in generateArticleDraftIfNeeded makes every retry a no-op as soon
+// as one draft has been saved successfully.
+export const ARTICLE_RECOVERY_CRON = "0,30 19-23 * * 0";
 
 export async function generateArticleDraftIfNeeded() {
   if (process.env.ARTICLE_AUTOGENERATE === "false") return false;
@@ -33,5 +37,6 @@ export async function publishDueArticles() {
 export function startArticleScheduler() {
   console.log(`📝 Article scheduler started (draft 18:30 IST, publish ${publishArticleImmediate() ? "on approve" : `${ARTICLE_PUBLISH_HOUR_ET}:00 ET`})`);
   cron.schedule(ARTICLE_DRAFT_CRON, () => void generateArticleDraftIfNeeded(), { timezone: "Asia/Kolkata" });
+  cron.schedule(ARTICLE_RECOVERY_CRON, () => void generateArticleDraftIfNeeded(), { timezone: "Asia/Kolkata" });
   cron.schedule("*/10 * * * *", () => void publishDueArticles());
 }

@@ -4,6 +4,11 @@ import { startWikiGeneration } from "./wiki.jobs.js";
 import { approveWikiFlow, publishWikiDraft, publishWikiImmediate, WIKI_PUBLISH_HOUR_ET } from "./wiki.publisher.js";
 import { getWikiDrafts } from "./wiki.store.js";
 
+export const WIKI_DRAFT_CRON = "0 19 * * 2,4,6";
+// Retry a timed-out scheduled generation later that evening. Once a Wiki
+// draft exists for the IST date, generateWikiDraftIfNeeded returns false.
+export const WIKI_RECOVERY_CRONS = ["30 19 * * 2,4,6", "0,30 20-23 * * 2,4,6"] as const;
+
 export async function generateWikiDraftIfNeeded() {
   if (process.env.WIKI_AUTOGENERATE === "false") return false;
   const today = istDateKey();
@@ -32,6 +37,9 @@ export async function publishDueWikis() {
 
 export function startWikiScheduler() {
   console.log(`📚 Wiki scheduler started (draft 19:00 IST, publish ${publishWikiImmediate() ? "on approve" : `${WIKI_PUBLISH_HOUR_ET}:00 ET`})`);
-  cron.schedule("0 19 * * 2,4,6", () => void generateWikiDraftIfNeeded(), { timezone: "Asia/Kolkata" });
+  cron.schedule(WIKI_DRAFT_CRON, () => void generateWikiDraftIfNeeded(), { timezone: "Asia/Kolkata" });
+  WIKI_RECOVERY_CRONS.forEach((expression) => {
+    cron.schedule(expression, () => void generateWikiDraftIfNeeded(), { timezone: "Asia/Kolkata" });
+  });
   cron.schedule("*/10 * * * *", () => void publishDueWikis());
 }

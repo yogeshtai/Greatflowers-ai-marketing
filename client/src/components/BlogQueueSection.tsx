@@ -81,7 +81,7 @@ export function BlogQueueSection() {
           <span className="step">Daily Blog</span>
           <h2>Blog Queue{awaiting > 0 ? ` (${awaiting} waiting for approval)` : ""}</h2>
           <p style={{ margin: "6px 0 0", color: "#70706a", fontSize: 13 }}>
-            A draft is written daily at 6:00 PM IST.{" "}
+            A draft is written Monday, Wednesday and Friday at 6:00 PM IST.{" "}
             {publishMode === "immediate" ? "Approving a post publishes it right away." : "Approved posts go live at 10:00 AM ET."}{" "}
             {liveMode ? "Live mode: posts are published." : "Safe mode: posts are created hidden (not visible to readers)."}
           </p>

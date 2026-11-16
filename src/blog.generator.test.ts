@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import sharp from "sharp";
-import { buildBlogPrompt, resolveLinks, sanitizeEmbeds, selectBlogFormat, toCatalogProduct, validatePost } from "./blog.generator.js";
+import { buildBlogPrompt, resolveLinks, sanitizeBlogLinks, sanitizeEmbeds, selectBlogFormat, toCatalogProduct, validatePost } from "./blog.generator.js";
 import { nextNewYorkHour } from "./blog.time.js";
 import { publishAfterFor } from "./blog.publisher.js";
 import { buildHeroOverlaySvg, buildHeroPrompt, HERO_HEIGHT, HERO_MIME_TYPE, HERO_WIDTH, optimizeHeroImage, pickComposition } from "./blog.image.js";
@@ -57,6 +57,12 @@ test("catalog description is cleaned of HTML", () => {
 });
 test("images are rejected", () => assert.throws(() => validatePost(JSON.stringify({ ...base, html: html + '<img src="https://example.com/a.png">' }), ctx)));
 test("unknown product link is rejected", () => assert.throws(() => resolveLinks('<a href="PRODUCT:99">x</a>', { productSlugs: new Map(), blogSlugs: new Set(), base: "b" }), /unknown product/));
+test("unknown blog links are safely unlinked without losing their text", () => {
+  const input = '<p>Read <a href="BLOG:missing-post">our flower care guide</a> or <a href="BLOG:other-post">the verified post</a>.</p>';
+  const sanitized = sanitizeBlogLinks(input, new Set(["other-post"]));
+  assert.equal(sanitized, '<p>Read our flower care guide or <a href="BLOG:other-post">the verified post</a>.</p>');
+  assert.doesNotThrow(() => validatePost(JSON.stringify({ ...base, html: html.replace("BLOG:other-post", "BLOG:missing-post") }), { ...ctx, relatedSlugs: new Set(["other-post"]) }));
+});
 test("missing HOME closing link is rejected", () => assert.throws(() => validatePost(JSON.stringify({ ...base, html: html.replace('href="HOME"', 'href="BLOG:other-post"') }), ctx), /HOME/));
 test("duplicate slug rejected", () => assert.throws(() => validatePost(JSON.stringify(base), { ...ctx, existingSlugs: [base.slug] }), /slug/));
 test("second category accepted when different, rejected when same or unknown", () => {

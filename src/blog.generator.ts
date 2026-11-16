@@ -40,6 +40,14 @@ export function sanitizeEmbeds(html: string, allowedIds: Set<number>): string {
   return html.replace(EMBED_RE, (match, id) => (allowedIds.has(Number(id)) ? match : ""));
 }
 
+// A blog can be unpublished or disappear between the catalog snapshot and
+// validation. Preserve the useful anchor text instead of failing an otherwise
+// valid long-form draft or publishing a broken internal link.
+export function sanitizeBlogLinks(html: string, allowedSlugs: Set<string>): string {
+  return html.replace(/<a\s+href="BLOG:([a-z0-9-]+)">([\s\S]*?)<\/a>/gi,
+    (match, slug: string, label: string) => allowedSlugs.has(slug) ? match : label);
+}
+
 export const storefrontBase = () => (process.env.GF_STOREFRONT_URL || "https://greatflowers.net").replace(/\/+$/, "");
 
 function inferredFormat(title: string): BlogFormat {
@@ -196,10 +204,10 @@ export function validatePost(
   if (bad.length) throw new Error(`productIds not in catalog: ${bad.join(", ")}`);
   if (!post.productIds.includes(post.heroProductId)) throw new Error("heroProductId must be one of productIds");
   if (!/href="HOME"/.test(post.html)) throw new Error('html must end with a closing paragraph linking <a href="HOME">Great Flowers</a>');
-  if (ctx.relatedSlugs.size && !/href="BLOG:/.test(post.html)) throw new Error("html must link at least one existing post with href=\"BLOG:<slug>\"");
   const embedded = sanitizeEmbeds(post.html, new Set(post.productIds));
   if (!new RegExp(EMBED_RE.source, "i").test(embedded)) throw new Error("html must embed at least one product with the exact blog-product-embed div");
-  const html = resolveLinks(embedded, { productSlugs: new Map(ctx.products.map((p) => [p.id, p.slug])), blogSlugs: ctx.relatedSlugs, base: ctx.base });
+  const safeLinks = sanitizeBlogLinks(embedded, ctx.relatedSlugs);
+  const html = resolveLinks(safeLinks, { productSlugs: new Map(ctx.products.map((p) => [p.id, p.slug])), blogSlugs: ctx.relatedSlugs, base: ctx.base });
   return { ...post, html };
 }
 
@@ -232,7 +240,12 @@ export async function generateDailyBlogDraft(signal?: AbortSignal, requestedOcca
   if (!categories.length) throw new Error("No blog categories found on the target environment");
   if (products.length < 4) throw new Error("Not enough catalog products with images to write a post");
 
-  const related = context.blogs.filter((b: any) => Number(b.status) === 1).slice(0, 80).map((b: any) => ({ slug: String(b.slug), title: String(b.title) }));
+  const publishedBlogs = context.blogs.filter((b: any) => Number(b.status) === 1);
+  // Keep the prompt compact, but validate links against every verified live
+  // blog. Hermes can legitimately reuse an older slug from the taken-slug
+  // inventory even when that post falls outside the 80 suggested links.
+  const related = publishedBlogs.slice(0, 80).map((b: any) => ({ slug: String(b.slug), title: String(b.title) }));
+  const publishedBlogSlugs = new Set(publishedBlogs.map((b: any) => String(b.slug)));
   const requiredFormat = selectBlogFormat([
     ...localDrafts.map((draft) => ({ title: draft.title, contentFormat: draft.contentFormat })),
     ...context.blogs.map((blog: any) => ({ title: String(blog.title) })),
@@ -246,7 +259,7 @@ export async function generateDailyBlogDraft(signal?: AbortSignal, requestedOcca
   });
   const post = await requestHermesJSON(
     prompt,
-    (output) => validatePost(output, { existingTitles, existingSlugs, contentInventory, categories: new Set(categories.map((c) => c.slug)), products, relatedSlugs: new Set(related.map((r) => r.slug)), base, requiredFormat, ...(requestedOccasion ? { requestedOccasion } : {}) }),
+    (output) => validatePost(output, { existingTitles, existingSlugs, contentInventory, categories: new Set(categories.map((c) => c.slug)), products, relatedSlugs: publishedBlogSlugs, base, requiredFormat, ...(requestedOccasion ? { requestedOccasion } : {}) }),
     signal,
     GeneratedPostJsonSchema,
     { freshRetries: 1 },

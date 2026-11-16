@@ -682,6 +682,12 @@ Use creativeType "informational" at most once. At least one variant must be a re
 Treat the four variants as different editorial executions, not one template: alternate subject placement, text-safe side, vertical hierarchy, camera distance and environment. Do not repeat the same care advice in another variant, even with different wording.
 The website URL is added programmatically only to the fourth variant. Do not design every variant as a direct-response advertisement.
 All four concepts and headlines must be unique. Use at least 3 materially different compositionStyle and sceneType values.
+ART DIRECTION QUALITY:
+Make each post understandable at phone size in one glance. Prefer a concrete 3-7 word headline and one brief supporting thought; avoid abstract greeting-card slogans and repeating the headline in the subheadline.
+Plan the photograph and copy together. Use a tightly framed flower detail, an expressive candid gifting moment, a clear useful demonstration, and an occasion-specific composition where appropriate to the evidence. Do not repeat beige rooms, console tables, a person reading a card, or empty walls across the set.
+Preserve the real product's colors and flower varieties. Seek rich natural color separation, fresh petals, believable skin texture and directional daylight; avoid muddy amber filters, plastic petals, excessive blur and posed stock-photo smiles.
+Flowers should be immediately recognizable at thumbnail size. Keep incidental decor subordinate. Negative space should support the short copy without swallowing half the image.
+Save/share/comment actions belong in captions. Prefer a modest invitation over urgency; never invent a sale, discount, product feature or customer endorsement.
 
 FOR STORY-CAROUSEL MODE:
 

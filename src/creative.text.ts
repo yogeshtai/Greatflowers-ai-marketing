@@ -9,6 +9,7 @@ type TypographyCreative = {
   creativeType: string;
   sceneStrategy: string;
   artDirection?: string;
+  copyLayout?: string;
   headline: string;
   subheadline: string;
   cta?: string;
@@ -17,7 +18,7 @@ type TypographyCreative = {
 
 // The logo sits above the headline in the same column; these keep both layout steps in agreement.
 export const CREATIVE_MARGIN_RATIO = 0.055;
-export const CREATIVE_LOGO_WIDTH_RATIO = 0.24;
+export const CREATIVE_LOGO_WIDTH_RATIO = 0.20;
 export const CREATIVE_LOGO_ASPECT = 98 / 246;
 
 // The site's own deep brand purple, used for headline copy. The near-miss values this replaced
@@ -401,6 +402,10 @@ export function buildCreativeTextOverlay(
 ): Buffer {
   const typography = typographyForCreative(creative);
   const palette = textPaletteForCreative(creative, tone, imageHue, backing?.luminance ?? null);
+  const isCaption = creative.copyLayout?.startsWith("lower-") && !creative.contentPoints?.length;
+  const isPoster = creative.copyLayout?.startsWith("full-bleed-") && !creative.contentPoints?.length;
+  // Caption compositions use restrained single-color copy; posters keep the
+  // stronger display accent. This makes layout families visibly different.
   // Without a measurement, fall back to the old unconditional wash rather than leaving copy bare.
   const scrimStrength = backing ? backing.scrim : (tone === "light" ? 0.52 : 0.6);
   const margin = Math.round(width * CREATIVE_MARGIN_RATIO);
@@ -408,7 +413,7 @@ export function buildCreativeTextOverlay(
   const x = side === "left" ? margin : width - margin;
   const anchor = side === "left" ? "start" : "end";
   const hasSteps = (creative.contentPoints ?? []).some((point) => point.trim());
-  const fitted = fitHeadline(headlineWords(stripPrices(creative.headline)), usableWidth, typography.mode, hasSteps);
+  const fitted = fitHeadline(headlineWords(stripPrices(creative.headline)), usableWidth, typography.mode, hasSteps || !!isCaption);
   const lineHeight = Math.round(fitted.size * (typography.mode === "modern-sans" ? 0.94 : 1.02));
   // "top" starts below the logo that anchors the column (logo bottom + a clear gap + the first line's cap height).
   const logoBottom = margin + Math.round(width * CREATIVE_LOGO_WIDTH_RATIO * CREATIVE_LOGO_ASPECT);
@@ -416,10 +421,12 @@ export function buildCreativeTextOverlay(
     ? Math.round(height * 0.55)
     : logoBottom + Math.round(height * 0.03) + Math.round(fitted.size * 0.72);
   const headlineSvg = fitted.lines.map((line, index) =>
-    renderHeadlineLine(line, x, firstY + index * lineHeight, anchor, palette)
+    renderHeadlineLine(isCaption ? line.map(word => ({ ...word, accented: false })) : line, x, firstY + index * lineHeight, anchor, palette)
   ).join("");
 
-  const subheadline = stripPrices(creative.subheadline);
+  // Full-bleed posters let one strong headline carry the image. Supporting
+  // information remains available in the campaign caption and metadata.
+  const subheadline = isPoster ? "" : stripPrices(creative.subheadline);
   const subSize = Math.max(24, Math.round(width * 0.029));
   const subLines = subheadline
     ? wrapPlainText(subheadline, Math.max(18, Math.floor(usableWidth / (subSize * 0.52))))
@@ -443,7 +450,10 @@ export function buildCreativeTextOverlay(
   // Reference-ad CTA: a compact magenta pill under the subheadline. The website URL is only shown by the
   // dedicated bottom pill on the fourth creative, where it is large enough to read.
   const ctaLabel = shortCtaLabel(creative.cta);
-  const showCtaPill = !contentPoints.length && ctaLabel.length > 0;
+  // Social engagement requests belong in the caption, not a fake UI button.
+  // The fourth execution already carries the website CTA.
+  const showCtaPill = !isCaption && !isPoster && !contentPoints.length && ctaLabel.length > 0
+    && creative.order !== 4 && !/^(share|save|comment|like|follow)\b/i.test(ctaLabel);
   const pillFont = Math.max(22, Math.round(width * 0.028));
   const pillHeight = Math.round(pillFont * 2.3);
   const pillWidth = Math.round(ctaLabel.length * pillFont * 0.6) + Math.round(pillFont * 2.6);

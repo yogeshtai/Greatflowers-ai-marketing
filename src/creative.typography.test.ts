@@ -215,7 +215,7 @@ test("the CTA pill is the site's own button colour on every creative", () => {
   assert.equal(ctaAccentForCreative(), GF_PRIMARY);
 
   for (const hue of [23, 110, 320, null]) {
-    for (const order of [1, 2, 3, 4]) {
+    for (const order of [1, 2, 3]) {
       const svg = buildCreativeTextOverlay(variant({ order, cta: "Shop Now" }), "left", 1024, 1024, "top", "dark", hue).toString();
       assert.match(svg, new RegExp(`rx="\\d+" fill="${GF_PRIMARY}"`), `pill drifted off brand at hue ${hue}, order ${order}`);
     }

@@ -481,6 +481,14 @@ Keep faces and the most important flower details out of those exact overlay zone
 an entire half of the photograph. The scene must remain visually complete and intentional.
 Do not generate, spell, draw, or recreate GreatFlowers branding or logo.
 
+VISUAL QUALITY:
+Make the flowers legible at thumbnail size: use confident close framing, visible petal texture,
+and clear separation from the background. Preserve the reference bouquet exactly, including its
+natural colors. Avoid muddy beige or orange grading, plastic-looking skin and exaggerated bokeh.
+Human scenes should capture a believable action mid-moment with natural posture and expression.
+Use the assigned composition deliberately; do not default to a console table beside a huge blank wall.
+Give the scene depth and natural color contrast while respecting the actual copy zone below.
+
 TYPOGRAPHY SAFE AREA (CRITICAL):
 The ${typographySafeArea} must read as ONE continuous, evenly lit surface: a plain wall, a smooth
 expanse of fabric or tablecloth, soft out-of-focus room depth, open sky, or a clean uncluttered

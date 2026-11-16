@@ -57,6 +57,7 @@ export const greatflowers: ProjectConfig = {
     logoUrl: "https://greatflowers.net/assets/svg/greatflowers-logo.svg",
     // The wordmark gradient runs from deep indigo to magenta.
     logoColours: ["#351E6A", "#701888", "#A52E7F", "#B32C7E", "#DB2173"],
+    logoAppearance: "a dark indigo-to-magenta gradient",
     // The site's own deep brand purple, used for headline copy. The near-miss values this replaced
     // (#32105f, #d61572) were close enough to look right in isolation and wrong beside the real site.
     textPrimary: "#261943",

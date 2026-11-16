@@ -12,6 +12,8 @@ export interface ProjectVisual {
   logoUrl: string;
   // Every colour in the logo wordmark; the corner-contrast check must keep all of them legible.
   logoColours: readonly string[];
+  // How the wordmark looks, told to the image model so it leaves a backdrop the logo reads on.
+  logoAppearance: string;
   // Headline colour and the dark label colour used inside light markers.
   textPrimary: string;
   // Fill of the CTA pill on every creative (the storefront's button colour).

@@ -38,7 +38,8 @@ import { marketingStrategySchema } from "./strategy.schema.js";
 import { z } from "zod";
 
 const opf = onepriceflowers;
-const GREATFLOWERS_TEXT = /great\s*flowers|greatflowers|#701888|#db2173|#261943/i;
+// Brand names, palette hex codes and the description of the GreatFlowers wordmark.
+const GREATFLOWERS_TEXT = /great\s*flowers|greatflowers|#701888|#db2173|#261943|indigo-to-magenta|dark plum/i;
 
 function assertNoGreatFlowers(label: string, text: string) {
   const match = text.match(GREATFLOWERS_TEXT);
@@ -174,6 +175,7 @@ test("brand leak: no One Price Flowers prompt, overlay or payload contains Great
   assert.match(outputs.websiteCta!, /www\.onepriceflowers\.com/);
   assert.match(outputs["posterBrief.4"]!, /website line: "www\.onepriceflowers\.com"/);
   assert.match(outputs["posterBrief.1"]!, /deep forest green or warm white lettering/);
+  assert.match(outputs["codex.BRAND_STORY"]!, /The wordmark is a solid dark forest green that only reads/);
   assert.match(outputs.articleContract!, /"One Price Flowers"/);
   assert.match(outputs.textOverlay!, /fill="#154233"/, "CTA pill uses the One Price Flowers button colour");
 });

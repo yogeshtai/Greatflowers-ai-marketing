@@ -453,7 +453,7 @@ moment such as giving, receiving, arranging, carrying, delivering or unboxing.
 COPY LAYOUT (CRITICAL): ${copyLayout}
 The official ${brand} logo will be placed in the top ${logoPosition === "top-left" ? "left" : "right"} corner and the approved copy will use the assigned ${textVertical} ${textSide} zone.
 That logo corner must be an evenly LIT, LIGHT, uncluttered area - pale wall, bright window light, sky,
-light fabric or soft-focus highlight. The wordmark is a dark indigo-to-magenta gradient that only reads
+light fabric or soft-focus highlight. The wordmark is ${project.visual.logoAppearance} that only reads
 on a light backdrop, so never place a dark window frame, deep shadow, doorway, silhouette or saturated
 dark object there, and never let that corner be half bright and half dark.
 Keep faces and the most important flower details out of those exact overlay zones, but do not empty

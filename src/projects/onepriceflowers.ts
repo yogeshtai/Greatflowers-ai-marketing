@@ -75,6 +75,7 @@ export const onepriceflowers: ProjectConfig = {
     logoUrl: `${BASE}/assets/brand/logo-green.svg`,
     // The wordmark is a single dark green (--brand-primary).
     logoColours: ["#154233"],
+    logoAppearance: "a solid dark forest green",
     textPrimary: "#154233",
     ctaFill: "#154233",
     websiteCtaFill: "#154233",

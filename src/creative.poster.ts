@@ -7,72 +7,30 @@ export interface PosterCopy {
   contentPoints?: string[];
 }
 
-const escape = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-export const posterLayout = (order: number) => ["masthead", "editorial-footer", "field-notes", "campaign-banner"][(order - 1) % 4] ?? "masthead";
+export const posterLayout = (order: number) => ["expressive-script", "bold-editorial", "playful-lettering", "occasion-display"][(order - 1) % 4] ?? "bold-editorial";
 
-export function posterPhotographyBrief(order: number): string {
-  return `FINAL COMPOSITION CONTRACT — overrides earlier copy-safe-area and logo-space instructions:
-The final design is ${posterLayout(order)}. Generate a complete text-free photograph filling a square frame.
-Do not leave an empty wall or a vacant side column for text. The application places this photograph
-inside a designed poster alongside typography, rather than putting copy over the subject.
-Keep the bouquet and human action in the central 75% so a modest crop is safe. Flowers must be
-large and unmistakable. For a product view fill approximately half the frame with the bouquet;
-for a human moment keep flowers in the foreground. Never put the bouquet on a distant shelf.
-No lettering, logos, buttons or graphic panels in the photograph.`;
+export function posterPhotographyBrief(copy: PosterCopy): string {
+  return `FINAL INTEGRATED DESIGN CONTRACT — supersedes ALL earlier text-free, typography-safe-column, panel, footer and logo-placement instructions. Retain verified product and campaign facts.
+Create the COMPLETE finished square florist social post, including the exact lettering below.
+One continuous edge-to-edge photographic scene: no split photo/text panels, blank headers, footer slabs, boxed logos or brochure layouts. Flowers, human action, expressive lettering and subtle decorative details form one composition.
+Reference direction: premium florist seasonal advertising with large vivid bouquets and beautiful display lettering. Arrange the headline around the flowers with deliberate line breaks and kerning. Never use tiny generic serif corner captions.
+Typography direction: ${posterLayout(copy.order)}. Expressive-script pairs readable calligraphy with refined display lettering. Bold-editorial uses confident high-contrast display type. Playful-lettering uses friendly hand-lettered emphasis and restrained decorative marks. Occasion-display uses celebratory lettering and delicate ornaments suited to the occasion.
+Choose dark plum or warm white lettering for contrast. Keep the photographic background continuous behind the lettering, without rectangular text surfaces. Preserve the reference bouquet exactly. Keep faces and flowers fully visible.
+Exact headline: ${JSON.stringify(copy.headline)}
+${copy.contentPoints?.length ? "Exact tips, all required and readable: " + JSON.stringify(copy.contentPoints) : "Exact supporting line: " + JSON.stringify(copy.subheadline)}
+${copy.order === 4 ? 'Include one discreet website line: "www.greatflowers.net", without a footer block.' : "No website or CTA button; the caption carries the action."}
+Do not invent discounts, claims or extra copy. Check every word before finishing.
+The official transparent logo is added separately at top-center: reserve only 41%-59% of width and 3%-11% of height on a naturally light surface. Do not generate a logo, brand name, white box or empty header band.
+Return a finished square image, not a mockup or contact sheet.`;
 }
 
-function lines(text: string, max: number): string[] {
-  const result: string[] = [];
-  for (const word of text.trim().split(/\s+/).filter(Boolean)) {
-    if (word.length > max) throw new Error("Poster copy contains a word too long to typeset");
-    const last = result.at(-1);
-    if (last && last.length + word.length + 1 <= max) result[result.length - 1] += ` ${word}`;
-    else result.push(word);
+// Keep the complete artwork; add only the transparent official logo.
+export async function renderPoster(photo: string | Buffer, logo: string | Buffer, _copy: PosterCopy, output: string): Promise<void> {
+  const metadata = await sharp(photo).metadata();
+  if (!metadata.width || !metadata.height || Math.abs(metadata.width / metadata.height - 1) > 0.03) {
+    throw new Error("Integrated creative must be square; refusing to crop lettering or faces");
   }
-  return result;
-}
-
-function textBlock(text: string, x: number, y: number, width: number, size: number, color: string, maxLines: number, serif = false): string {
-  let wrapped = lines(text, Math.floor(width / (size * 0.58)));
-  while (wrapped.length > maxLines && size > 24) {
-    size -= 2;
-    wrapped = lines(text, Math.floor(width / (size * 0.58)));
-  }
-  if (wrapped.length > maxLines) throw new Error("Poster copy is too long; shorten it before generation");
-  return `<text fill="${color}" font-family="${serif ? "Georgia, Times New Roman, serif" : "Arial, Helvetica, sans-serif"}" font-size="${size}" font-weight="${serif ? 700 : 500}">${wrapped.map((line, i) => `<tspan x="${x}" y="${y + i * size * 1.12}">${escape(line)}</tspan>`).join("")}</text>`;
-}
-
-export async function renderPoster(photo: string | Buffer, logo: string | Buffer, copy: PosterCopy, output: string): Promise<void> {
-  const layout = posterLayout(copy.order);
-  const notes = layout === "field-notes";
-  const footer = layout === "editorial-footer";
-  const banner = layout === "campaign-banner";
-  const purple = "#261943";
-  const background = banner ? purple : "#fffaf4";
-  const ink = banner ? "#ffffff" : purple;
-  const box = notes ? { left: 0, top: 0, width: 540, height: 1080 }
-    : footer ? { left: 0, top: 0, width: 1080, height: 690 }
-    : banner ? { left: 0, top: 0, width: 1080, height: 740 }
-    : { left: 0, top: 350, width: 1080, height: 730 };
-  const x = notes ? 585 : 58;
-  const y = notes ? 240 : footer ? 780 : banner ? 825 : 175;
-  const width = notes ? 440 : 964;
-  const headline = textBlock(copy.headline, x, y, width, notes ? 58 : 78, ink, notes ? 3 : 2, true);
-  let detail = "";
-  if (notes) {
-    const points = copy.contentPoints?.length ? copy.contentPoints : [copy.subheadline];
-    if (points.length > 3) throw new Error("Field notes support at most three concise points");
-    detail = points.map((point, i) => `<circle cx="600" cy="${480 + i * 150}" r="17" fill="#701888"/><text x="600" y="${486 + i * 150}" text-anchor="middle" font-family="Arial" font-size="18" fill="white">${i + 1}</text>${textBlock(point, 634, 487 + i * 150, 380, 28, ink, 4)}`).join("");
-  } else if (!banner) {
-    detail = textBlock(copy.subheadline, x, footer ? 960 : 310, width, 29, ink, 2);
-  }
-  const svg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080">${headline}${detail}<path d="M${x} ${y - 86}h80" stroke="${banner ? "#db2173" : "#701888"}" stroke-width="5"/>${banner ? '<text x="58" y="1035" fill="white" font-family="Arial" font-size="25">greatflowers.net</text>' : ""}</svg>`);
-  const picture = await sharp(photo).rotate().resize(box.width, box.height, { fit: "cover", position: "centre" }).toBuffer();
-  // A consistent cream brand tab makes the real logo legible without washing out photography.
-  const brand = await sharp({ create: { width: 238, height: 104, channels: 4, background: "#fffaf4" } })
-    .composite([{ input: await sharp(logo).resize(190, 76, { fit: "inside" }).png().toBuffer(), left: 24, top: 14 }]).png().toBuffer();
-  await sharp({ create: { width: 1080, height: 1080, channels: 4, background } })
-    .composite([{ input: picture, left: box.left, top: box.top }, { input: svg, left: 0, top: 0 },
-      { input: brand, left: notes ? 572 : 46, top: notes ? 48 : footer || banner ? 28 : 24 }])
-    .png().toFile(output);
+  const brand = await sharp(logo).resize(194, 82, { fit: "inside" }).png().toBuffer();
+  await sharp(photo).resize(1080, 1080, { fit: "fill" })
+    .composite([{ input: brand, left: 443, top: 32 }]).png().toFile(output);
 }

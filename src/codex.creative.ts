@@ -1067,7 +1067,7 @@ export async function generateCreativeVariant(
     const { logoPosition, textSide, textVertical } = layoutForCreativeVariant(variant);
 
     // Validate all deterministic typography before starting the slow image-generation step.
-    buildCreativeTextOverlay(variant, textSide, 1024, 1024, textVertical);
+    // Approved lettering is composed into the generated artwork.
 
     await mkdir(OUTPUT_DIR, { recursive: true });
 
@@ -1103,7 +1103,7 @@ export async function generateCreativeVariant(
     // variety without inventing a different sellable product.
     const generationReference = shouldUseProductReference(variant) ? productImagePath : null;
     let generatedPath = await executeCodex(
-      `${prompt}\n\n${posterPhotographyBrief(variant.order)}`,
+      `${prompt}\n\n${posterPhotographyBrief(variant)}`,
       generationReference,
       outputFilename,
       signal

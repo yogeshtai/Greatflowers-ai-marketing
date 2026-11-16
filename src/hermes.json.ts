@@ -89,10 +89,18 @@ async function requestHermesJSONConversation<T>(
         && typeof output === "string"
         && /^[\s\uFEFF]*(?:```(?:json)?\s*)?[\[{]/i.test(output);
       console.warn(`Hermes output failed validation; requesting one ${syntaxFailure ? "syntax" : "schema/content"} repair:`, detail.slice(0, 500));
-      if (typeof output === "string" && output.trim()) messages.push({ role: "assistant", content: output.slice(0, 24000) });
-      messages.push({ role: "user", content: syntaxFailure
-        ? `JSON SYNTAX REPAIR:\nCorrect only the syntax of your immediately preceding JSON response. Preserve every value and field; do not rethink or regenerate the strategy. Ensure commas separate every array item and object property and close every bracket, brace and quote. Return the complete corrected JSON object only.\nValidation error: ${detail.slice(0, 1500)}`
-        : `${prompt}\n\nJSON CONTRACT REPAIR:\nYour previous response did not satisfy the backend JSON contract. Validation error: ${detail.slice(0, 1500)}\nReturn the COMPLETE required JSON object now, with every required field and every assigned value from the request. Use only the evidence supplied in the original request; your previous response is not evidence. Do not invent facts to fill missing fields. Do not run research, tools or skills again, write files, return validation errors, or produce a report. Correct formatting, schema and selection errors. Return the requested object itself as JSON only.${contract}` });
+      if (syntaxFailure) {
+        // Syntax repair needs the exact broken response, but not another copy of
+        // the potentially very large original prompt.
+        messages.push({ role: "assistant", content: output.slice(0, 24000) });
+        messages.push({ role: "user", content: `JSON SYNTAX REPAIR:\nCorrect only the syntax of your immediately preceding JSON response. Preserve every value and field; do not rethink or regenerate the strategy. Ensure commas separate every array item and object property and close every bracket, brace and quote. Return the complete corrected JSON object only.\nValidation error: ${detail.slice(0, 1500)}` });
+      } else {
+        // A schema/content repair is a regeneration, so the invalid long-form
+        // output is not useful context. Replace the original user turn instead
+        // of sending the large prompt twice; some Hermes bridges inspect only
+        // the latest user message, which still needs all original evidence.
+        messages.splice(1, messages.length - 1, { role: "user", content: `${prompt}\n\nJSON CONTRACT REPAIR:\nYour previous response did not satisfy the backend JSON contract. Validation error: ${detail.slice(0, 1500)}\nReturn the COMPLETE required JSON object now, with every required field and every assigned value from the request. Use only the evidence supplied in the original request; your previous response is not evidence. Do not invent facts to fill missing fields. Do not run research, tools or skills again, write files, return validation errors, or produce a report. Correct formatting, schema and selection errors. Return the requested object itself as JSON only.${contract}` });
+      }
     }
   }
   throw new HermesOutputError("Hermes returned no valid JSON");

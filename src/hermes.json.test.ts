@@ -31,6 +31,8 @@ test("repairs Markdown with original evidence, validates JSON, and shares the de
   assert.ok(repair.at(-1).content.includes(JSON.stringify(schema)));
   assert.ok(repair.at(-1).content.includes(prompt), "include original evidence even for bridges that only read the last user message");
   assert.ok(repair.at(-1).content.includes("previous response is not evidence"));
+  assert.equal(repair.filter((message: { content: string }) => message.content.includes(prompt)).length, 1, "do not duplicate a large original prompt during content repair");
+  assert.equal(repair.some((message: { role: string }) => message.role === "assistant"), false, "discard invalid long-form output during content repair");
 
   calls.length = 0;
   replies = ['{"productId":999}', '{"productId":999}'];

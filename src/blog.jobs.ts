@@ -39,7 +39,7 @@ export function startGeneration(
     .catch((error) => {
       console.error("Blog draft generation failed:", error);
       const message = error instanceof Error && error.name === "HermesOutputError"
-        ? "Hermes returned an invalid blog format after automatic repair and a fresh retry. Please try again."
+        ? `Hermes could not produce a valid blog after automatic repair and a fresh retry: ${error.message.replace(/^Hermes output remained invalid after one repair:\s*/i, "").slice(0, 500)}`
         : errorDetail(error);
       state = { running: false, trigger, ...(occasion ? { occasion } : {}), startedAt, finishedAt: new Date().toISOString(), error: message };
       emitBlogEvent({ type: "draft-failed", error: message });

@@ -15,7 +15,8 @@ import { randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import fetch from "node-fetch";
 import sharp from "sharp";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import type { ProjectConfig, ProjectVisual } from "./projects/index.js";
+import { uploadProjectImage } from "./projects/storage.js";
 import { CODEX_SPAWN_OPTIONS, codexLimitArgs, guardCodexProcess } from "./ai.limits.js";
 import { addCreativeText, buildCreativeTextOverlay, measureCopyZone, CREATIVE_LOGO_WIDTH_RATIO as LOGO_WIDTH_RATIO, CREATIVE_MARGIN_RATIO, type CreativeTextSide, type CreativeTextVertical } from "./creative.text.js";
 import { ART_DIRECTION_GUIDANCE, ENVIRONMENT_GUIDANCE, LIGHTING_GUIDANCE, fallbackArtDirection, fallbackCopyLayout, fallbackEnvironment, fallbackLightingSetup, type ArtDirection, type CopyLayout, type SceneEnvironment, type LightingSetup } from "./creative.direction.js";
@@ -75,17 +76,6 @@ async function getCodexGeneratedImages(): Promise<string[]> {
   return images;
 }
 
-const REGION = process.env.AWS_REGION!;
-const BUCKET = process.env.AWS_S3_BUCKET!;
-const PREFIX = process.env.AWS_S3_CREATIVE_PREFIX || "campaign";
-
-const s3 = new S3Client({
-  region: REGION,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  },
-});
 
 export interface CreativeVariant {
   order: number;
@@ -182,12 +172,9 @@ export function shouldShowWebsiteCta(
   return variant.order === 4;
 }
 
-const GREATFLOWERS_LOGO_URL =
-  "https://greatflowers.net/assets/svg/greatflowers-logo.svg";
 
 export const CREATIVE_LOGO_WIDTH_RATIO = LOGO_WIDTH_RATIO;
 // The website pill matches the site's header and footer purple.
-export const CREATIVE_CTA_PURPLE = "#261943";
 
 const OUTPUT_DIR = join(process.cwd(), "test-creatives");
 
@@ -215,30 +202,21 @@ export async function downloadToTemp(
 }
 
 async function uploadToS3(
+  project: ProjectConfig,
   localPath: string,
   filename: string
 ): Promise<string> {
   const fileBuffer = await readFile(localPath);
-
-  const key = `${PREFIX}/${filename}`;
-
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: BUCKET,
-      Key: key,
-      Body: fileBuffer,
-      ContentType: "image/png",
-    })
-  );
-
-  // Return public S3 URL
-  return `https://${BUCKET}.s3.${REGION}.amazonaws.com/${key}`;
+  // Each project uploads to its own bucket and creative prefix and gets the public S3 URL back.
+  return uploadProjectImage(project, "creative", filename, fileBuffer, "image/png");
 }
 
 export function buildCodexPrompt(
+  project: ProjectConfig,
   variant: CreativeVariant,
   creativeBrief: CreativeBrief
 ): string {
+  const brand = project.brand.name;
   // Build sceneStrategy-specific composition instructions
   let sceneStrategyInstructions = "";
   
@@ -247,7 +225,7 @@ export function buildCodexPrompt(
       sceneStrategyInstructions = `SCENE STRATEGY: PRODUCT_STUDIO (Commercial Product Photography)
 
 Create a professional commercial product photography composition.
-The supplied GreatFlowers product is the main visual subject.
+The supplied ${brand} product is the main visual subject.
 ${creativeBrief.productTreatment}
 
 The product should occupy significant visual space and be the clear hero.
@@ -347,7 +325,7 @@ Product reference is only used when relevant to demonstrating that feature.`;
     case "BRAND_STORY":
       sceneStrategyInstructions = `SCENE STRATEGY: BRAND_STORY (Brand Values/Service)
 
-Build a broader GreatFlowers brand/service composition.
+Build a broader ${brand} brand/service composition.
 DO NOT automatically make one catalog product the hero.
 Focus on brand values, service quality, customer care, or emotional connection.
 Keep flowers clearly visible as the service and emotional centerpiece.`;
@@ -382,7 +360,7 @@ The scene may lead and the supplied product does not need to be the focus, but a
 arrangement that appears MUST be the exact supplied product: same flowers, colors, arrangement and
 container. Never invent a different bouquet. Natural flowers are REQUIRED and must occupy a
 meaningful part of the composition (roughly 20-35% of the frame), immediately visible as the
-subject that connects this creative to GreatFlowers.`;
+subject that connects this creative to ${brand}.`;
       break;
       
     case "none":
@@ -425,7 +403,7 @@ Generate from the strategic concept.`;
     .map((candidate) => `- Variant ${candidate.order}: ${candidate.creativeType}; ${candidate.sceneStrategy}; ${candidate.artDirection ?? fallbackArtDirection(candidate.sceneStrategy)}; ${candidate.environment ?? fallbackEnvironment(candidate.order)}; ${candidate.lightingSetup ?? fallbackLightingSetup(candidate.order)}; ${candidate.copyLayout ?? fallbackCopyLayout(candidate.order)}; ${candidate.compositionStyle}; ${candidate.sceneType}`)
     .join("\n");
 
-  return `Create a TEXT-FREE 1:1 premium social media campaign base image for GreatFlowers.
+  return `Create a TEXT-FREE 1:1 premium social media campaign base image for ${brand}.
 
 ⚠️ CRITICAL COMPOSITION REQUIREMENT ⚠️
 
@@ -465,7 +443,7 @@ Treat this as a photographic production brief. The camera angle, action, environ
 scale must visibly express this direction; changing only props or colors is not sufficient.
 
 FLOWER COMMERCE RELEVANCE (CRITICAL):
-This is a GreatFlowers marketing creative. Flowers must be immediately visible and relevant
+This is a ${brand} marketing creative. Flowers must be immediately visible and relevant
 to the idea, even when the exact catalog product is not used. The image should make someone
 interested in choosing, sending, arranging or displaying flowers. Furniture, books, cups,
 feathers, candles and other props may establish context, but must never become the primary
@@ -473,14 +451,14 @@ subject or visually replace the flowers. For human scenes, show an active flower
 moment such as giving, receiving, arranging, carrying, delivering or unboxing.
 
 COPY LAYOUT (CRITICAL): ${copyLayout}
-The official GreatFlowers logo will be placed in the top ${logoPosition === "top-left" ? "left" : "right"} corner and the approved copy will use the assigned ${textVertical} ${textSide} zone.
+The official ${brand} logo will be placed in the top ${logoPosition === "top-left" ? "left" : "right"} corner and the approved copy will use the assigned ${textVertical} ${textSide} zone.
 That logo corner must be an evenly LIT, LIGHT, uncluttered area - pale wall, bright window light, sky,
 light fabric or soft-focus highlight. The wordmark is a dark indigo-to-magenta gradient that only reads
 on a light backdrop, so never place a dark window frame, deep shadow, doorway, silhouette or saturated
 dark object there, and never let that corner be half bright and half dark.
 Keep faces and the most important flower details out of those exact overlay zones, but do not empty
 an entire half of the photograph. The scene must remain visually complete and intentional.
-Do not generate, spell, draw, or recreate GreatFlowers branding or logo.
+Do not generate, spell, draw, or recreate ${brand} branding or logo.
 
 VISUAL QUALITY:
 Make the flowers legible at thumbnail size: use confident close framing, visible petal texture,
@@ -748,7 +726,6 @@ function resolveLogoPosition(
 // is too low to read.
 // Sampled from the published wordmark: a gradient from indigo to magenta. Every stop is dark, so a
 // corner only reads badly when it sits close to these in contrast terms.
-const LOGO_COLOURS = ["#351E6A", "#701888", "#A52E7F", "#B32C7E", "#DB2173"] as const;
 const MIN_LOGO_CONTRAST = 3;
 const MIN_LOGO_SCRIM_OPACITY = 0.2;
 const MAX_LOGO_SCRIM_OPACITY = 0.45;
@@ -772,7 +749,8 @@ function contrastRatio(a: number, b: number): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-const LOGO_LUMINANCES = LOGO_COLOURS.map((hex) => relativeLuminance(
+// Every colour in the project's logo wordmark (project.visual.logoColours) must stay legible.
+const logoLuminances = (visual: ProjectVisual) => visual.logoColours.map((hex) => relativeLuminance(
   parseInt(hex.slice(1, 3), 16),
   parseInt(hex.slice(3, 5), 16),
   parseInt(hex.slice(5, 7), 16)
@@ -780,9 +758,9 @@ const LOGO_LUMINANCES = LOGO_COLOURS.map((hex) => relativeLuminance(
 
 // The wordmark only reads when its hardest stop reads: the indigo end vanishes into dark corners
 // long before the magenta end does, which leaves half the name invisible.
-function logoWeakestContrast(r: number, g: number, b: number): number {
+function logoWeakestContrast(visual: ProjectVisual, r: number, g: number, b: number): number {
   const background = relativeLuminance(r, g, b);
-  return Math.min(...LOGO_LUMINANCES.map((logo) => contrastRatio(background, logo)));
+  return Math.min(...logoLuminances(visual).map((logo) => contrastRatio(background, logo)));
 }
 
 // Every scrim lightens. Darkening is unsound for this wordmark: its stops span luminance 0.027 to
@@ -792,22 +770,23 @@ function logoWeakestContrast(r: number, g: number, b: number): number {
 // Aim a little past the threshold: the opacity is solved on a grey equivalent of the corner, but
 // compositing happens per channel, so landing exactly on 3:1 rounds back under it.
 const LOGO_SCRIM_CONTRAST_MARGIN = 1.08;
-const LOGO_SCRIM_TARGET_LUMINANCE =
-  MIN_LOGO_CONTRAST * LOGO_SCRIM_CONTRAST_MARGIN * (Math.max(...LOGO_LUMINANCES) + 0.05) - 0.05;
+const logoScrimTargetLuminance = (visual: ProjectVisual) =>
+  MIN_LOGO_CONTRAST * LOGO_SCRIM_CONTRAST_MARGIN * (Math.max(...logoLuminances(visual)) + 0.05) - 0.05;
 
 // A scrim is only worth adding when the wordmark genuinely cannot be read against the corner behind
 // it; laying one over a clean backdrop just leaves a smudge.
-export function logoScrimTone(r: number, g: number, b: number): "light" | null {
-  return logoWeakestContrast(r, g, b) >= MIN_LOGO_CONTRAST ? null : "light";
+export function logoScrimTone(visual: ProjectVisual, r: number, g: number, b: number): "light" | null {
+  return logoWeakestContrast(visual, r, g, b) >= MIN_LOGO_CONTRAST ? null : "light";
 }
 
 // One average over the whole corner hides a split background. A wordmark lying half on a bright
 // wall and half on a dark window frame averages to a comfortable mid-tone while the dark half is
 // unreadable, so judge the corner cell by cell and let the worst cell decide.
 export function logoScrimToneForCells(
+  visual: ProjectVisual,
   cells: ReadonlyArray<readonly [number, number, number]>
 ): "light" | null {
-  return cells.some((cell) => logoScrimTone(cell[0], cell[1], cell[2])) ? "light" : null;
+  return cells.some((cell) => logoScrimTone(visual, cell[0], cell[1], cell[2])) ? "light" : null;
 }
 
 function luminanceToChannel(luminance: number): number {
@@ -819,10 +798,10 @@ function luminanceToChannel(luminance: number): number {
 // end under 3:1. Solve for the opacity the measured corner actually needs, so a corner that is
 // merely dull gets a wash too faint to notice and only a genuinely black one gets a strong plate.
 // The cap keeps a hopeless corner from turning into a solid white box.
-export function logoScrimOpacity(r: number, g: number, b: number): number {
+export function logoScrimOpacity(visual: ProjectVisual, r: number, g: number, b: number): number {
   const current = luminanceToChannel(relativeLuminance(r, g, b));
   if (current >= 255) return MIN_LOGO_SCRIM_OPACITY;
-  const needed = (luminanceToChannel(LOGO_SCRIM_TARGET_LUMINANCE) - current) / (255 - current);
+  const needed = (luminanceToChannel(logoScrimTargetLuminance(visual)) - current) / (255 - current);
   return Math.min(MAX_LOGO_SCRIM_OPACITY, Math.max(MIN_LOGO_SCRIM_OPACITY, needed));
 }
 
@@ -845,6 +824,7 @@ export function buildLogoScrimSvg(width: number, height: number, opacity: number
 }
 
 async function logoScrim(
+  visual: ProjectVisual,
   imagePath: string,
   left: number,
   top: number,
@@ -877,9 +857,9 @@ async function logoScrim(
       cells.push([data[index]!, data[index + 1]!, data[index + 2]!]);
     }
     if (!cells.length) return null;
-    tone = logoScrimToneForCells(cells);
+    tone = logoScrimToneForCells(visual, cells);
     worstCell = cells.reduce((worst, cell) =>
-      logoWeakestContrast(cell[0], cell[1], cell[2]) < logoWeakestContrast(worst[0], worst[1], worst[2]) ? cell : worst
+      logoWeakestContrast(visual, cell[0], cell[1], cell[2]) < logoWeakestContrast(visual, worst[0], worst[1], worst[2]) ? cell : worst
     );
   } catch {
     // A sampling failure must never cost us the creative; fall back to the bare logo.
@@ -887,12 +867,13 @@ async function logoScrim(
   }
   if (!tone || !worstCell) return null;
 
-  const opacity = logoScrimOpacity(worstCell[0], worstCell[1], worstCell[2]);
+  const opacity = logoScrimOpacity(visual, worstCell[0], worstCell[1], worstCell[2]);
   const svg = buildLogoScrimSvg(scrimWidth, scrimHeight, opacity);
   return { buffer: await sharp(Buffer.from(svg)).png().toBuffer(), left: scrimLeft, top: scrimTop };
 }
 
 async function addOfficialLogo(
+  visual: ProjectVisual,
   generatedImagePath: string,
   logoPath: string,
   logoPlacement: string | undefined,
@@ -948,7 +929,7 @@ async function addOfficialLogo(
     Math.min(margin, imageHeight - logoHeight)
   );
 
-  const scrim = await logoScrim(generatedImagePath, left, top, logoWidth, logoHeight, imageWidth, imageHeight);
+  const scrim = await logoScrim(visual, generatedImagePath, left, top, logoWidth, logoHeight, imageWidth, imageHeight);
 
   await baseImage
     .composite([
@@ -970,6 +951,7 @@ async function addOfficialLogo(
 }
 
 async function addCTAButton(
+  project: ProjectConfig,
   imagePath: string,
   ctaUrl: string,
   outputPath: string
@@ -980,7 +962,7 @@ async function addCTAButton(
   const imageWidth = baseMetadata.width || 1024;
   const imageHeight = baseMetadata.height || 1024;
 
-  const websiteCta = buildWebsiteCta(imageWidth, imageHeight, ctaUrl);
+  const websiteCta = buildWebsiteCta(project, imageWidth, imageHeight, ctaUrl);
 
   await baseImage
     .composite([websiteCta])
@@ -995,12 +977,13 @@ async function addCTAButton(
 }
 
 export function buildWebsiteCta(
+  project: ProjectConfig,
   imageWidth: number,
   imageHeight: number,
-  ctaUrl = "www.greatflowers.net"
+  ctaUrl = project.storefront.ctaDisplayUrl
 ): { input: Buffer; left: number; top: number; width: number; height: number } {
   // Reference-matched website pill: compact width, generous horizontal
-  // padding, dark GreatFlowers purple, and high-contrast white text.
+  // padding, the dark brand colour, and high-contrast white text.
   const width = Math.round(imageWidth * 0.42);
   const height = Math.round(imageHeight * 0.066);
   const fontSize = Math.round(imageWidth * 0.03);
@@ -1023,7 +1006,7 @@ export function buildWebsiteCta(
         height="${height - 2}"
         rx="${borderRadius}"
         ry="${borderRadius}"
-        fill="${CREATIVE_CTA_PURPLE}"
+        fill="${project.visual.websiteCtaFill}"
         stroke="#ffffff"
         stroke-width="2"
       />
@@ -1057,6 +1040,7 @@ environment, lighting mood and art direction; only the composition changes.`;
 }
 
 export async function generateCreativeVariant(
+  project: ProjectConfig,
   variant: CreativeVariant,
   productImageUrl: string,
   creativeBrief: CreativeBrief,
@@ -1085,7 +1069,7 @@ export async function generateCreativeVariant(
     tempFiles.add(productImagePath);
 
     const logoPath = await downloadToTemp(
-      GREATFLOWERS_LOGO_URL,
+      project.visual.logoUrl,
       `logo-${uuid}.svg`
     );
     tempFiles.add(logoPath);
@@ -1093,6 +1077,7 @@ export async function generateCreativeVariant(
     const outputFilename = `${variant.creativeType}-${timestamp}-${uuid}.png`;
 
     const prompt = buildCodexPrompt(
+      project,
       variant,
       creativeBrief
     );
@@ -1103,7 +1088,7 @@ export async function generateCreativeVariant(
     // variety without inventing a different sellable product.
     const generationReference = shouldUseProductReference(variant) ? productImagePath : null;
     let generatedPath = await executeCodex(
-      `${prompt}\n\n${posterPhotographyBrief(variant)}`,
+      `${prompt}\n\n${posterPhotographyBrief(project, variant)}`,
       generationReference,
       outputFilename,
       signal
@@ -1117,7 +1102,7 @@ export async function generateCreativeVariant(
     await renderPoster(generatedPath, logoPath, variant, finalPath);
     // Step 5: Upload the final composed image to S3
     console.log(`📤 Uploading ${variant.creativeType} to S3...`);
-    const s3Url = await uploadToS3(finalPath, outputFilename);
+    const s3Url = await uploadToS3(project, finalPath, outputFilename);
     console.log(`✅ Uploaded to: ${s3Url}`);
 
     return {
@@ -1169,6 +1154,7 @@ export async function generateCreativeVariant(
 }
 
 export async function generateAllCreatives(
+  project: ProjectConfig,
   productImageUrl: string,
   creativeBrief: CreativeBrief,
   onProgress?: (result: CreativeResult, index: number, total: number) => void,
@@ -1200,6 +1186,7 @@ export async function generateAllCreatives(
     );
 
     const result = await generateCreativeVariant(
+      project,
       variant,
       productImageUrl,
       creativeBrief,

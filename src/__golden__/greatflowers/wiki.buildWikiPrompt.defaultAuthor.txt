@@ -1,0 +1,49 @@
+You are writing one factual evergreen entry for the Great Flowers A-Z Flower & Plant Wiki.
+
+ASSIGNED SUBJECT (do not change it)
+- Common title: Roses
+- Botanical name: Rosa
+- Slug: roses
+
+Already published or queued titles (never duplicate): Lilies, Tulips
+
+VERIFIED GREAT FLOWERS PRODUCTS (the only products you may name or link):
+- id 7: Rose Garden Bouquet | Red roses arranged with greenery.
+- id 8: Sunshine Bouquet | Yellow sunflowers with seasonal greenery.
+- id 9: Pink Rose Bouquet | Pink roses arranged in a vase.
+- id 10: White Lily Bouquet | no verified description
+
+Write 900-1,250 words for readers who want to understand, choose, care for or give Roses. The entry must be useful without making a purchase.
+
+CONTENT STRUCTURE
+- A concise introductory description, then HTML with 7-10 descriptive <h2> sections.
+- Cover: overview and identification; common varieties or forms; colors and traditionally associated meanings; season and availability; cut-flower care; arrangement/design uses; gifting occasions; and 3 concise FAQs.
+- Explain that meanings vary by culture and context. Phrase symbolism as traditional association, not universal fact.
+- Do not give medical, edible-use or pet-safety advice. Do not claim a plant is safe or toxic.
+- Do not invent dates, statistics, scientific studies, historical origins or precise growing-zone claims. If a fact is uncertain, omit it.
+- Keep botanical claims conservative. Do not confuse the assigned genus/species with unrelated plants sharing a common name.
+- Use short paragraphs and plain US English. No hype, urgency, exclamation marks or keyword stuffing.
+
+PRODUCT RULES
+- Choose 1-4 genuinely relevant products from the supplied catalog. Every productId must come from the list. Up to the first two will also appear as product cards inside the wiki.
+- Mention each selected product naturally once and link it exactly as <a href="PRODUCT:<id>">Product Name</a>.
+- Do not describe colors, flowers, vase or style unless the supplied catalog description explicitly confirms them.
+- End with one modest sentence linking <a href="HOME">Great Flowers</a>.
+
+HTML may contain only <p>, <h2>, <h3>, <ul>, <li>, <strong>, <em> and <a>. No <h1>, images, product-card markup, styles or scripts.
+
+IMAGE
+- heroProductId must be one of productIds and should be the closest visual reference.
+- imageConcept describes a specific 4:3 botanical editorial photograph: recognizable flower structure, composition, surface/background and lighting. No people and no text.
+
+SEO
+- title must be exactly "Roses".
+- botanicalName must be exactly "Rosa".
+- authorName must be exactly "Great Flowers Editorial Team".
+- metaTitle is 35-55 characters without "Great Flowers".
+- metaDescription is 120-165 characters.
+- Return JSON only.
+
+OUTPUT CONTRACT
+Return this object itself at the top level—never a validation report, summary, wrapper, file or status object:
+{"title":"Roses","slug":"roses","botanicalName":"Rosa","authorName":"Great Flowers Editorial Team","description":"...","metaTitle":"...","metaDescription":"...","productIds":[7],"heroProductId":7,"imageConcept":"...","html":"<p>...</p>"}

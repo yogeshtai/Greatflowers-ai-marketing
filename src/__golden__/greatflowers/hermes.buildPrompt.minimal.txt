@@ -1,0 +1,1113 @@
+Campaign Goal: Build consideration
+
+Product / Feature: Petals of Grace
+
+Occasion: Not specified
+
+Creative Scenario: Not specified — will default to generic occasion framing
+
+Content Theme: Choose a suitable theme
+Visual Treatment: Choose a suitable treatment
+
+CONTENT MIX RULES:
+Preserve the supplied theme, creative scenario and goal in captions, headlines, CTAs and the
+creative brief. Use the supplied visual treatment as the primary art-direction anchor while the
+other variants explore complementary treatments. Promote GreatFlowers naturally in every theme.
+For home-styling, flower-care, product-spotlight, seasonal-inspiration and conversation-starter,
+use independent creativeMode, without forcing a sender/recipient or gifting narrative.
+Use save/share/comment CTAs for engagement and discovery CTAs for awareness/consideration,
+but every independent four-creative campaign must include at least one gentle commercial bridge
+such as "Shop the bouquet", "Send flowers" or "Explore the collection". The other executions
+may remain editorial or engagement-led, so the campaign does not become four hard-sell ads.
+Care content must use reliable general advice, without unsupported product-specific claims.
+Keep all four variants within the selected theme while varying their compositions.
+
+INSTAGRAM PERFORMANCE RULES:
+- Write the Instagram caption for fast feed reading: 45-110 words, with a clear first sentence, 2-4 short paragraphs and one natural CTA.
+- Do not put hashtags inside the caption field; return them only in the hashtags array.
+- Use 6-10 focused hashtags. Prefer specific occasion, flower, recipient and brand terms over generic reach tags.
+- Never invent names, ages, cities, exact timelines, personal histories, customer quotes or card messages unless they were explicitly supplied in the campaign input.
+- A relatable scenario may describe "a friend", "a coworker", "a parent" or "someone you love", but must not pretend a fictional event really happened.
+- Keep the product and the immediate customer benefit clear. Avoid novel-like backstory before mentioning flowers.
+- Do not repeat the same CTA, product fact or idea in multiple paragraphs.
+
+FEED CREATIVE SIMPLICITY:
+- Independent feed creatives must be understandable in under two seconds.
+- Use a headline of at most 6 words. Prefer an empty subheadline for product, lifestyle and occasion concepts.
+- When a subheadline is genuinely needed, keep it to at most 10 words.
+- Keep the bouquet or human moment visually dominant. Avoid dense ad layouts, large text panels and multiple competing messages.
+- Informational graphics may show 2-4 concise content points, but must still retain generous visual space.
+
+Audience: US flower shoppers
+
+Traffic Source: Organic Social
+
+Platforms: Instagram, Facebook
+
+Priority: medium
+
+Additional Context: None
+
+EMOTIONAL HOOK RULE:
+
+If a creativeScenario is provided, use it as the campaign's emotional foundation. Do NOT default to generic occasion framing like "Birthday celebration" or "Anniversary gift."
+
+The creativeScenario describes a specific human situation — lean into that specificity in the:
+- Marketing angle
+- Headlines and subheadlines
+- Visual direction
+- Customer intent
+- Platform copy
+
+Example: if creativeScenario is "Grandmother turning 80, family wants to make her feel celebrated after a quiet year,"
+the marketing angle should be about honoring a milestone with warmth, not a generic "birthday flowers" pitch.
+
+IMPORTANT OUTPUT INSTRUCTIONS:
+
+Return ONLY valid JSON.
+
+Do not use Markdown.
+Do not use markdown code fences.
+Do not add any explanation before or after the JSON.
+
+COPY CLARITY AND FLOWER CONNECTION RULES:
+Every headline and subheadline must make immediate sense on first read, without requiring the
+viewer to decode the image, caption or an unexplained metaphor.
+- State the person, occasion, customer need, useful benefit or flower idea directly.
+- Physical props such as pens, keys, cards, desks, mugs and tools may support the scene, but
+  must never replace the person or become the subject being thanked, celebrated or addressed.
+- For gratitude concepts, identify who is being thanked and what their help meant. Connect the
+  flowers to that appreciation naturally.
+- Headline, subheadline and content points must express one coherent message.
+- Prefer plain, emotionally clear language over clever wordplay that needs explanation.
+
+PROHIBITED unclear copy:
+- "The review is over. The red pen isn't."
+- "Name the red pen."
+- Any headline where an inanimate prop stands in for the recipient without explaining the person.
+
+CLEAR alternative:
+- Headline: "For the person who made your work better."
+- Subheadline: "Thank the mentor or teammate whose thoughtful feedback made a difference."
+
+FACT VS HYPOTHESIS RULE:
+
+If a marketing statement is not supported by verified GreatFlowers data,
+treat it as a hypothesis or recommendation.
+
+Do not present assumptions about customer behavior,
+conversion likelihood, or platform performance as verified facts.
+
+Put important hypotheses inside the "assumptions" array.
+
+VERIFIED PRODUCT DATA RULE:
+
+When live GreatFlowers product information is provided
+inside Additional Context, treat those supplied product fields
+as verified.
+
+Do not ask to verify information already provided,
+such as:
+
+- product name
+- product description
+- price
+- stock status
+- categories
+- product URL
+- product image
+
+needsVerification should contain ONLY genuinely missing information,
+such as delivery eligibility, current promotions,
+cutoff times, inventory details not supplied,
+or performance data that has not been provided.
+
+Use exactly this structure:
+
+{
+  "campaignObjective": "string",
+
+  "targetCustomer": "string",
+
+  "customerIntent": [
+    "string"
+  ],
+
+  "customerProblemOrDesire": "string",
+
+  "emotionalTriggers": [
+    "string"
+  ],
+
+  "marketingAngle": "string",
+
+  "valueProposition": "string",
+
+  "cta": {
+    "primary": "string",
+    "secondary": "string",
+    "destinationUrl": "string"
+  },
+
+  "whyThisCouldWork": "string",
+
+  "platformContent": {
+    "instagram": {
+      "visualConcept": "string",
+      "caption": "string",
+      "hashtags": ["string"]
+    },
+
+    "facebook": {
+      "post": "string",
+      "cta": "string"
+    },
+
+    "pinterest": {
+      "titles": ["string"],
+      "description": "string",
+      "keywords": ["string"],
+      "destinationUrl": "string"
+    },
+
+    "x": {
+      "post": "string"
+    },
+
+    "youtubeShorts": {
+      "hook": "string",
+      "scenes": ["string"],
+      "voiceoverOrText": "string",
+      "cta": "string",
+      "length": "string"
+    }
+  },
+
+  "abTests": [
+    {
+      "name": "string",
+      "angle": "string",
+      "focus": "string",
+      "measure": ["string"]
+    }
+  ],
+
+  "assumptions": [
+    "string"
+  ],
+
+  "needsVerification": [
+    "string"
+  ],
+
+  "creativeBrief": {
+    "creativeMode": "independent | story-carousel",
+    "headline": "string",
+    "subheadline": "string",
+    "cta": "string",
+    "mood": "string",
+    "backgroundDirection": "string",
+    "productTreatment": "string",
+    "logoPlacement": "string",
+    "textPlacement": "string",
+    "creativeGoal": "string",
+    "creativeScenario": "string (optional: specific human situation, e.g., 'grandmother turning 80, wants to feel celebrated after a quiet year')",
+    "carouselConcept": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+    "revealSlide": "2 | 3 | 4 (a JSON number, REQUIRED if creativeMode is story-carousel, otherwise omit)",
+    "giftingRelationship": {
+      "sender": "string (REQUIRED in story-carousel mode: who buys/sends, with age/look/clothing)",
+      "recipient": "string (who receives, with age/look/clothing)",
+      "relationship": "string (e.g. husband to wife, daughter to mother, friend to friend, self-gift)",
+      "reason": "string (why flowers are given in this story)",
+      "pointOfView": "sender | recipient | both"
+    },
+    "visualContinuity": {
+      "characterContinuity": "string (optional)",
+      "environmentContinuity": "string (optional)",
+      "colorContinuity": "string (optional)",
+      "stylingContinuity": "string (optional)"
+    },
+    "variants": [
+      {
+        "order": 1,
+        "creativeType": "product | lifestyle | occasion | location | feature | informational | brand-awareness",
+        "sceneStrategy": "PRODUCT_STUDIO | HUMAN_GIFTING_MOMENT | HUMAN_LIFESTYLE | OCCASION_SCENE | EDITORIAL_CONTENT | INFORMATIONAL_GRAPHIC | LOCATION_STORY | FEATURE_DEMO | BRAND_STORY",
+        "concept": "string",
+        "headline": "string",
+        "subheadline": "string",
+        "contentPoints": ["2-4 short meaningful actions; REQUIRED when copy promises steps, a routine, checklist, cheat sheet or guide; otherwise omit"],
+        "cta": "string",
+        "visualDirection": "string",
+        "productRole": "hero | supporting | optional | none",
+        "locationContext": "string (optional)",
+        "occasionContext": "string (optional)",
+        "colorPalette": "string",
+        "compositionStyle": "string",
+        "lightingStyle": "string",
+        "sceneType": "string",
+        "artDirection": "documentary-gifting | doorstep-delivery | florist-workbench | botanical-macro | sculptural-studio | editorial-flatlay | hosting-tablescape | bouquet-in-motion | unboxing-reveal | architectural-interior | seasonal-cinematic | color-block-editorial | flower-care-demonstration | magazine-product-feature (REQUIRED in independent mode; optional in story-carousel)",
+        "copyLayout": "top-left-editorial | top-right-editorial | lower-left-caption | lower-right-caption | full-bleed-left-gradient | full-bleed-right-gradient (REQUIRED in independent mode; optional in story-carousel)",
+        "environment": "entryway-console | kitchen-counter | dining-table | living-room-seating | bedside-nightstand | sunlit-windowsill | florist-workbench | studio-backdrop | outdoor-garden | cafe-table | workplace-desk | front-doorstep (REQUIRED in independent mode; optional in story-carousel)",
+        "lightingSetup": "bright-daylight | diffused-overcast | golden-hour | candlelit-warm | hard-studio | backlit-glow | lamplit-evening (REQUIRED in independent mode; optional in story-carousel)",
+        "storyRole": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "storyBeat": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "brandRole": "none | subtle | reveal (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "sceneChange": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "cameraDirection": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)"
+      },
+      {
+        "order": 2,
+        "creativeType": "product | lifestyle | occasion | location | feature | informational | brand-awareness",
+        "sceneStrategy": "PRODUCT_STUDIO | HUMAN_GIFTING_MOMENT | HUMAN_LIFESTYLE | OCCASION_SCENE | EDITORIAL_CONTENT | INFORMATIONAL_GRAPHIC | LOCATION_STORY | FEATURE_DEMO | BRAND_STORY",
+        "concept": "string",
+        "headline": "string",
+        "subheadline": "string",
+        "contentPoints": ["2-4 short meaningful actions; REQUIRED when copy promises steps, a routine, checklist, cheat sheet or guide; otherwise omit"],
+        "cta": "string",
+        "visualDirection": "string",
+        "productRole": "hero | supporting | optional | none",
+        "locationContext": "string (optional)",
+        "occasionContext": "string (optional)",
+        "colorPalette": "string",
+        "compositionStyle": "string",
+        "lightingStyle": "string",
+        "sceneType": "string",
+        "artDirection": "documentary-gifting | doorstep-delivery | florist-workbench | botanical-macro | sculptural-studio | editorial-flatlay | hosting-tablescape | bouquet-in-motion | unboxing-reveal | architectural-interior | seasonal-cinematic | color-block-editorial | flower-care-demonstration | magazine-product-feature (REQUIRED in independent mode; optional in story-carousel)",
+        "copyLayout": "top-left-editorial | top-right-editorial | lower-left-caption | lower-right-caption | full-bleed-left-gradient | full-bleed-right-gradient (REQUIRED in independent mode; optional in story-carousel)",
+        "environment": "entryway-console | kitchen-counter | dining-table | living-room-seating | bedside-nightstand | sunlit-windowsill | florist-workbench | studio-backdrop | outdoor-garden | cafe-table | workplace-desk | front-doorstep (REQUIRED in independent mode; optional in story-carousel)",
+        "lightingSetup": "bright-daylight | diffused-overcast | golden-hour | candlelit-warm | hard-studio | backlit-glow | lamplit-evening (REQUIRED in independent mode; optional in story-carousel)",
+        "storyRole": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "storyBeat": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "brandRole": "none | subtle | reveal (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "sceneChange": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "cameraDirection": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)"
+      },
+      {
+        "order": 3,
+        "creativeType": "product | lifestyle | occasion | location | feature | informational | brand-awareness",
+        "sceneStrategy": "PRODUCT_STUDIO | HUMAN_GIFTING_MOMENT | HUMAN_LIFESTYLE | OCCASION_SCENE | EDITORIAL_CONTENT | INFORMATIONAL_GRAPHIC | LOCATION_STORY | FEATURE_DEMO | BRAND_STORY",
+        "concept": "string",
+        "headline": "string",
+        "subheadline": "string",
+        "contentPoints": ["2-4 short meaningful actions; REQUIRED when copy promises steps, a routine, checklist, cheat sheet or guide; otherwise omit"],
+        "cta": "string",
+        "visualDirection": "string",
+        "productRole": "hero | supporting | optional | none",
+        "locationContext": "string (optional)",
+        "occasionContext": "string (optional)",
+        "colorPalette": "string",
+        "compositionStyle": "string",
+        "lightingStyle": "string",
+        "sceneType": "string",
+        "artDirection": "documentary-gifting | doorstep-delivery | florist-workbench | botanical-macro | sculptural-studio | editorial-flatlay | hosting-tablescape | bouquet-in-motion | unboxing-reveal | architectural-interior | seasonal-cinematic | color-block-editorial | flower-care-demonstration | magazine-product-feature (REQUIRED in independent mode; optional in story-carousel)",
+        "copyLayout": "top-left-editorial | top-right-editorial | lower-left-caption | lower-right-caption | full-bleed-left-gradient | full-bleed-right-gradient (REQUIRED in independent mode; optional in story-carousel)",
+        "environment": "entryway-console | kitchen-counter | dining-table | living-room-seating | bedside-nightstand | sunlit-windowsill | florist-workbench | studio-backdrop | outdoor-garden | cafe-table | workplace-desk | front-doorstep (REQUIRED in independent mode; optional in story-carousel)",
+        "lightingSetup": "bright-daylight | diffused-overcast | golden-hour | candlelit-warm | hard-studio | backlit-glow | lamplit-evening (REQUIRED in independent mode; optional in story-carousel)",
+        "storyRole": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "storyBeat": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "brandRole": "none | subtle | reveal (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "sceneChange": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "cameraDirection": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)"
+      },
+      {
+        "order": 4,
+        "creativeType": "product | lifestyle | occasion | location | feature | informational | brand-awareness",
+        "sceneStrategy": "PRODUCT_STUDIO | HUMAN_GIFTING_MOMENT | HUMAN_LIFESTYLE | OCCASION_SCENE | EDITORIAL_CONTENT | INFORMATIONAL_GRAPHIC | LOCATION_STORY | FEATURE_DEMO | BRAND_STORY",
+        "concept": "string",
+        "headline": "string",
+        "subheadline": "string",
+        "contentPoints": ["2-4 short meaningful actions; REQUIRED when copy promises steps, a routine, checklist, cheat sheet or guide; otherwise omit"],
+        "cta": "string",
+        "visualDirection": "string",
+        "productRole": "hero | supporting | optional | none",
+        "locationContext": "string (optional)",
+        "occasionContext": "string (optional)",
+        "colorPalette": "string",
+        "compositionStyle": "string",
+        "lightingStyle": "string",
+        "sceneType": "string",
+        "artDirection": "documentary-gifting | doorstep-delivery | florist-workbench | botanical-macro | sculptural-studio | editorial-flatlay | hosting-tablescape | bouquet-in-motion | unboxing-reveal | architectural-interior | seasonal-cinematic | color-block-editorial | flower-care-demonstration | magazine-product-feature (REQUIRED in independent mode; optional in story-carousel)",
+        "copyLayout": "top-left-editorial | top-right-editorial | lower-left-caption | lower-right-caption | full-bleed-left-gradient | full-bleed-right-gradient (REQUIRED in independent mode; optional in story-carousel)",
+        "environment": "entryway-console | kitchen-counter | dining-table | living-room-seating | bedside-nightstand | sunlit-windowsill | florist-workbench | studio-backdrop | outdoor-garden | cafe-table | workplace-desk | front-doorstep (REQUIRED in independent mode; optional in story-carousel)",
+        "lightingSetup": "bright-daylight | diffused-overcast | golden-hour | candlelit-warm | hard-studio | backlit-glow | lamplit-evening (REQUIRED in independent mode; optional in story-carousel)",
+        "storyRole": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "storyBeat": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "brandRole": "none | subtle | reveal (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "sceneChange": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)",
+        "cameraDirection": "string (REQUIRED if creativeMode is story-carousel, otherwise omit)"
+      }
+    ]
+  }
+}
+
+CREATIVE BRIEF RULES:
+
+creativeMode (REQUIRED):
+
+You MUST choose between two creative modes for this campaign:
+
+1. "independent"
+   - Generate 4 different standalone marketing creatives
+   - Each image works independently as its own advertisement
+   - Use when: The campaign benefits from multiple distinct marketing angles
+   - Example: Product showcase + lifestyle moment + occasion scene + informational graphic
+
+2. "story-carousel"
+   - Generate 4 connected slides that together tell ONE coherent marketing story
+   - Each slide advances the narrative
+   - Use when: The campaign benefits from a sequential story that unfolds across multiple images
+   - Example: A birthday gifting journey, a sympathy support story, an anniversary celebration arc
+
+CRITICAL MODE SELECTION RULES:
+
+Do NOT force every campaign into story-carousel mode.
+
+Choose based on:
+- Campaign objective (does it benefit from a narrative arc?)
+- Occasion (some occasions naturally tell stories, others don't)
+- Product type (some products work better in stories, others as standalone showcases)
+- Target customer intent (are they looking for a story or quick product info?)
+- Marketing angle (does the angle require narrative development?)
+
+Story-carousel is appropriate when:
+- The campaign has a clear emotional journey
+- The occasion involves a sequence of moments (gifting process, celebration timeline, support journey)
+- The marketing angle benefits from building anticipation or emotional development
+- The customer intent involves understanding a process or experience
+
+Independent is appropriate when:
+- The campaign needs to test multiple distinct value propositions
+- Different customer segments need different messaging
+- The product/occasion doesn't naturally form a narrative
+- Maximum creative diversity is more valuable than story continuity
+
+The creativeBrief is for a future AI visual-generation system that will create social media campaign images.
+
+The future system will use:
+- the REAL GreatFlowers product image from the catalog
+- the official GreatFlowers logo (https://greatflowers.net/assets/svg/greatflowers-logo.svg)
+- your creative brief instructions
+
+to generate finished campaign creatives.
+
+IMPORTANT PRODUCT ACCURACY RULE:
+
+The real catalog product image will be used as the hero product.
+
+Do NOT instruct the image generator to redesign or replace the product.
+
+The creativeBrief may describe:
+- background environment
+- lighting
+- mood
+- layout/composition
+- typography placement
+- decorative elements
+
+The creativeBrief must NOT request changes to:
+- flower types
+- flower colors
+- bouquet composition
+- vase/container
+- arrangement style
+- core product appearance
+
+productTreatment field:
+
+Must explicitly state to preserve the real product.
+
+Example wording:
+"Use the real GreatFlowers product image as the hero product. Preserve the bouquet, flower colors, arrangement, container and important product details faithfully. Do not redesign the product."
+
+You may adapt slightly based on the product, but the meaning must remain.
+
+headline:
+
+Short primary ad headline suitable for image creative.
+HARD LIMIT: at most 6 words. This is validated and a longer headline fails the whole campaign, so
+count the words before returning. Prefer 3-5 words. Articles, prepositions and hyphenated pairs all
+count as words.
+
+subheadline:
+
+One short supporting sentence.
+HARD LIMIT: at most 10 words, also validated. Leave it empty for product, lifestyle and occasion
+concepts rather than padding it.
+Must not invent unsupported claims.
+
+contentPoints:
+
+For independent creatives, this field is REQUIRED whenever the headline or subheadline promises
+steps, checks, tips, a routine, checklist, cheat sheet or guide. Supply the actual 2-4 concise
+customer-facing actions that will be printed on the image. If the copy says "three" or "3",
+in reference to the promised steps/checks/tips, provide exactly 3 items; likewise for 2 or 4.
+Do not treat unrelated numbers such as delivery timing or product quantity as the item count.
+Each item must be a meaningful action of no more
+than 72 characters, never an empty label such as "Step 1". Use only supplied facts or safe,
+general flower-care guidance. If the creative does not promise a list or process, omit this field.
+Never promise useful content that is absent from contentPoints.
+For gratitude content, every item must describe the person's action, its impact or a concrete
+way to thank them. Never refer to a pen, key, desk or another prop as a substitute for the person.
+
+cta:
+
+Short CTA suitable for social advertising. For the four campaign creatives, keep each CTA to one or
+two words (for example "Shop Now", "Send Flowers", "Save This"), because it is rendered on a small button.
+
+Safe CTA examples:
+- Send Flowers
+- Shop Flowers
+- Explore the Collection
+- Send Something Thoughtful
+- Shop [Product Name]
+
+Do NOT create unsupported CTAs:
+- Get 50% Off (unless verified promotion exists)
+- Guaranteed Delivery Today (unless verified)
+- Lowest Price (unless verified)
+
+mood:
+
+Overall visual/emotional direction.
+
+Examples:
+- calm, comforting and elegant
+- romantic, warm and premium
+- cheerful, bright and celebratory
+
+backgroundDirection:
+
+Campaign-wide craft standard for the image generator. Each variant already carries its own
+environment and lightingSetup, so this field must NOT name a room, a surface, a time of day, a light
+level or a colour scheme: doing so pins all four creatives to one look and wastes the per-variant
+assignments.
+
+Describe only the production qualities every variant should share.
+
+Example:
+"Premium photography with real depth, honest materials and uncluttered staging; props stay secondary
+to the flowers."
+
+Do NOT tell the generator to replace or redesign the bouquet.
+
+logoPlacement:
+
+Simple design instruction for the GreatFlowers logo.
+The logo MUST always be placed in a top corner: "top-left" or "top-right" only.
+Never place the logo at the bottom, center or middle of the image.
+
+Examples:
+- top-right with comfortable margin
+- top-left with comfortable margin
+
+textPlacement:
+
+Text positioning instruction that ensures readability and avoids logo overlap.
+
+CRITICAL: Text must NOT overlap the logo safe area specified in logoPlacement.
+
+Example:
+"Place the headline in the upper-left portion of the frame, well away from the top-right logo area, with comfortable negative space. Use dark text color for high contrast against the light background. Place the short supporting line below the headline if space permits. Do not render the CTA anywhere inside the image."
+
+Guidelines:
+- Always specify text position that avoids the logo area
+- Specify text color for contrast (dark on light, light on dark)
+- Mention if text needs shadows or overlays for readability
+- Keep text in zones with clean backgrounds
+
+creativeGoal:
+
+Short statement explaining what this creative should achieve.
+
+Example:
+"Create a respectful sympathy ad that communicates thoughtfulness while keeping the real product as the visual focus."
+
+carouselConcept (REQUIRED if creativeMode is "story-carousel", otherwise omit):
+
+A single sentence explaining the overall marketing story that connects all 4 slides.
+
+Example:
+"A birthday gifting journey showing someone discovering the perfect way to celebrate a loved one through thoughtful flowers."
+
+This is the narrative spine. All 4 slides must advance this story.
+
+visualContinuity (REQUIRED if creativeMode is "story-carousel", otherwise omit):
+
+Describe what should remain visually consistent across the 4 slides to create story cohesion.
+
+characterContinuity:
+Should the same person/people appear across slides? Describe who and how.
+
+Example:
+"Use the same couple throughout - a woman in her 30s selecting and giving flowers, and her partner receiving them."
+
+Or if no character continuity is needed:
+"No character continuity required."
+
+environmentContinuity:
+Should the setting remain consistent? Describe the environment.
+
+Example:
+"Warm home interior throughout - living room and dining area of the same house."
+
+colorContinuity:
+What color palette should unify the slides?
+
+Example:
+"Warm cream, soft pink, and natural wood tones throughout all slides."
+
+stylingContinuity:
+What visual style should remain consistent?
+
+Example:
+"Premium editorial photography with consistent soft natural lighting and clean typography."
+
+variants:
+
+You MUST return exactly 4 creative variants (slides).
+
+Each variant must have order: 1, 2, 3, or 4.
+
+STRATEGIC CREATIVE CONCEPT SELECTION:
+
+FOR INDEPENDENT MODE:
+
+Do NOT hard-code creative types (e.g. always product + lifestyle + location + occasion).
+
+Instead, strategically choose the 4 best creative concepts from the available evidence and campaign objective.
+
+The 4 concepts should be meaningfully different marketing approaches, not just visual variations of the same advertisement.
+Use at least 3 different creativeType values and at least 3 different sceneStrategy values.
+Assign four different artDirection values and at least three different copyLayout values. These are production controls, not descriptive synonyms: each art direction must visibly change the camera behavior, environment, product scale and human action. The supplied campaign Visual Treatment is the anchor for the strongest variant, not a command to make all four images use one look.
+Only one variant may use productRole "hero". Exactly two variants must use "hero" or "supporting" and exactly two must use "optional". Do not use productRole "none" in independent mode.
+The two optional variants must still show flowers prominently. The image generator is given the selected product photo for every variant, so any bouquet shown is always the selected product; in optional variants it is simply not the focus. Never describe a different bouquet.
+Every independent visual must unmistakably market flowers. Flowers must occupy a meaningful part of the composition, while books, mugs, candles, shelves, feathers and other props remain secondary atmosphere rather than the subject.
+At least one human scene must show a flower-related action such as giving, receiving, arranging, carrying, delivering or unboxing flowers—not merely a person sitting near a vase.
+If one variant is informational, teach something directly useful about choosing, gifting, arranging or caring for flowers. Do not turn it into generic interior or shelf styling where decor replaces the flowers.
+Across the four CTAs, include at least one gentle purchase or product-discovery action such as "Shop the bouquet", "Send flowers" or "Explore the collection". Save, share and comment CTAs may be used for the remaining variants.
+Use creativeType "informational" at most once. At least one variant must be a real human lifestyle or gifting scene using HUMAN_LIFESTYLE or HUMAN_GIFTING_MOMENT.
+Treat the four variants as different editorial executions, not one template: alternate subject placement, text-safe side, vertical hierarchy, camera distance and environment. Do not repeat the same care advice in another variant, even with different wording.
+The website URL is added programmatically only to the fourth variant. Do not design every variant as a direct-response advertisement.
+All four concepts and headlines must be unique. Use at least 3 materially different compositionStyle and sceneType values.
+ART DIRECTION QUALITY:
+Design a complete advertising composition before describing the photograph. For each concept specify the visual hierarchy in concept: the short headline as a dominant graphic shape, the bouquet's scale and silhouette, the human action if present, and a deliberate relationship between these elements. Think of a florist campaign poster rather than a room photograph with a caption.
+Use short headlines of 2-5 words wherever possible so they can occupy 3-4 large display lines. Avoid describing furniture or the location as the headline. Speak to the recipient, occasion or feeling: concrete and specific, without inventing claims.
+Every bouquet must remain prominent even in an occasion scene. A distant vase behind a dining table fails this brief. Give flowers the foreground and let the occasion live in background details.
+Make each post understandable at phone size in one glance. Prefer a concrete 3-7 word headline and one brief supporting thought; avoid abstract greeting-card slogans and repeating the headline in the subheadline.
+Plan the photograph and copy together. Use a tightly framed flower detail, an expressive candid gifting moment, a clear useful demonstration, and an occasion-specific composition where appropriate to the evidence. Do not repeat beige rooms, console tables, a person reading a card, or empty walls across the set.
+Preserve the real product's colors and flower varieties. Seek rich natural color separation, fresh petals, believable skin texture and directional daylight; avoid muddy amber filters, plastic petals, excessive blur and posed stock-photo smiles.
+Flowers should be immediately recognizable at thumbnail size. Keep incidental decor subordinate. Negative space should support the short copy without swallowing half the image.
+Save/share/comment actions belong in captions. Prefer a modest invitation over urgency; never invent a sale, discount, product feature or customer endorsement.
+
+FOR STORY-CAROUSEL MODE:
+
+STORY-FIRST RULES (override generic product/advertising guidance for story slides only):
+Set creativeBrief.revealSlide to 2, 3, or 4: the intentional first commercial solution reveal.
+Choose the timing for this campaign; prefer meaningful buildup (often 3 or 4 for gifting),
+without imposing a fixed sequence of narrative roles. First establish a human situation,
+emotion, desire, need, question, tension or occasion. The solution must answer that setup.
+Before revealSlide, every slide MUST have productRole "none", brandRole "none", cta "".
+No selected product, flowers as a commercial solution, product names, GreatFlowers, logo,
+website, ecommerce/browser screenshots, sales language, Buy/Shop/Send-this-bouquet CTAs,
+or premature visual solution cues. Headlines/subheadlines must read as storytelling.
+At revealSlide naturally introduce flowers, the selected product, GreatFlowers, or a verified
+feature. Later slides show consequences and emotional payoff, not repeated product ads.
+The final slide MUST use brandRole "reveal" and cta "Shop flowers — https://greatflowers.net", with an emotional resolution. The deterministic official GreatFlowers logo will be composited at the top-right corner; keep the top corners clear of text, faces and important details. The CTA and URL stay in the post caption/metadata, never inside the image; do not ask AI to recreate the logo.
+For EVERY slide add brandRole ("none", "subtle", "reveal"), sceneChange (what is visually
+new versus the previous shot; for slide 1 define the opening), and cameraDirection
+(the framing/composition for this beat). Hermes decides these roles per slide.
+Use brandRole "subtle" for a minimal deterministic logo only, "reveal" for normal approved
+branding, and "none" for no logo, website or CTA (cta must be empty).
+Continuity means recognizable characters/style, NOT repeated compositions. Adjacent shots
+must change primary composition, subject placement, camera framing, character action,
+product placement and room/table setup unless sceneChange explains a deliberate narrative reason.
+Four distinct shots must show progression even with all text hidden.
+
+GIFTING RELATIONSHIP (mandatory, decide this FIRST): fill giftingRelationship with a specific
+sender (the customer who buys), a specific recipient, their relationship, the reason, and the
+pointOfView the slides follow. Flowers are a gift between people — the viewer must never wonder
+"who is giving this to whom?". A single person alone with a bouquet, with no giver or receiver
+implied, is NOT a story. Self-gifting is allowed ONLY when relationship is "self-gift" and the
+copy makes that explicit ("treat yourself", "you earned this").
+- pointOfView "sender": we follow the giver — noticing the moment, deciding, choosing, handing over
+  or watching it be received. The recipient must appear by the reveal or final slide.
+- pointOfView "recipient": we follow the receiver — their day, the doorbell/handoff, the reaction.
+  The sender or the act of giving (hands, a card, a delivery) must be visible at the reveal.
+- pointOfView "both": alternate, and the reveal or final slide shows them together.
+The reveal slide MUST show the act of giving or receiving (handed over, delivered, unwrapped,
+a card read), not a bouquet that simply appears on a table.
+Every storyBeat must name who is in frame and what they are doing for the other person.
+
+HUMAN THREAD (mandatory): characterContinuity MUST describe the sender and recipient from
+giftingRelationship (age, look, clothing) so they are recognizable across slides.
+The pointOfView character appears in at least 3 of the 4 slides, INCLUDING the final slide;
+the other person appears in at least one slide (reveal or final) unless it is a self-gift.
+Do not introduce people in slide 1 and then drop them.
+
+REVEAL vs PAYOFF (mandatory): the reveal slide and the final slide must be visibly different shots.
+- Reveal slide: the product enters the established scene (handed over, set down, unwrapped, held).
+  It stays in the same environment, lighting and palette as the previous slides. PRODUCT_STUDIO
+  is FORBIDDEN in story-carousel mode: no studio backdrop, seamless paper or isolated catalog shot.
+- Final slide: sceneStrategy MUST be HUMAN_GIFTING_MOMENT or HUMAN_LIFESTYLE, productRole
+  "supporting" (never "hero"). Its storyBeat MUST describe a human reaction or consequence
+  (a face, a smile, an embrace, hands touching the flowers, a quiet look). It is never a second
+  product shot; the bouquet is present but not centered and not the largest element.
+- The reveal and final slides must differ in cameraDirection, subject placement and product placement.
+
+ENVIRONMENT LOCK: environmentContinuity MUST name one concrete setting and light quality
+(e.g. "same candlelit dining room, warm tungsten light, evening"). Every slide, including the
+reveal, stays inside that world. Never switch to a bright studio or a different location mid-story.
+
+TEXT: headlines and subheadlines are composited programmatically onto the top-left of each
+slide; the image itself is generated text-free. Keep headlines under 45 characters and
+subheadlines under 110 characters so they fit cleanly.
+These additional fields belong in the JSON even though the generic example omits them.
+
+Each of the 4 slides must include:
+
+storyRole (REQUIRED):
+The narrative function of this slide in the overall story.
+
+Do NOT hard-code roles like "setup → consideration → gesture → payoff".
+
+Design the appropriate narrative structure for THIS specific campaign.
+
+Examples of possible story roles (adapt to your story):
+- "emotional trigger"
+- "problem awareness"
+- "solution discovery"
+- "meaningful action"
+- "emotional payoff"
+- "product reveal"
+- "moment of connection"
+- "celebration peak"
+
+storyBeat (REQUIRED):
+What specifically happens in this slide? What changes from the previous slide?
+
+Example:
+"The recipient opens the door to find the flower delivery waiting, their expression shifting from ordinary to surprised delight."
+
+CRITICAL STORY CONNECTION RULE:
+
+Every slide must answer: "What changed from the previous slide?"
+
+Four slides must NOT simply show the same message differently.
+
+BAD story progression:
+Slide 1 → bouquet on table
+Slide 2 → bouquet in different room
+Slide 3 → bouquet near person
+Slide 4 → bouquet on another table
+
+GOOD story progression:
+Slide 1 → establishes the emotional situation or need
+Slide 2 → develops the moment or consideration
+Slide 3 → introduces the meaningful action or solution
+Slide 4 → delivers the emotional or product payoff
+
+The story must have PROGRESSION, not repetition.
+
+Available creative types:
+
+1. creativeType: "product"
+   Product-focused creative showcasing the specific GreatFlowers product.
+   productRole: typically "hero"
+   Use when: Product is central to the campaign goal.
+
+2. creativeType: "lifestyle"
+   Emotional/lifestyle creative showing gifting moments, relationships, or life contexts.
+   productRole: "hero", "supporting", or "optional"
+   Use when: Emotional connection or gifting context is the primary angle.
+
+3. creativeType: "occasion"
+   Occasion-focused creative tied to specific events (Mother's Day, Valentine's, birthdays, sympathy, etc.).
+   productRole: "hero" or "supporting"
+   occasionContext: REQUIRED - specify the occasion
+   Use when: Campaign is tied to a specific occasion or calendar event.
+
+4. creativeType: "location"
+   Location-focused creative highlighting delivery areas, local presence, or geographic relevance.
+   productRole: "supporting", "optional", or "none"
+   locationContext: REQUIRED - specify the location/area (ONLY if verified in Additional Context)
+   Use when: Location/delivery is a key differentiator AND verified data supports it.
+   CRITICAL: Do NOT invent locations. Only use verified delivery areas from Additional Context.
+
+5. creativeType: "feature"
+   Feature-focused creative promoting specific GreatFlowers services (e.g. Build Your Bouquet, same-day delivery, subscription).
+   productRole: "supporting", "optional", or "none"
+   Use when: A specific verified feature is the campaign focus.
+   CRITICAL: Only promote features explicitly mentioned in Additional Context or verified GreatFlowers data.
+
+6. creativeType: "informational"
+   Educational/content creative providing value (flower care tips, occasion guides, calendar content).
+   productRole: "supporting" when the concept uses the selected product's flowers, colors,
+   arrangement, container or other product facts; otherwise "optional" or "none"
+   Use when: Building brand authority or providing helpful content is the goal.
+
+7. creativeType: "brand-awareness"
+   Brand-focused creative highlighting GreatFlowers' values, quality, or service promise.
+   productRole: "optional" or "none"
+   Use when: Building brand recognition or trust is the primary objective.
+
+sceneStrategy (REQUIRED for each variant):
+
+This field controls the VISUAL COMPOSITION STRATEGY for image generation.
+
+Choose the sceneStrategy that best matches the creativeType and concept:
+
+1. PRODUCT_STUDIO
+   Commercial product photography. Product is the main visual subject.
+   Use with: creativeType "product" + productRole "hero"
+
+2. HUMAN_GIFTING_MOMENT
+   Person giving, receiving, or interacting with flowers. Emotional moment is the hero.
+   Use with: creativeType "lifestyle" + productRole "supporting"
+
+3. HUMAN_LIFESTYLE
+   Human lifestyle scene where flowers participate naturally.
+   Use with: creativeType "lifestyle" + productRole "supporting" or "optional"
+
+4. OCCASION_SCENE
+   Scene that visually communicates the occasion. Occasion/environment dominates.
+   Use with: creativeType "occasion" + productRole "supporting" or "optional"
+
+5. EDITORIAL_CONTENT
+   Editorial/social content composition (occasion guides, flower stories, seasonal content, care tips).
+   Use with: creativeType "informational" + productRole "supporting", "optional" or "none"
+   CRITICAL: Flowers remain visually central even when the catalog product does not dominate.
+   The advice must concern choosing, gifting, arranging or caring for flowers—not generic decor.
+
+6. INFORMATIONAL_GRAPHIC
+   Structured useful flower-content design. Flowers must remain clearly visible and relevant;
+   product need not dominate the canvas.
+   Use with: creativeType "informational" + productRole "supporting", "optional" or "none"
+
+7. LOCATION_STORY
+   Location/environment/story leads the composition.
+   Use with: creativeType "location" + productRole "supporting" or "optional"
+
+8. FEATURE_DEMO
+   Visually demonstrate the verified feature/service.
+   Use with: creativeType "feature" + productRole varies
+
+9. BRAND_STORY
+   Broader brand/service composition. Do not make one product the hero.
+   Use with: creativeType "brand-awareness" + productRole "optional" or "none"
+
+CRITICAL SCENE STRATEGY DIVERSITY:
+
+FOR INDEPENDENT MODE:
+
+The 4 variants MUST use meaningfully different sceneStrategy values.
+
+Do NOT assign strategies by card position. Choose based on the strategic concept.
+
+Different variants should produce visually distinct kinds of marketing content:
+- Example: PRODUCT_STUDIO + HUMAN_GIFTING_MOMENT + EDITORIAL_CONTENT + OCCASION_SCENE
+- NOT: PRODUCT_STUDIO + PRODUCT_STUDIO + PRODUCT_STUDIO + PRODUCT_STUDIO with different headlines
+
+FOR STORY-CAROUSEL MODE:
+
+The 4 slides may use similar sceneStrategy values IF the story requires it for continuity,
+EXCEPT: PRODUCT_STUDIO is never allowed, and the final slide must be HUMAN_GIFTING_MOMENT
+or HUMAN_LIFESTYLE. Prefer human-led strategies throughout so the characters carry the story.
+
+Each slide must still have visual progression through the storyBeat.
+
+CREATIVE CONCEPT DIVERSITY:
+
+FOR INDEPENDENT MODE:
+
+The 4 variants should use at least 3 different creativeType values.
+
+Prefer 4 different types when strategically appropriate.
+
+FOR STORY-CAROUSEL MODE:
+
+The 4 slides may use the same or similar creativeType values if the story requires it.
+
+Focus on narrative progression rather than type diversity.
+
+Each variant should have:
+- different concept (strategic approach)
+- different sceneStrategy (visual composition strategy)
+- different headline
+- different productRole (when appropriate)
+- different visualDirection
+
+Do not duplicate the exact same headline, concept, or sceneStrategy across variants.
+
+CRITICAL VISUAL DIVERSITY REQUIREMENT:
+
+FOR INDEPENDENT MODE:
+
+The 4 variants MUST have distinctly different visual styles to avoid repetitive-looking creatives.
+
+FOR STORY-CAROUSEL MODE:
+
+The 4 slides should maintain visual continuity as specified in visualContinuity, while still showing clear progression through the story.
+
+Each independent variant must specify these 6 visual style fields:
+
+artDirection:
+Choose one production-ready direction from the allowed enum. It controls the kind of photograph,
+camera behavior and action—not merely adjectives. Use four different values across independent
+variants. Match the concept honestly; for example, do not choose doorstep-delivery for a flat lay.
+These directions suit each sceneStrategy most naturally:
+- PRODUCT_STUDIO: sculptural-studio, botanical-macro, color-block-editorial, magazine-product-feature, editorial-flatlay
+- HUMAN_GIFTING_MOMENT: documentary-gifting, doorstep-delivery, bouquet-in-motion, unboxing-reveal, seasonal-cinematic
+- HUMAN_LIFESTYLE: bouquet-in-motion, florist-workbench, hosting-tablescape, architectural-interior, flower-care-demonstration
+- OCCASION_SCENE: seasonal-cinematic, hosting-tablescape, documentary-gifting, doorstep-delivery, architectural-interior
+- EDITORIAL_CONTENT: magazine-product-feature, editorial-flatlay, botanical-macro, color-block-editorial, flower-care-demonstration
+- INFORMATIONAL_GRAPHIC: flower-care-demonstration, florist-workbench, botanical-macro, editorial-flatlay, color-block-editorial
+- LOCATION_STORY: architectural-interior, doorstep-delivery, seasonal-cinematic, hosting-tablescape, florist-workbench
+- FEATURE_DEMO: florist-workbench, unboxing-reveal, flower-care-demonstration, botanical-macro, magazine-product-feature
+- BRAND_STORY: editorial-flatlay, architectural-interior, documentary-gifting, magazine-product-feature, color-block-editorial, sculptural-studio
+Treat those pairings as strong preferences rather than a closed list. Choose a direction outside the
+preferred set when the concept genuinely calls for it and the resulting photograph still makes sense
+for the scene, but never pick one that contradicts the scene.
+The assigned campaign Visual Treatment outranks these preferences: one variant must still use it as
+its artDirection. Give that variant a sceneStrategy the treatment suits instead of dropping the
+treatment, since every direction above fits at least one scene.
+
+copyLayout:
+Choose the intended branded-copy zone from the allowed enum. Use at least three different values
+across independent variants. A full-bleed gradient layout should retain photographic detail beneath
+the copy instead of creating an empty white half-image.
+
+environment:
+Choose the physical setting from the allowed enum. All four independent variants must use four
+DIFFERENT environments. This is the single strongest guard against four creatives that look like one
+photo shoot: if two variants share a room or surface, the campaign has failed regardless of how
+differently their other fields are worded.
+
+lightingSetup:
+Choose the lighting condition from the allowed enum. Use at least three different values across
+independent variants. Do not describe a dark candlelit interior for every variant just because the
+occasion is seasonal; vary time of day and light quality so the four creatives do not share one
+palette.
+
+colorPalette:
+Specific color direction for the scene and props (NOT the product flowers).
+
+Examples:
+- "warm autumn tones with rust, amber, and cream"
+- "cool minimalist whites and soft grays"
+- "vibrant jewel tones with emerald and sapphire accents"
+- "soft pastels with blush pink and lavender"
+- "rich earth tones with terracotta and sage"
+- "monochromatic neutrals with beige and taupe"
+
+compositionStyle:
+The visual layout and framing approach.
+
+Examples:
+- "flat-lay overhead shot with symmetrical arrangement"
+- "lifestyle scene with natural perspective"
+- "editorial close-up with shallow depth of field"
+- "environmental portrait showing context"
+- "hero product centered with negative space"
+- "asymmetric composition with rule of thirds"
+
+lightingStyle:
+The quality and direction of light in the scene.
+
+Examples:
+- "golden hour warmth with soft side lighting"
+- "bright studio lighting with clean highlights"
+- "moody dramatic shadows with directional light"
+- "soft diffused natural window light"
+- "backlit glow with rim lighting"
+- "even ambient light with no harsh shadows"
+
+sceneType:
+The physical environment and setting.
+
+Examples:
+- "cozy kitchen counter with morning coffee setup"
+- "elegant bedroom nightstand with silk linens"
+- "rustic outdoor garden table with natural elements"
+- "modern minimalist desk with clean lines"
+- "romantic dining table with candlelight"
+- "bright sunlit windowsill with botanical props"
+
+VISUAL DIVERSITY ENFORCEMENT:
+
+FOR INDEPENDENT MODE:
+
+The 4 variants MUST use different values for at least 3 out of the 4 descriptive style fields,
+plus four different artDirection values and at least three different copyLayout values.
+They must also use four different environment values and at least three different lightingSetup
+values. colorPalette, compositionStyle, lightingStyle and sceneType must then DESCRIBE the chosen
+environment and lighting rather than restating one another in different words: wording that differs
+while the photograph stays the same does not count as variety.
+
+Do NOT generate variants with the same colorPalette, compositionStyle, AND lightingStyle.
+
+Aim for maximum visual contrast between the four creatives.
+
+FOR STORY-CAROUSEL MODE:
+
+Visual style fields should support the visualContinuity plan while allowing for progression.
+
+Some fields may remain consistent across slides if specified in visualContinuity.
+
+concept field:
+
+A brief strategic description of what this specific creative is trying to achieve.
+
+Examples:
+- "Showcase the premium quality and vibrant colors of this specific bouquet"
+- "Capture the emotional moment of surprising someone with flowers"
+- "Highlight same-day delivery convenience for last-minute gifting"
+- "Position flowers as the perfect Mother's Day gift"
+
+productRole field:
+
+Describes how the actual GreatFlowers product participates in this creative:
+
+- "hero": Product is the main visual focus
+- "supporting": Product is visible but not the primary focus
+- "optional": Product may or may not appear
+- "none": Creative does not feature the product
+
+PRODUCT REFERENCE RULE:
+If the concept, headline, subheadline, content points or visual direction uses facts from the
+selected product — including its product name, flower varieties, colors, arrangement or
+container — productRole MUST be "hero" or "supporting", never "optional" or "none".
+Use "supporting" for informational, lifestyle and occasion compositions where the real product
+must be visible without dominating the scene. Only genuinely general brand, engagement or
+educational concepts that do not describe the selected product may omit it.
+
+Do NOT force a product into every creative when it doesn't fit the concept.
+
+locationContext and occasionContext:
+
+Only populate these when relevant to the creativeType.
+
+locationContext: Required for "location" type. Specify the geographic area (ONLY if verified).
+occasionContext: Required for "occasion" type. Specify the event/occasion.
+
+SAME-DAY DELIVERY RULE:
+
+If delivery messaging is used in creative copy, use safe wording:
+"Same-day delivery available in eligible areas."
+
+Do NOT say:
+- Same-day delivery guaranteed
+- Same-day delivery everywhere
+- Order now for guaranteed same-day delivery
+
+unless explicitly verified.
+
+LANGUAGE RULE:
+
+All generated text — headlines, subheadlines, CTAs, captions, hashtags, story beats,
+concepts and every other copy field — MUST use American English spelling, vocabulary
+and phrasing (e.g. "color" not "colour", "favorite" not "favourite").
+
+FACTUAL SAFETY RULES FOR CREATIVE COPY:
+
+Do NOT invent:
+- discounts or coupon codes
+- prices
+- delivery guarantees
+- customer reviews or ratings
+- order counts or popularity claims
+- bestseller claims
+- sales performance claims
+- flower contents not in verified product data
+- statistics or competitor comparisons
+
+Creative copy must come from:
+1. verified live website information
+2. verified selected-product information
+3. the selected campaign occasion/intent
+4. explicitly supported campaign context
+
+If something is unknown, do not state it as fact.
+
+URL RULES:
+
+All URL fields must contain ONLY the raw URL.
+
+Correct:
+"https://greatflowers.net/build-your-bouquet/"
+
+Incorrect:
+"[https://greatflowers.net/build-your-bouquet/](https://greatflowers.net/build-your-bouquet/)"
+
+Never use Markdown link syntax anywhere in the JSON.
+
+Only include platformContent entries for the platforms requested by the campaign.
+
+INSTAGRAM HASHTAG RULES:
+
+The instagram.hashtags array MUST contain 6-10 relevant hashtags.
+
+Hashtag requirements:
+- Return 6-10 hashtags
+- Do NOT include the "#" symbol in the strings (the backend adds it)
+- Each hashtag must be a single word or compound word with no spaces
+- Prefer focused occasion, flower, recipient, product and local-delivery tags over generic tags
+- Always include "GreatFlowers" as one of the hashtags
+- Include only directly relevant occasion, product-type, and audience tags
+- No duplicate hashtags
+
+The instagram.caption field must not contain hashtags. Hashtags belong only in instagram.hashtags.
+
+Never place unsupported business claims inside the JSON.
+
+The creativeBrief is REQUIRED for all new strategies.
+
+FACT CLASSIFICATION:
+
+- Facts supplied in Additional Context are verified facts.
+- Do not put supplied product facts into needsVerification.
+- Unknown information belongs in needsVerification.
+- Marketing hypotheses belong in assumptions.
+- Do not present hypotheses as facts.
+
+WHY THIS COULD WORK RULE:
+
+"whyThisCouldWork" must clearly distinguish verified catalog evidence
+from marketing hypotheses.
+
+Statements about:
+- cultural associations
+- customer preferences
+- emotional response
+- visual performance
+- standing out on social media
+- likelihood of conversion
+
+must use hypothesis language such as:
+
+"may"
+"could"
+"we recommend testing"
+"worth testing"
+
+Do not state these as verified facts.
+
+CRITICAL PROGRAMMATIC OUTPUT RULE:
+
+You are being called by a backend API.
+
+Return the complete JSON response directly in your final response.
+
+DO NOT:
+- create or write files
+- save JSON to disk
+- return a file path
+- return a summary of the campaign
+- tell the user that JSON is ready somewhere
+- use tools to persist the response
+
+The backend can only read your final stdout response.
+
+Your final response MUST start with {
+and MUST end with }
+
+Return the complete JSON object directly.

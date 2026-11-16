@@ -4,7 +4,9 @@ import sharp from "sharp";
 import { buildArticlePrompt, resolveArticleLinks, selectArticleFormat, selectArticleTopic, validateArticle } from "./article.generator.js";
 import { buildArticleImagePrompt, optimizeArticleImage, ARTICLE_IMAGE_HEIGHT, ARTICLE_IMAGE_MIME_TYPE, ARTICLE_IMAGE_WIDTH } from "./article.image.js";
 import { articlePublishAfterFor } from "./article.publisher.js";
-import { ARTICLE_DRAFT_CRON, ARTICLE_RECOVERY_CRON } from "./article.scheduler.js";
+import { greatflowers } from "./projects/index.js";
+
+const { articleDraftCron: ARTICLE_DRAFT_CRON, articleRecoveryCron: ARTICLE_RECOVERY_CRON } = greatflowers.schedule;
 
 const products = [
   { id: 7, name: "Rose Garden Bouquet", slug: "rose-garden", price: 50, imageUrl: "rose.webp", description: "Red roses arranged with greenery." },
@@ -16,8 +18,8 @@ const articleHtml = ["Start With the Recipient", "Match the Setting", "Choose a 
   .join("") + '<p>Explore <a href="HOME">Great Flowers</a> for a thoughtful arrangement.</p>';
 
 test("article topic selection favors the least-used configured topic", () => {
-  assert.equal(selectArticleTopic(["Flower Care", "Floral Design", "Seasonal"], ["Flower Care", "Seasonal", "Flower Care"]), "Floral Design");
-  assert.throws(() => selectArticleTopic([], []), /No Article Topics/);
+  assert.equal(selectArticleTopic(greatflowers, ["Flower Care", "Floral Design", "Seasonal"], ["Flower Care", "Seasonal", "Flower Care"]), "Floral Design");
+  assert.throws(() => selectArticleTopic(greatflowers, [], []), /No Article Topics/);
 });
 
 test("article formats rotate instead of repeatedly choosing one structure", () => {
@@ -26,7 +28,7 @@ test("article formats rotate instead of repeatedly choosing one structure", () =
 });
 
 test("article prompt fixes topic, format and distinct editorial direction", () => {
-  const prompt = buildArticlePrompt({ topic: "Floral Design", direction: "texture and movement", format: "STYLE_PLAYBOOK", authorName: "Mason Thomas", existingTitles: [], products, related: [] });
+  const prompt = buildArticlePrompt({ project: greatflowers, topic: "Floral Design", direction: "texture and movement", format: "STYLE_PLAYBOOK", authorName: "Mason Thomas", existingTitles: [], products, related: [] });
   assert.match(prompt, /Admin topic \(use exactly\): Floral Design/);
   assert.match(prompt, /Required editorial format \(use exactly\): STYLE_PLAYBOOK/);
   assert.match(prompt, /Fresh angle: texture and movement/);
@@ -37,10 +39,10 @@ test("article prompt fixes topic, format and distinct editorial direction", () =
 
 test("article links resolve only verified products, articles and home", () => {
   const html = '<p><a href="PRODUCT:7">Roses</a> and <a href="ARTICLE:care-guide">care</a>. Visit <a href="HOME">Great Flowers</a>.</p>';
-  const resolved = resolveArticleLinks(html, products, new Set(["care-guide"]), "https://greatflowers.net");
+  const resolved = resolveArticleLinks(greatflowers, html, products, new Set(["care-guide"]), "https://greatflowers.net");
   assert.match(resolved, /product\/rose-garden\//);
   assert.match(resolved, /greatflowers-articles\/care-guide\//);
-  assert.throws(() => resolveArticleLinks('<p><a href="https://example.com">bad</a></p>', products, new Set(), "https://greatflowers.net"), /not allowed/);
+  assert.throws(() => resolveArticleLinks(greatflowers, '<p><a href="https://example.com">bad</a></p>', products, new Set(), "https://greatflowers.net"), /not allowed/);
 });
 
 test("valid article output enforces its assigned taxonomy, format, author and verified products", () => {
@@ -58,14 +60,14 @@ test("valid article output enforces its assigned taxonomy, format, author and ve
     imageConcept: "A friend offers a rose bouquet at a bright apartment doorway while the recipient reaches forward, with warm afternoon layers behind them.",
     html: articleHtml,
   });
-  const result = validateArticle(output, { topic: "Gift Guides", format: "HOW_TO", authorName: "Mason Thomas", existingTitles: [], existingSlugs: [], products, relatedSlugs: new Set(), base: "https://greatflowers.net" });
+  const result = validateArticle(output, { project: greatflowers, topic: "Gift Guides", format: "HOW_TO", authorName: "Mason Thomas", existingTitles: [], existingSlugs: [], products, relatedSlugs: new Set(), base: "https://greatflowers.net" });
   assert.match(result.html, /product\/rose-garden\//);
   assert.match(result.html, /href="https:\/\/greatflowers\.net\/"/);
-  assert.throws(() => validateArticle(output, { topic: "Seasonal", format: "HOW_TO", authorName: "Mason Thomas", existingTitles: [], existingSlugs: [], products, relatedSlugs: new Set(), base: "https://greatflowers.net" }), /topic must be exactly/);
+  assert.throws(() => validateArticle(output, { project: greatflowers, topic: "Seasonal", format: "HOW_TO", authorName: "Mason Thomas", existingTitles: [], existingSlugs: [], products, relatedSlugs: new Set(), base: "https://greatflowers.net" }), /topic must be exactly/);
 });
 
 test("wrong Hermes root produces a concise repair instruction instead of a raw validation array", () => {
-  const context = { topic: "Gift Guides", format: "HOW_TO" as const, authorName: "Mason Thomas" as const, existingTitles: [], existingSlugs: [], products, relatedSlugs: new Set<string>(), base: "https://greatflowers.net" };
+  const context = { project: greatflowers, topic: "Gift Guides", format: "HOW_TO" as const, authorName: "Mason Thomas" as const, existingTitles: [], existingSlugs: [], products, relatedSlugs: new Set<string>(), base: "https://greatflowers.net" };
   assert.throws(
     () => validateArticle(JSON.stringify({ success: true, report: "Article saved elsewhere" }), context),
     (error: unknown) => error instanceof Error && /top-level object must contain: title, slug, topic/.test(error.message) && !/invalid_type/.test(error.message),
@@ -73,7 +75,7 @@ test("wrong Hermes root produces a concise repair instruction instead of a raw v
 });
 
 test("article image prompt is text-free 16:9 and output is optimized JPEG", async () => {
-  const prompt = buildArticleImagePrompt({ title: "A Practical Rose Care Guide", topic: "Flower Care", imageConcept: "A florist trims rose stems beside a sunlit kitchen sink with layered greenery and tools in the background." });
+  const prompt = buildArticleImagePrompt(greatflowers, { title: "A Practical Rose Care Guide", topic: "Flower Care", imageConcept: "A florist trims rose stems beside a sunlit kitchen sink with layered greenery and tools in the background." });
   assert.match(prompt, /16:9/);
   assert.match(prompt, /no text/i);
   const source = await sharp({ create: { width: 80, height: 80, channels: 3, background: "#eadbd8" } }).png().toBuffer();
@@ -89,9 +91,9 @@ test("article publish mode defaults to immediate and supports scheduled mode", (
   const now = new Date("2026-10-17T12:00:00Z");
   try {
     delete process.env.ARTICLE_PUBLISH_MODE;
-    assert.equal(articlePublishAfterFor(now).toISOString(), now.toISOString());
+    assert.equal(articlePublishAfterFor(greatflowers, now).toISOString(), now.toISOString());
     process.env.ARTICLE_PUBLISH_MODE = "scheduled";
-    assert.equal(articlePublishAfterFor(now).toISOString(), "2026-10-17T14:00:00.000Z");
+    assert.equal(articlePublishAfterFor(greatflowers, now).toISOString(), "2026-10-17T14:00:00.000Z");
   } finally { delete process.env.ARTICLE_PUBLISH_MODE; }
 });
 

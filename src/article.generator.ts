@@ -1,4 +1,4 @@
-import { ARTICLE_FORMATS, GeneratedArticleJsonSchema, GeneratedArticleSchema, type ArticleFormat, type GeneratedArticle } from "./article.schema.js";
+import { ARTICLE_FORMATS, generatedArticleJsonSchema, generatedArticleSchema, type ArticleFormat, type GeneratedArticle } from "./article.schema.js";
 import { addArticleDraft, getArticleDrafts, updateArticleDraft } from "./article.store.js";
 import { generateArticleImage, type ArticleImageInput } from "./article.image.js";
 import { toCatalogProduct, type CatalogProduct } from "./blog.generator.js";
@@ -9,9 +9,9 @@ import { parseModelJSONCandidates } from "./model.json.js";
 import { assertNoTitleCollision, type ContentTitle } from "./content.overlap.js";
 import { getBlogDrafts } from "./blog.store.js";
 import { getWikiDrafts } from "./wiki.store.js";
+import { contentSkillPrefix, productPageUrl, promptAddendum, storefrontBase, type ProjectConfig } from "./projects/index.js";
 
 const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-const storefrontBase = () => (process.env.GF_STOREFRONT_URL || "https://greatflowers.net").replace(/\/+$/, "");
 
 const TOPIC_DIRECTIONS: Record<string, string[]> = {
   "flower care": ["vase-life routines", "seasonal care mistakes", "water and placement decisions", "care by flower type", "reviving and refreshing arrangements"],
@@ -33,8 +33,8 @@ export function selectArticleFormat(recent: Array<{ format?: ArticleFormat }>): 
   return ARTICLE_FORMATS.find((format) => !used.has(format)) ?? ARTICLE_FORMATS[0];
 }
 
-export function selectArticleTopic(topics: string[], recentTopics: string[]): string {
-  if (!topics.length) throw new Error("No Article Topics are configured in Great Flowers Admin");
+export function selectArticleTopic(project: ProjectConfig, topics: string[], recentTopics: string[]): string {
+  if (!topics.length) throw new Error(`No Article Topics are configured in ${project.brand.displayName} Admin`);
   const counts = new Map(topics.map((topic) => [topic, 0]));
   recentTopics.forEach((topic, index) => {
     const configured = topics.find((candidate) => normalize(candidate) === normalize(topic));
@@ -50,7 +50,7 @@ function selectDirection(topic: string, existingCount: number): string {
   return directions[existingCount % directions.length]!;
 }
 
-export function resolveArticleLinks(html: string, products: CatalogProduct[], articleSlugs: Set<string>, base: string): string {
+export function resolveArticleLinks(project: ProjectConfig, html: string, products: CatalogProduct[], articleSlugs: Set<string>, base: string): string {
   if ((html.match(/href\s*=/gi) ?? []).length !== (html.match(/href="[^"]*"/gi) ?? []).length) {
     throw new Error('every link must use the exact form href="..." with double quotes');
   }
@@ -61,18 +61,19 @@ export function resolveArticleLinks(html: string, products: CatalogProduct[], ar
     if (product) {
       const slug = productSlugs.get(Number(product[1]));
       if (!slug) throw new Error(`link to unknown product ${product[1]}`);
-      return `href="${base}/product/${slug}/"`;
+      return `href="${productPageUrl(project, base, slug)}"`;
     }
     const article = /^ARTICLE:([a-z0-9-]+)$/.exec(href);
     if (article) {
       if (!articleSlugs.has(article[1]!)) throw new Error(`link to unknown article slug ${article[1]}`);
-      return `href="${base}/greatflowers-articles/${article[1]}/"`;
+      return `href="${base}/${project.storefront.paths.article}/${article[1]}/"`;
     }
     throw new Error(`link target "${href.slice(0, 60)}" is not allowed; use PRODUCT:<id>, ARTICLE:<slug> or HOME`);
   });
 }
 
 export function buildArticlePrompt(args: {
+  project: ProjectConfig;
   topic: string;
   direction: string;
   format: ArticleFormat;
@@ -81,7 +82,8 @@ export function buildArticlePrompt(args: {
   products: CatalogProduct[];
   related: Array<{ slug: string; title: string }>;
 }): string {
-  return `You are writing one authoritative, evergreen Great Flowers article for US flower buyers.
+  const brand = args.project.brand.displayName;
+  return `You are writing one authoritative, evergreen ${brand} article for US flower buyers.
 
 ASSIGNMENT
 - Admin topic (use exactly): ${args.topic}
@@ -115,7 +117,7 @@ PRODUCT AND LINK RULES
 - Mention and link each selected product naturally exactly once with <a href="PRODUCT:<id>">Product Name</a>.
 - Describe flowers, color, vase or style only when the supplied catalog description confirms it. Never infer product details from its name.
 - If published articles are supplied, add 1-3 genuinely relevant links using <a href="ARTICLE:<slug>">natural anchor text</a>.
-- End with one modest sentence linking <a href="HOME">Great Flowers</a>.
+- End with one modest sentence linking <a href="HOME">${brand}</a>.
 - Never output a real URL. Never invent products, links, prices, discounts, statistics, research or delivery guarantees.
 
 QUALITY AND SAFETY
@@ -134,9 +136,9 @@ SEO
 - slug: lowercase and hyphenated.
 - topic, format and authorName must exactly match the assignment.
 - description: a useful 1-2 sentence summary.
-- metaTitle: 35-55 characters without "Great Flowers".
+- metaTitle: 35-55 characters without "${brand}".
 - metaDescription: 140-165 characters.
-- Return the complete JSON object only.
+- Return the complete JSON object only.${promptAddendum(args.project)}
 
 OUTPUT CONTRACT
 Return this object itself at the top level—never a validation report, summary, wrapper, file or status object:
@@ -146,6 +148,7 @@ Return this object itself at the top level—never a validation report, summary,
 const ARTICLE_KEYS = ["title", "slug", "topic", "format", "authorName", "description", "metaTitle", "metaDescription", "productIds", "heroProductId", "imageConcept", "html"] as const;
 
 export function validateArticle(output: string, context: {
+  project: ProjectConfig;
   topic: string;
   format: ArticleFormat;
   authorName: string;
@@ -173,7 +176,7 @@ export function validateArticle(output: string, context: {
   let article: GeneratedArticle | undefined;
   let bestFailure: { matches: number; keys: string[]; issues: string[] } | undefined;
   for (const candidate of candidates) {
-    const result = GeneratedArticleSchema.safeParse(candidate);
+    const result = generatedArticleSchema(context.project).safeParse(candidate);
     if (result.success) { article = result.data; break; }
     if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
       const keys = Object.keys(candidate as Record<string, unknown>);
@@ -196,7 +199,7 @@ export function validateArticle(output: string, context: {
   if (article.topic !== context.topic) throw new Error(`topic must be exactly ${context.topic}`);
   if (article.format !== context.format) throw new Error(`format must be exactly ${context.format}`);
   if (article.authorName !== context.authorName) throw new Error(`authorName must be exactly ${context.authorName}`);
-  if (/great\s*flowers/i.test(article.metaTitle)) throw new Error("metaTitle must not contain the Great Flowers brand name");
+  if (context.project.brand.namePattern.test(article.metaTitle)) throw new Error(`metaTitle must not contain the ${context.project.brand.displayName} brand name`);
   if (context.existingTitles.some((title) => normalize(title) === normalize(article!.title))) throw new Error("title duplicates an existing article");
   assertNoTitleCollision(article.title, context.contentInventory ?? context.existingTitles.map((title) => ({ kind: "article", title })));
   if (context.existingSlugs.includes(article.slug)) throw new Error("slug duplicates an existing article");
@@ -207,19 +210,19 @@ export function validateArticle(output: string, context: {
     if (!new RegExp(`href="PRODUCT:${id}"`).test(article.html)) throw new Error(`selected product ${id} must be linked in html`);
   }
   if (!/href="HOME"/.test(article.html)) throw new Error("html must link HOME");
-  return { ...article, html: resolveArticleLinks(article.html, context.products, context.relatedSlugs, context.base) };
+  return { ...article, html: resolveArticleLinks(context.project, article.html, context.products, context.relatedSlugs, context.base) };
 }
 
-export async function generateDailyArticleDraft(signal?: AbortSignal, onDraftSaved?: () => void) {
-  const environment = gfApiHost();
-  const context = await withGfClient(async (client) => {
+export async function generateDailyArticleDraft(project: ProjectConfig, signal?: AbortSignal, onDraftSaved?: () => void) {
+  const environment = gfApiHost(project);
+  const context = await withGfClient(project, async (client) => {
     const [articles, blogs, wikis, topics, rawProducts] = await Promise.all([
       client.listArticles(), client.listBlogs(), client.listWikis(), client.listArticleTopics(), client.searchProducts("", 100),
     ]);
     return { articles, blogs, wikis, topics, products: rawProducts.map(toCatalogProduct).filter((product) => product.imageUrl) };
   });
   if (context.products.length < 2) throw new Error("Not enough catalog products with images to write an article");
-  const [articleDrafts, blogDrafts, wikiDrafts] = await Promise.all([getArticleDrafts(), getBlogDrafts(), getWikiDrafts()]);
+  const [articleDrafts, blogDrafts, wikiDrafts] = await Promise.all([getArticleDrafts(project), getBlogDrafts(project), getWikiDrafts(project)]);
   const local = articleDrafts.filter((draft) => draft.environment === environment && draft.status !== "rejected");
   const contentInventory: ContentTitle[] = [
     ...context.articles.map((item: any) => ({ kind: "article" as const, title: String(item.title), slug: String(item.slug ?? "") })),
@@ -232,27 +235,27 @@ export async function generateDailyArticleDraft(signal?: AbortSignal, onDraftSav
   const existingTitles = contentInventory.map((item) => `[${item.kind}] ${item.title}`);
   const existingSlugs = [...context.articles.map((article: any) => String(article.slug)), ...local.map((draft) => draft.slug)];
   const recentTopics = [...local.map((draft) => draft.topic), ...context.articles.map((article: any) => String(article.topic ?? ""))];
-  const topic = selectArticleTopic(context.topics.map((item: any) => String(item.name ?? item.id ?? item)), recentTopics);
+  const topic = selectArticleTopic(project, context.topics.map((item: any) => String(item.name ?? item.id ?? item)), recentTopics);
   const format = selectArticleFormat(local);
-  const authorName = selectContentAuthor(local.map((draft) => draft.authorName));
+  const authorName = selectContentAuthor(project, local.map((draft) => draft.authorName));
   const direction = selectDirection(topic, recentTopics.filter((item) => normalize(item) === normalize(topic)).length);
   const related = context.articles.filter((article: any) => Number(article.status) === 1).slice(0, 80).map((article: any) => ({ slug: String(article.slug), title: String(article.title) }));
   // Twenty-four verified products are ample for the required 2-5 selections
   // and keep the long-form Hermes request comfortably smaller.
   const promptProducts = context.products.slice(0, 24);
   const article = await requestHermesJSON(
-    buildArticlePrompt({ topic, direction, format, authorName, existingTitles, products: promptProducts, related }),
-    (output) => validateArticle(output, { topic, format, authorName, existingTitles, existingSlugs, contentInventory, products: promptProducts, relatedSlugs: new Set(related.map((item) => item.slug)), base: storefrontBase() }),
+    `${contentSkillPrefix(project)}${buildArticlePrompt({ project, topic, direction, format, authorName, existingTitles, products: promptProducts, related })}`,
+    (output) => validateArticle(output, { project, topic, format, authorName, existingTitles, existingSlugs, contentInventory, products: promptProducts, relatedSlugs: new Set(related.map((item) => item.slug)), base: storefrontBase(project) }),
     signal,
-    GeneratedArticleJsonSchema,
+    generatedArticleJsonSchema(project),
     { freshRetries: 1 },
   );
-  const draft = await addArticleDraft({ ...article, authorName, environment });
+  const draft = await addArticleDraft(project, { ...article, authorName, environment });
   onDraftSaved?.();
-  return attachArticleImage(draft.id, article, promptProducts.find((product) => product.id === article.heroProductId)?.imageUrl, signal);
+  return attachArticleImage(project, draft.id, article, promptProducts.find((product) => product.id === article.heroProductId)?.imageUrl, signal);
 }
 
-export async function attachArticleImage(id: string, article: ArticleImageInput, productImageUrl: string | null | undefined, signal?: AbortSignal) {
-  const ai = productImageUrl ? await generateArticleImage(id, article, productImageUrl, signal) : false;
-  return (await updateArticleDraft(id, (draft) => ({ ...draft, imageSource: ai ? "ai" : draft.imageSource ?? "product" })))!;
+export async function attachArticleImage(project: ProjectConfig, id: string, article: ArticleImageInput, productImageUrl: string | null | undefined, signal?: AbortSignal) {
+  const ai = productImageUrl ? await generateArticleImage(project, id, article, productImageUrl, signal) : false;
+  return (await updateArticleDraft(project, id, (draft) => ({ ...draft, imageSource: ai ? "ai" : draft.imageSource ?? "product" })))!;
 }

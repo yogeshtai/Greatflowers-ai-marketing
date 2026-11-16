@@ -1,0 +1,19 @@
+<svg width="1024" height="1024" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <filter id="text-shadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="1" stdDeviation="1.8" flood-color="#ffffff" flood-opacity="0.82"/>
+      </filter>
+      <linearGradient id="copy-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.600"/>
+        <stop offset="54.5%" stop-color="#ffffff" stop-opacity="0.600"/>
+        <stop offset="78.5%" stop-color="#ffffff" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="copy-fade" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0.00%" stop-color="#ffffff" stop-opacity="1"/><stop offset="84.82%" stop-color="#ffffff" stop-opacity="1"/><stop offset="100%" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
+      <mask id="copy-mask"><rect x="0" y="0" width="1024" height="672" fill="url(#copy-fade)"/></mask>
+    </defs>
+    <rect x="0" y="0" width="1024" height="672" fill="url(#copy-gradient)" mask="url(#copy-mask)"/>
+    <text font-family="Helvetica Neue, Helvetica, Inter, Arial, Liberation Sans, sans-serif" font-size="52" font-weight="700" letter-spacing="-1.2" filter="url(#text-shadow)"><tspan x="56" y="206" text-anchor="start"><tspan fill="#261943">Bring the Blooms</tspan></tspan><tspan x="56" y="259" text-anchor="start"><tspan fill="#701888">to Their Birthday</tspan></tspan></text>
+    <text x="56" text-anchor="start" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="30" font-weight="500" fill="#3f3a44" filter="url(#text-shadow)"><tspan x="56" y="310">A thoughtful surprise for</tspan><tspan x="56" y="348">their day.</tspan></text>
+    
+    <circle cx="73" cy="428" r="17" fill="#701888"/><text x="73" y="434" text-anchor="middle" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="18" font-weight="700" fill="#ffffff">1</text><text x="102" text-anchor="start" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="25" font-weight="600" fill="#261943" filter="url(#text-shadow)"><tspan x="102" y="437">Trim stems</tspan></text><circle cx="73" cy="480" r="17" fill="#701888"/><text x="73" y="486" text-anchor="middle" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="18" font-weight="700" fill="#ffffff">2</text><text x="102" text-anchor="start" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="25" font-weight="600" fill="#261943" filter="url(#text-shadow)"><tspan x="102" y="489">Fresh water</tspan></text><circle cx="73" cy="532" r="17" fill="#701888"/><text x="73" y="538" text-anchor="middle" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="18" font-weight="700" fill="#ffffff">3</text><text x="102" text-anchor="start" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="25" font-weight="600" fill="#261943" filter="url(#text-shadow)"><tspan x="102" y="541">Cool spot</tspan></text>
+  </svg>

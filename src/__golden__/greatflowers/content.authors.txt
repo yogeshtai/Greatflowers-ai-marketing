@@ -1,0 +1,14 @@
+{
+  "CONTENT_AUTHORS": [
+    "Great Flowers Editorial Team",
+    "Mason Thomas",
+    "Olivia Bennett",
+    "Ethan Parker",
+    "Grace Mitchell",
+    "Noah Carter",
+    "Ava Reynolds",
+    "Lucas Hayes",
+    "Chloe Morgan"
+  ],
+  "DEFAULT_CONTENT_AUTHOR": "Great Flowers Editorial Team"
+}

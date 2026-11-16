@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 25,
+      "maxLength": 60
+    },
+    "slug": {
+      "type": "string",
+      "maxLength": 110,
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "topic": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 100
+    },
+    "format": {
+      "type": "string",
+      "enum": [
+        "DEEP_GUIDE",
+        "HOW_TO",
+        "DECISION_GUIDE",
+        "MYTHS_AND_FACTS",
+        "STYLE_PLAYBOOK",
+        "PLANNING_CHECKLIST",
+        "QUESTION_EXPLAINER",
+        "SEASONAL_FIELD_GUIDE"
+      ]
+    },
+    "authorName": {
+      "type": "string",
+      "enum": [
+        "Great Flowers Editorial Team",
+        "Mason Thomas",
+        "Olivia Bennett",
+        "Ethan Parker",
+        "Grace Mitchell",
+        "Noah Carter",
+        "Ava Reynolds",
+        "Lucas Hayes",
+        "Chloe Morgan"
+      ]
+    },
+    "description": {
+      "type": "string",
+      "minLength": 90,
+      "maxLength": 320
+    },
+    "metaTitle": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 55
+    },
+    "metaDescription": {
+      "type": "string",
+      "minLength": 120,
+      "maxLength": 170
+    },
+    "productIds": {
+      "minItems": 2,
+      "maxItems": 5,
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      }
+    },
+    "heroProductId": {
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
+    },
+    "imageConcept": {
+      "type": "string",
+      "minLength": 60,
+      "maxLength": 500
+    },
+    "html": {
+      "type": "string",
+      "minLength": 3500
+    }
+  },
+  "required": [
+    "title",
+    "slug",
+    "topic",
+    "format",
+    "authorName",
+    "description",
+    "metaTitle",
+    "metaDescription",
+    "productIds",
+    "heroProductId",
+    "imageConcept",
+    "html"
+  ]
+}

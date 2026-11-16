@@ -1,0 +1,96 @@
+Create a 1:1 cinematic visual story scene.
+
+⚠️ WHO IS GIVING TO WHOM ⚠️
+Sender (the one giving): Adult sister
+Recipient (the one receiving): Younger sister
+Relationship: sister to sister
+Why: To celebrate a new job
+Point of view: we follow the recipient.
+The viewer must be able to tell at a glance who is giving and who is receiving.
+Never show one person alone with a bouquet that simply 'appears' — the gift must be given, handed, delivered, unwrapped, or received.
+
+
+⚠️ VISUAL CONTINUITY REQUIREMENTS ⚠️
+
+This is slide 3 of a 4-slide visual story.
+
+Story Concept: A quiet week turns into a celebration
+
+Character Continuity: Same younger sister
+Environment Continuity: Same apartment
+Color Continuity: Warm neutrals
+Styling Continuity: Casual knitwear
+
+Maintain the requested continuity with previous slides, but depict the NEW story beat, action and composition described for THIS slide.
+
+
+⚠️ STORY PROGRESSION REQUIREMENT ⚠️
+
+This is Slide 3 of 4 in a connected visual story.
+
+Story Role: Role 3
+Story Beat: Beat 3
+Reveal Slide: 3
+Scene Change: Scene change 3
+Camera Direction: Camera 3
+Previous moment: Opening shot
+Preserve story/character/style continuity, but DO NOT reproduce the previous slide's composition.
+This is a new shot and a new story moment.
+Use previous images ONLY for continuity of character/style/environment where requested.
+Do NOT copy their composition, pose, product placement, camera angle, scene arrangement, text or branding.
+Introduce the solution as the answer to the setup; after reveal emphasize its emotional consequence.
+
+This slide must visibly advance the narrative from previous slides.
+Each slide should show a DIFFERENT moment, action, or development in the story.
+Do NOT create four similar images with minor variations.
+
+CREATIVE TYPE: LIFESTYLE
+
+STRATEGIC CONCEPT:
+A thoughtful birthday moment
+
+SCENE STRATEGY: HUMAN_LIFESTYLE
+Show flowers integrated into real life moments and environments.
+Focus on the emotional context and lifestyle setting.
+People and their experiences are central to the composition.
+
+PRODUCT ROLE: SUPPORTING
+Integrate the catalog product naturally into the scene.
+The product is visible and important but shares focus with other elements.
+Preserve the product's appearance faithfully.
+OCCASION CONTEXT: Birthday
+
+VISUAL STYLE:
+
+Color Palette: Warm natural colors
+Composition Style: Person right, negative space left
+Lighting Style: Golden natural light
+Scene Type: Birthday gifting moment
+
+VISUAL DIRECTION:
+A warm human birthday moment
+
+MOOD & ATMOSPHERE:
+Warm and premium
+
+BACKGROUND & ENVIRONMENT:
+A real, softly lit home
+
+⚠️ NO TEXT IN THE IMAGE ⚠️
+Do NOT render any text, letters, words, headlines, captions, typography, watermarks, signage, labels or handwriting anywhere in the image.
+The headline and subheadline are composited programmatically after generation.
+COMPOSITION SAFE AREA: the top 40% of the frame is reserved for the text overlay (top-left) and logo (top-right).
+Keep that band visually quiet: soft background, ambient depth, no faces, no product, no key story detail there.
+Place the subject, faces and product in the lower 60% of the frame.
+
+
+REVEAL SLIDE (mandatory):
+Introduce the flowers INSIDE the story's established environment and lighting — same room, same light quality, same palette as the previous slides.
+No studio backdrop, no seamless paper, no isolated catalog-style shot.
+Show the ACT of giving or receiving: the sender handing it over, a delivery at the door, the recipient unwrapping it or reading the card. Hands and at least one face should be part of this moment.
+
+BRAND ROLE: subtle
+Minimal logo only, composited separately at the top-right corner. Keep the top-right corner clear of text, faces and important details. No website, CTA or button.
+Never recreate a logo with AI.
+
+Generate a premium, text-free 1:1 (1024x1024) photographic scene that tells this specific moment in the story while maintaining visual continuity with the overall narrative.

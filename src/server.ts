@@ -13,6 +13,8 @@ import recommendationsRoutes from "./routes/recommendations.routes.js";
 import creativesRoutes from "./routes/creatives.routes.js";
 import infoRoutes from "./routes/info.routes.js";
 import publishingRoutes from "./routes/publishing.routes.js";
+import { enabledProjects } from "./projects/index.js";
+import { projectContext } from "./projects/http.js";
 
 const app = express();
 
@@ -44,6 +46,26 @@ app.get("/health", (_req, res) => {
   res.json({
     success: true,
     service: "GreatFlowers AI Marketing",
+    projects: enabledProjects().map((project) => project.id),
+  });
+});
+
+// Every API request is for one project (X-Project-Id header or ?project=, default greatflowers).
+app.use("/api", projectContext);
+
+// Public, non-secret details the dashboard needs for its project dropdown.
+app.get("/api/projects", (_req, res) => {
+  res.json({
+    success: true,
+    projects: enabledProjects().map((project) => ({
+      id: project.id,
+      isDefault: project.isDefault,
+      name: project.brand.name,
+      displayName: project.brand.displayName,
+      storefrontUrl: project.storefront.defaultBaseUrl,
+      logoUrl: project.visual.logoUrl,
+      primaryColor: project.visual.ctaFill,
+    })),
   });
 });
 

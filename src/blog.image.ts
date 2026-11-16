@@ -5,14 +5,15 @@ import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { downloadToTemp, executeCodex } from "./codex.creative.js";
 import { tryAcquire } from "./ai.limits.js";
+import { projectDataPath, type ProjectConfig } from "./projects/index.js";
 
-const HERO_DIR = path.join(process.cwd(), "data", "blog-heroes");
+const heroDir = (project: ProjectConfig) => projectDataPath(project, "blog-heroes");
 export const HERO_MIME_TYPE = "image/jpeg";
 export const HERO_FILE_EXTENSION = "jpg";
-export const heroPath = (id: string) => path.join(HERO_DIR, `${id}.${HERO_FILE_EXTENSION}`);
-export const legacyHeroPath = (id: string) => path.join(HERO_DIR, `${id}.png`);
-export const heroImagePaths = (id: string) => [heroPath(id), legacyHeroPath(id)];
-export const existingHeroPath = (id: string) => heroImagePaths(id).find(existsSync);
+export const heroPath = (project: ProjectConfig, id: string) => path.join(heroDir(project), `${id}.${HERO_FILE_EXTENSION}`);
+export const legacyHeroPath = (project: ProjectConfig, id: string) => path.join(heroDir(project), `${id}.png`);
+export const heroImagePaths = (project: ProjectConfig, id: string) => [heroPath(project, id), legacyHeroPath(project, id)];
+export const existingHeroPath = (project: ProjectConfig, id: string) => heroImagePaths(project, id).find(existsSync);
 
 // The blog's hero slot renders a wide panoramic banner; existing posts all use 1712×624.
 export const HERO_WIDTH = 1712;
@@ -60,7 +61,7 @@ function titleLayout(title: string): { lines: string[]; fontSize: number; lineHe
 
 // Typography is composited after generation so the title is always spelled correctly;
 // the image model still receives a strict no-text prompt to prevent visual gibberish.
-export function buildHeroOverlaySvg(title: string): Buffer {
+export function buildHeroOverlaySvg(project: ProjectConfig, title: string): Buffer {
   const { lines, fontSize, lineHeight } = titleLayout(title);
   const panelX = 930;
   const panelWidth = 710;
@@ -71,8 +72,8 @@ export function buildHeroOverlaySvg(title: string): Buffer {
   const text = lines.map((line, index) => `<text x="${textX}" y="${startY + index * lineHeight}" class="title">${escapeXml(line)}</text>`).join("");
   return Buffer.from(`<svg width="${HERO_WIDTH}" height="${HERO_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
     <rect x="${panelX}" y="${panelY}" width="${panelWidth}" height="${panelHeight}" rx="24" fill="#17120f" fill-opacity="0.76" stroke="#ffffff" stroke-opacity="0.16"/>
-    <rect x="${textX}" y="${panelY + 38}" width="46" height="4" rx="2" fill="#e7b85d"/>
-    <text x="${textX}" y="${panelY + 78}" font-family="Arial, sans-serif" font-size="16" font-weight="700" letter-spacing="3.5" fill="#f0d08d">GREAT FLOWERS JOURNAL</text>
+    <rect x="${textX}" y="${panelY + 38}" width="46" height="4" rx="2" fill="${project.visual.journalBar}"/>
+    <text x="${textX}" y="${panelY + 78}" font-family="Arial, sans-serif" font-size="16" font-weight="700" letter-spacing="3.5" fill="${project.visual.journalLabel}">${escapeXml(project.brand.journalLabel)}</text>
     <style>.title{font-family:Georgia,serif;font-size:${fontSize}px;font-weight:700;fill:white}</style>
     ${text}
   </svg>`);
@@ -80,9 +81,9 @@ export function buildHeroOverlaySvg(title: string): Buffer {
 
 // JPEG is much smaller than PNG for photographic heroes. 4:4:4 chroma keeps the
 // composited title crisp instead of smearing its high-contrast edges.
-export async function optimizeHeroImage(input: Buffer | string, title?: string): Promise<Buffer> {
+export async function optimizeHeroImage(project: ProjectConfig, input: Buffer | string, title?: string): Promise<Buffer> {
   const image = sharp(input).resize(HERO_WIDTH, HERO_HEIGHT, { fit: "cover", position: sharp.strategy.attention });
-  if (title) image.composite([{ input: buildHeroOverlaySvg(title), top: 0, left: 0 }]);
+  if (title) image.composite([{ input: buildHeroOverlaySvg(project, title), top: 0, left: 0 }]);
   return image.jpeg({ quality: HERO_JPEG_QUALITY, progressive: true, chromaSubsampling: "4:4:4" }).toBuffer();
 }
 
@@ -168,7 +169,7 @@ STRICTLY: no text, no letters, no numbers, no logos, no watermarks, no signs or 
 }
 
 // Returns true when an optimized AI hero was written locally; false means "use the product photo instead".
-export async function generateHeroImage(id: string, post: HeroInput, productImageUrl: string, signal?: AbortSignal): Promise<boolean> {
+export async function generateHeroImage(project: ProjectConfig, id: string, post: HeroInput, productImageUrl: string, signal?: AbortSignal): Promise<boolean> {
   const release = tryAcquire("codex");
   if (!release) {
     console.warn("Hero image skipped: another Codex job is running");
@@ -177,18 +178,18 @@ export async function generateHeroImage(id: string, post: HeroInput, productImag
   const uuid = randomUUID().slice(0, 8);
   const temporary: string[] = [];
   try {
-    await mkdir(HERO_DIR, { recursive: true });
+    await mkdir(heroDir(project), { recursive: true });
     await mkdir(path.join(process.cwd(), "test-creatives"), { recursive: true });
     const productPath = await downloadToTemp(productImageUrl, `blog-product-${uuid}.${productImageUrl.split(".").pop()?.split("?")[0] || "webp"}`);
     temporary.push(productPath);
     const generated = await executeCodex(buildHeroPrompt(post), productPath, `blog-hero-${uuid}.png`, signal);
     temporary.push(generated);
-    const finalPath = heroPath(id);
+    const finalPath = heroPath(project, id);
     const pendingPath = `${finalPath}.${uuid}.tmp`;
     temporary.push(pendingPath);
-    await writeFile(pendingPath, await optimizeHeroImage(generated, post.title));
+    await writeFile(pendingPath, await optimizeHeroImage(project, generated, post.title));
     await rename(pendingPath, finalPath);
-    await unlink(legacyHeroPath(id)).catch(() => undefined);
+    await unlink(legacyHeroPath(project, id)).catch(() => undefined);
     return true;
   } catch (error) {
     console.error("Hero image generation failed, falling back to the product photo:", error instanceof Error ? error.message : error);
@@ -199,10 +200,10 @@ export async function generateHeroImage(id: string, post: HeroInput, productImag
   }
 }
 
-export async function readHeroImage(id: string): Promise<Buffer | null> {
-  const file = existingHeroPath(id);
+export async function readHeroImage(project: ProjectConfig, id: string): Promise<Buffer | null> {
+  const file = existingHeroPath(project, id);
   if (!file) return null;
   const image = await readFile(file);
   // Convert legacy PNG drafts during publishing without requiring regeneration.
-  return file === legacyHeroPath(id) ? optimizeHeroImage(image) : image;
+  return file === legacyHeroPath(project, id) ? optimizeHeroImage(project, image) : image;
 }

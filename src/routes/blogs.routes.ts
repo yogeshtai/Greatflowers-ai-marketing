@@ -1,7 +1,7 @@
 import express from "express";
 import { z } from "zod";
-import { BlogEditSchema, BlogGenerateRequestSchema } from "../blog.schema.js";
-import { approveDraft, approveFlow, isDraftPublishing, publishDraft, publishImmediate, rejectDraft } from "../blog.publisher.js";
+import { blogEditSchema, BlogGenerateRequestSchema } from "../blog.schema.js";
+import { approveDraft, approveFlow, isDraftPublishing, liveMode, publishDraft, publishImmediate, rejectDraft } from "../blog.publisher.js";
 import { getGenerationState, isDraftImagePending, startGeneration } from "../blog.jobs.js";
 import { deleteUnpublishedBlogDraft, getBlogDraft, getBlogDrafts, updateBlogDraft } from "../blog.store.js";
 import { abortOnDisconnect, errorDetail, singleFlight } from "../http.helpers.js";
@@ -9,7 +9,9 @@ import { attachHeroImage, toCatalogProduct } from "../blog.generator.js";
 import { withGfClient } from "../gf.admin.client.js";
 import { existingHeroPath, heroImagePaths } from "../blog.image.js";
 import { unlink } from "node:fs/promises";
-import { CONTENT_AUTHORS, DEFAULT_CONTENT_AUTHOR } from "../content.authors.js";
+import { contentAuthors, defaultContentAuthor } from "../content.authors.js";
+import { projectLockKey } from "../projects/index.js";
+import { projectOf } from "../projects/http.js";
 
 const router = express.Router();
 const fail = (res: express.Response, error: unknown, status = 500) => {
@@ -20,7 +22,7 @@ const idOf = (req: express.Request) => String(req.params.id);
 
 // Lightweight progress check for the dashboard (the full list carries every draft's article text).
 router.get("/api/blogs/status", (_req, res) => {
-  res.json({ success: true, generation: getGenerationState() });
+  res.json({ success: true, generation: getGenerationState(projectOf(res)) });
 });
 
 // A draft is saved as soon as the text is written; its hero image is made right after, and publishing before then would miss it.
@@ -28,8 +30,9 @@ const imageBusyMessage = "The hero image is still being made for this draft. Try
 
 router.get("/api/blogs", async (_req, res) => {
   try {
-    const blogs = (await getBlogDrafts()).map((blog) => ({ ...blog, authorName: blog.authorName ?? DEFAULT_CONTENT_AUTHOR }));
-    res.json({ success: true, blogs, authors: CONTENT_AUTHORS, liveMode: process.env.BLOG_PUBLISH_LIVE === "true", publishMode: publishImmediate() ? "immediate" : "scheduled", generation: getGenerationState() });
+    const project = projectOf(res);
+    const blogs = (await getBlogDrafts(project)).map((blog) => ({ ...blog, authorName: blog.authorName ?? defaultContentAuthor(project) }));
+    res.json({ success: true, blogs, authors: contentAuthors(project), liveMode: liveMode(project), publishMode: publishImmediate(project) ? "immediate" : "scheduled", generation: getGenerationState(project) });
   } catch (error) {
     fail(res, error);
   }
@@ -38,7 +41,7 @@ router.get("/api/blogs", async (_req, res) => {
 router.post("/api/blogs/generate", (req, res) => {
   try {
     const { occasion } = BlogGenerateRequestSchema.parse(req.body ?? {});
-    startGeneration("manual", occasion)
+    startGeneration(projectOf(res), "manual", occasion)
       ? res.status(202).json({ success: true, started: true })
       : res.status(409).json({ success: false, error: "A draft is already being written. Please wait for it to finish." });
   } catch (error) {
@@ -47,17 +50,18 @@ router.post("/api/blogs/generate", (req, res) => {
 });
 
 router.get("/api/blogs/:id/hero", (req, res) => {
-  const file = existingHeroPath(idOf(req));
+  const file = existingHeroPath(projectOf(res), idOf(req));
   file ? res.sendFile(file) : res.status(404).json({ success: false, error: "No AI hero image" });
 });
 
-router.post("/api/blogs/:id/hero/regenerate", singleFlight("blog", async (req, res) => {
+router.post("/api/blogs/:id/hero/regenerate", singleFlight((res) => projectLockKey(projectOf(res), "blog"), async (req, res) => {
   try {
-    const draft = await getBlogDraft(idOf(req));
+    const project = projectOf(res);
+    const draft = await getBlogDraft(project, idOf(req));
     if (!draft || (draft.status !== "draft" && draft.status !== "failed" && draft.status !== "approved")) return res.status(409).json({ success: false, error: "Only unpublished posts can get a new image" });
-    const products = await withGfClient((client) => client.searchProducts("", 100));
+    const products = await withGfClient(project, (client) => client.searchProducts("", 100));
     const imageUrl = products.map(toCatalogProduct).find((p) => p.id === draft.heroProductId)?.imageUrl;
-    res.json({ success: true, blog: await attachHeroImage(draft.id, draft, imageUrl, abortOnDisconnect(res)) });
+    res.json({ success: true, blog: await attachHeroImage(project, draft.id, draft, imageUrl, abortOnDisconnect(res)) });
   } catch (error) {
     fail(res, error);
   }
@@ -65,8 +69,9 @@ router.post("/api/blogs/:id/hero/regenerate", singleFlight("blog", async (req, r
 
 router.patch("/api/blogs/:id", async (req, res) => {
   try {
-    const edit = Object.fromEntries(Object.entries(BlogEditSchema.parse(req.body)).filter(([, v]) => v !== undefined));
-    const blog = await updateBlogDraft(idOf(req), (d) => (d.status === "draft" || d.status === "failed" ? { ...d, ...edit } : null));
+    const project = projectOf(res);
+    const edit = Object.fromEntries(Object.entries(blogEditSchema(project).parse(req.body)).filter(([, v]) => v !== undefined));
+    const blog = await updateBlogDraft(project, idOf(req), (d) => (d.status === "draft" || d.status === "failed" ? { ...d, ...edit } : null));
     blog ? res.json({ success: true, blog }) : res.status(409).json({ success: false, error: "Only drafts can be edited" });
   } catch (error) {
     fail(res, error);
@@ -75,18 +80,19 @@ router.patch("/api/blogs/:id", async (req, res) => {
 
 router.delete("/api/blogs/:id", async (req, res) => {
   try {
+    const project = projectOf(res);
     const id = idOf(req);
-    const current = await getBlogDraft(id);
+    const current = await getBlogDraft(project, id);
     if (!current) return res.status(404).json({ success: false, error: "Blog queue entry not found" });
     if (current.status === "published") return res.status(409).json({ success: false, error: "Published posts cannot be deleted from the blog queue" });
     if (isDraftPublishing(id)) return res.status(409).json({ success: false, error: "This post is currently publishing and cannot be deleted" });
-    if (isDraftImagePending(current)) return res.status(409).json({ success: false, error: "Wait for the hero image to finish before deleting this entry" });
+    if (isDraftImagePending(project, current)) return res.status(409).json({ success: false, error: "Wait for the hero image to finish before deleting this entry" });
 
-    const deleted = await deleteUnpublishedBlogDraft(id);
+    const deleted = await deleteUnpublishedBlogDraft(project, id);
     if (!deleted) return res.status(409).json({ success: false, error: "This entry was published or removed before it could be deleted" });
 
-    // Queue deletion is intentionally local. A post already created in Great Flowers stays intact.
-    await Promise.all(heroImagePaths(id).map((file) => unlink(file).catch((error: NodeJS.ErrnoException) => {
+    // Queue deletion is intentionally local. A post already created on the storefront stays intact.
+    await Promise.all(heroImagePaths(project, id).map((file) => unlink(file).catch((error: NodeJS.ErrnoException) => {
       if (error.code !== "ENOENT") console.error(`Could not remove hero for deleted blog ${id}:`, error);
     })));
     return res.json({ success: true });
@@ -97,7 +103,7 @@ router.delete("/api/blogs/:id", async (req, res) => {
 
 router.post("/api/blogs/:id/approve", async (req, res) => {
   try {
-    const result = await approveFlow(idOf(req));
+    const result = await approveFlow(projectOf(res), idOf(req));
     if (result.outcome === "image-pending") return res.status(409).json({ success: false, error: imageBusyMessage });
     if (result.outcome === "missing" || result.outcome === "not-actionable") return res.status(409).json({ success: false, error: "Only draft or failed posts can be approved" });
     res.json({ success: true, blog: result.blog });
@@ -108,7 +114,7 @@ router.post("/api/blogs/:id/approve", async (req, res) => {
 
 router.post("/api/blogs/:id/reject", async (req, res) => {
   try {
-    const blog = await rejectDraft(idOf(req));
+    const blog = await rejectDraft(projectOf(res), idOf(req));
     blog ? res.json({ success: true, blog }) : res.status(409).json({ success: false, error: "Published posts cannot be rejected" });
   } catch (error) {
     fail(res, error);
@@ -117,11 +123,12 @@ router.post("/api/blogs/:id/reject", async (req, res) => {
 
 router.post("/api/blogs/:id/publish-now", async (req, res) => {
   try {
-    const current = await getBlogDraft(idOf(req));
-    if (current && isDraftImagePending(current)) return res.status(409).json({ success: false, error: imageBusyMessage });
-    const approved = await approveDraft(idOf(req)) ?? current;
+    const project = projectOf(res);
+    const current = await getBlogDraft(project, idOf(req));
+    if (current && isDraftImagePending(project, current)) return res.status(409).json({ success: false, error: imageBusyMessage });
+    const approved = await approveDraft(project, idOf(req)) ?? current;
     if (approved?.status !== "approved") return res.status(409).json({ success: false, error: "Post must be a draft or approved" });
-    res.json({ success: true, blog: await publishDraft(approved.id) });
+    res.json({ success: true, blog: await publishDraft(project, approved.id) });
   } catch (error) {
     fail(res, error);
   }

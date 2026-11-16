@@ -1,64 +1,47 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { WikiDraft } from "./wiki.schema.js";
+import { readJsonArray, withFileLock, writeJsonAtomic } from "./json.file.js";
+import { projectDataPath, type ProjectConfig } from "./projects/index.js";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const DATA_FILE = path.join(DATA_DIR, "wikis.json");
+// Each project keeps its own wikis.json; GreatFlowers still uses data/wikis.json.
+const dataFile = (project: ProjectConfig) => projectDataPath(project, "wikis.json");
+const readAll = (project: ProjectConfig) => readJsonArray<WikiDraft>(dataFile(project));
+const writeAll = (project: ProjectConfig, drafts: WikiDraft[]) => writeJsonAtomic(dataFile(project), drafts);
+const locked = <R>(project: ProjectConfig, operation: () => Promise<R>) => withFileLock(dataFile(project), operation);
 
-async function readAll(): Promise<WikiDraft[]> {
-  await mkdir(DATA_DIR, { recursive: true });
-  try {
-    return JSON.parse(await readFile(DATA_FILE, "utf8"));
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
-    throw error;
-  }
-}
+export const getWikiDrafts = (project: ProjectConfig) =>
+  locked(project, () => readAll(project)).then((drafts) => drafts.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+export const getWikiDraft = async (project: ProjectConfig, id: string) => (await getWikiDrafts(project)).find((draft) => draft.id === id);
 
-async function writeAll(drafts: WikiDraft[]) {
-  const temporary = `${DATA_FILE}.${randomUUID()}.tmp`;
-  await writeFile(temporary, JSON.stringify(drafts, null, 2));
-  await rename(temporary, DATA_FILE);
-}
-
-let pending: Promise<unknown> = Promise.resolve();
-function locked<T>(operation: () => Promise<T>): Promise<T> {
-  const result = pending.then(operation);
-  pending = result.catch(() => undefined);
-  return result;
-}
-
-export const getWikiDrafts = () => locked(readAll).then((drafts) => drafts.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
-export const getWikiDraft = async (id: string) => (await getWikiDrafts()).find((draft) => draft.id === id);
-
-export const addWikiDraft = (draft: Omit<WikiDraft, "id" | "createdAt" | "updatedAt" | "status" | "attempts">) =>
-  locked(async () => {
+export const addWikiDraft = (project: ProjectConfig, draft: Omit<WikiDraft, "id" | "createdAt" | "updatedAt" | "status" | "attempts">) =>
+  locked(project, async () => {
     const now = new Date().toISOString();
     const saved: WikiDraft = { ...draft, id: randomUUID(), status: "draft", attempts: 0, createdAt: now, updatedAt: now };
-    await writeAll([saved, ...(await readAll())]);
+    await writeAll(project, [saved, ...(await readAll(project))]);
     return saved;
   });
 
-export const updateWikiDraft = (id: string, update: (draft: WikiDraft) => WikiDraft | null) =>
-  locked(async () => {
-    const all = await readAll();
+export const updateWikiDraft = (project: ProjectConfig, id: string, update: (draft: WikiDraft) => WikiDraft | null) =>
+  locked(project, async () => {
+    const all = await readAll(project);
     const index = all.findIndex((draft) => draft.id === id);
     const current = all[index];
     if (!current) return null;
     const next = update(current);
     if (!next) return null;
     all[index] = { ...next, updatedAt: new Date().toISOString() };
-    await writeAll(all);
+    await writeAll(project, all);
     return all[index]!;
   });
 
-export const deleteUnpublishedWikiDraft = (id: string) =>
-  locked(async () => {
-    const all = await readAll();
+// The status check lives inside the file lock so a publish completion and a delete
+// cannot both win based on stale state.
+export const deleteUnpublishedWikiDraft = (project: ProjectConfig, id: string) =>
+  locked(project, async () => {
+    const all = await readAll(project);
     const index = all.findIndex((draft) => draft.id === id);
     if (index === -1 || all[index]!.status === "published") return null;
     const [deleted] = all.splice(index, 1);
-    await writeAll(all);
+    await writeAll(project, all);
     return deleted!;
   });

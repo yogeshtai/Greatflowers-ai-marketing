@@ -2,6 +2,7 @@ import { generateDailyBlogDraft } from "./blog.generator.js";
 import { emitBlogEvent } from "./blog.notify.js";
 import { tryAcquire } from "./ai.limits.js";
 import { errorDetail } from "./http.helpers.js";
+import { projectLockKey, type ProjectConfig } from "./projects/index.js";
 
 export interface GenerationState {
   running: boolean;
@@ -12,36 +13,41 @@ export interface GenerationState {
   error?: string;
 }
 
-let state: GenerationState = { running: false };
-export const getGenerationState = (): GenerationState => state;
+// One generation state per project, so one brand's job never shows up in another brand's queue.
+const states = new Map<string, GenerationState>();
+export const getGenerationState = (project: ProjectConfig): GenerationState => states.get(project.id) ?? { running: false };
+const setState = (project: ProjectConfig, state: GenerationState) => states.set(project.id, state);
 
 // A draft is saved as soon as the text is written; its hero image is made right after, inside the same job.
-export const isDraftImagePending = (draft: { createdAt: string }) =>
-  !!(state.running && state.startedAt && draft.createdAt >= state.startedAt);
+export const isDraftImagePending = (project: ProjectConfig, draft: { createdAt: string }) => {
+  const state = getGenerationState(project);
+  return !!(state.running && state.startedAt && draft.createdAt >= state.startedAt);
+};
 
 // Draft generation takes minutes (Hermes + hero image), longer than any proxy keeps an HTTP request open, so it runs in the background.
 export function startGeneration(
+  project: ProjectConfig,
   trigger: "manual" | "schedule",
   occasion?: string,
   onComplete?: (draft: Awaited<ReturnType<typeof generateDailyBlogDraft>>) => void | Promise<void>,
 ): boolean {
-  const release = tryAcquire("blog");
+  const release = tryAcquire(projectLockKey(project, "blog"));
   if (!release) return false;
   const startedAt = new Date().toISOString();
-  state = { running: true, trigger, ...(occasion ? { occasion } : {}), startedAt };
-  generateDailyBlogDraft(undefined, occasion)
+  setState(project, { running: true, trigger, ...(occasion ? { occasion } : {}), startedAt });
+  generateDailyBlogDraft(project, undefined, occasion)
     .then(async (draft) => {
-      state = { running: false, trigger, ...(occasion ? { occasion } : {}), startedAt, finishedAt: new Date().toISOString() };
+      setState(project, { running: false, trigger, ...(occasion ? { occasion } : {}), startedAt, finishedAt: new Date().toISOString() });
       if (onComplete) await onComplete(draft);
-      console.log(`📝 Blog draft ready${onComplete ? " and automatic approval processed" : " for approval"}: ${draft.title}`);
+      console.log(`📝 [${project.id}] Blog draft ready${onComplete ? " and automatic approval processed" : " for approval"}: ${draft.title}`);
       emitBlogEvent({ type: "draft-ready", draft });
     })
     .catch((error) => {
-      console.error("Blog draft generation failed:", error);
+      console.error(`[${project.id}] Blog draft generation failed:`, error);
       const message = error instanceof Error && error.name === "HermesOutputError"
         ? `Hermes could not produce a valid blog after automatic repair and a fresh retry: ${error.message.replace(/^Hermes output remained invalid after one repair:\s*/i, "").slice(0, 500)}`
         : errorDetail(error);
-      state = { running: false, trigger, ...(occasion ? { occasion } : {}), startedAt, finishedAt: new Date().toISOString(), error: message };
+      setState(project, { running: false, trigger, ...(occasion ? { occasion } : {}), startedAt, finishedAt: new Date().toISOString(), error: message });
       emitBlogEvent({ type: "draft-failed", error: message });
     })
     .finally(release);

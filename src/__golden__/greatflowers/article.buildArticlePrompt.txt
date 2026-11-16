@@ -1,0 +1,63 @@
+You are writing one authoritative, evergreen Great Flowers article for US flower buyers.
+
+ASSIGNMENT
+- Admin topic (use exactly): Floral Design
+- Required editorial format (use exactly): STYLE_PLAYBOOK
+- Fresh angle: texture and movement
+- Author (use exactly): Great Flowers Editorial Team
+
+The format controls the structure:
+- DEEP_GUIDE: a comprehensive reference organized from fundamentals to confident decisions.
+- HOW_TO: a practical step-by-step process with clear actions.
+- DECISION_GUIDE: compare choices and explain which fits each reader or situation.
+- MYTHS_AND_FACTS: correct common misconceptions without sounding combative.
+- STYLE_PLAYBOOK: visual, placement and composition guidance for real settings.
+- PLANNING_CHECKLIST: a chronological plan with useful checks and contingencies.
+- QUESTION_EXPLAINER: answer one natural customer question directly, then explore it in depth.
+- SEASONAL_FIELD_GUIDE: timely seasonal choices, planning, care and styling without claiming false availability.
+
+Already published or queued titles (do not duplicate or lightly rewrite):
+- [article] How to Keep Cut Flowers Fresh
+
+VERIFIED PRODUCTS (the only products you may name or link):
+- id 7: Rose Garden Bouquet | Red roses arranged with greenery.
+- id 8: Sunshine Bouquet | Yellow sunflowers with seasonal greenery.
+- id 9: Pink Rose Bouquet | Pink roses arranged in a vase.
+- id 10: White Lily Bouquet | no verified description
+
+PUBLISHED ARTICLES AVAILABLE FOR INTERNAL LINKS:
+- Care Guide | ARTICLE:care-guide
+
+Write 1,050-1,450 words. This is an in-depth resource, not a short blog post and not a flower encyclopedia entry. Use a specific search intent and a distinct title. Give a direct answer early, then 7-10 descriptive <h2> sections, useful <h3> subsections when appropriate, and a concise conclusion. Include a checklist or bullets only when it genuinely improves the explanation. Avoid repeatedly using listicle titles such as "Best 5".
+
+PRODUCT AND LINK RULES
+- Select 2-5 genuinely relevant products. Every productId must be from the verified list, and heroProductId must be one of productIds.
+- Mention and link each selected product naturally exactly once with <a href="PRODUCT:<id>">Product Name</a>.
+- Describe flowers, color, vase or style only when the supplied catalog description confirms it. Never infer product details from its name.
+- If published articles are supplied, add 1-3 genuinely relevant links using <a href="ARTICLE:<slug>">natural anchor text</a>.
+- End with one modest sentence linking <a href="HOME">Great Flowers</a>.
+- Never output a real URL. Never invent products, links, prices, discounts, statistics, research or delivery guarantees.
+
+QUALITY AND SAFETY
+- Use warm, practical US English, short paragraphs, concrete advice and varied sentence openings.
+- Explain symbolism as a traditional association that can vary by culture and context.
+- Do not provide medical, edible-use, allergy, pet-safety or toxicity claims.
+- Say same-day delivery is available in many areas, never guaranteed everywhere.
+- HTML may contain only <p>, <h2>, <h3>, <ul>, <ol>, <li>, <strong>, <em> and <a>. No <h1>, images, embeds, styles or scripts.
+
+IMAGE
+- imageConcept describes a premium 16:9 editorial photograph tied to the article's exact angle, with a clear human action or art-directed flower scene, foreground/middle/background depth, setting, light and mood.
+- Avoid plain catalog shots, empty white backgrounds and centered bouquet-only compositions. No text, signs, cards, logos or watermarks.
+
+SEO
+- title: 35-60 characters, natural and intent-specific.
+- slug: lowercase and hyphenated.
+- topic, format and authorName must exactly match the assignment.
+- description: a useful 1-2 sentence summary.
+- metaTitle: 35-55 characters without "Great Flowers".
+- metaDescription: 140-165 characters.
+- Return the complete JSON object only.
+
+OUTPUT CONTRACT
+Return this object itself at the top level—never a validation report, summary, wrapper, file or status object:
+{"title":"...","slug":"...","topic":"Floral Design","format":"STYLE_PLAYBOOK","authorName":"Great Flowers Editorial Team","description":"...","metaTitle":"...","metaDescription":"...","productIds":[1,2],"heroProductId":1,"imageConcept":"...","html":"<p>...</p>"}

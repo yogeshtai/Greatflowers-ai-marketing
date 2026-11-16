@@ -1,18 +1,22 @@
+import type { ProjectConfig } from "./projects/index.js";
+
 const REQUEST_TIMEOUT_MS = 30_000;
 
 type Json = Record<string, any>;
 
-function config() {
-  const baseUrl = process.env.GF_ADMIN_API_URL?.replace(/\/+$/, "");
-  const email = process.env.GF_ADMIN_EMAIL;
-  const password = process.env.GF_ADMIN_PASSWORD;
+// Every project's storefront runs the same admin API; only the URL and login differ.
+function config(project: ProjectConfig) {
+  const baseUrl = project.env("GF_ADMIN_API_URL")?.replace(/\/+$/, "");
+  const email = project.env("GF_ADMIN_EMAIL");
+  const password = project.env("GF_ADMIN_PASSWORD");
   if (!baseUrl || !email || !password) {
-    throw new Error("GF_ADMIN_API_URL, GF_ADMIN_EMAIL and GF_ADMIN_PASSWORD must be set");
+    const [url, user, secret] = ["GF_ADMIN_API_URL", "GF_ADMIN_EMAIL", "GF_ADMIN_PASSWORD"].map(project.envName);
+    throw new Error(`${url}, ${user} and ${secret} must be set`);
   }
   return { baseUrl, email, password };
 }
 
-export const gfApiHost = () => new URL(config().baseUrl).host;
+export const gfApiHost = (project: ProjectConfig) => new URL(config(project).baseUrl).host;
 
 async function http(url: string, init: RequestInit & { headers?: Record<string, string> } = {}) {
   const res = await fetch(url, {
@@ -34,8 +38,8 @@ async function http(url: string, init: RequestInit & { headers?: Record<string, 
   return body;
 }
 
-export async function gfLogin(): Promise<string> {
-  const { baseUrl, email, password } = config();
+export async function gfLogin(project: ProjectConfig): Promise<string> {
+  const { baseUrl, email, password } = config(project);
   const body = await http(`${baseUrl}/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -47,8 +51,8 @@ export async function gfLogin(): Promise<string> {
 
 export type GfClient = ReturnType<typeof createGfClient>;
 
-export function createGfClient(token: string) {
-  const { baseUrl } = config();
+export function createGfClient(project: ProjectConfig, token: string) {
+  const { baseUrl } = config(project);
   const auth = { Authorization: `Bearer ${token}` };
   const get = (path: string, params: Record<string, string | number> = {}) => {
     const qs = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString();
@@ -123,6 +127,6 @@ export function createGfClient(token: string) {
   };
 }
 
-export async function withGfClient<T>(fn: (client: GfClient) => Promise<T>): Promise<T> {
-  return fn(createGfClient(await gfLogin()));
+export async function withGfClient<T>(project: ProjectConfig, fn: (client: GfClient) => Promise<T>): Promise<T> {
+  return fn(createGfClient(project, await gfLogin(project)));
 }

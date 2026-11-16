@@ -2,12 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { generateCampaignRecommendation } from "./campaign.recommender.js";
 import { createRotationPlan } from "./campaign.rotation.js";
-import type { MarketingProduct } from "./greatflowers.products.js";
+import type { MarketingProduct } from "./catalog.products.js";
 import type { WebsitePageContext } from "./website.context.js";
+import { greatflowers } from "./projects/index.js";
 
 test("recommendation preserves evidence inputs and rejects outputs that bypass rotation", async (t) => {
   const products = [{ id: 1, name: "Catalog bouquet", stockStatus: "in_stock", image: "https://example.com/flower.jpg", description: "Verified catalog description", categories: ["Flowers"], price: 40, url: "https://greatflowers.net/flowers" }] as MarketingProduct[];
-  const rotation = createRotationPlan(products, [{ creativeScenario: "Already used scene" }], [{ marketingAngle: "Previously published angle" }], new Date(2026, 8, 28), () => 0.3);
+  const rotation = createRotationPlan(greatflowers, products, [{ creativeScenario: "Already used scene" }], [{ marketingAngle: "Previously published angle" }], new Date(2026, 8, 28), () => 0.3);
   const output = {
     contentTheme: rotation.contentTheme, visualTreatment: rotation.visualTreatment,
     selectedProductId: 1, selectedProductName: "Catalog bouquet", occasion: "Home styling",
@@ -27,7 +28,7 @@ test("recommendation preserves evidence inputs and rejects outputs that bypass r
   const oldKey = process.env.HERMES_API_KEY;
   process.env.HERMES_API_KEY = "test-only";
   t.after(() => { if (oldKey === undefined) delete process.env.HERMES_API_KEY; else process.env.HERMES_API_KEY = oldKey; });
-  const run = () => generateCampaignRecommendation(products, [{ url: "https://greatflowers.net", title: "GreatFlowers", text: "Verified website message" }] as WebsitePageContext[], [], [{ itemId: "1", itemName: "Catalog bouquet", views: 3, addToCarts: 1, checkouts: 0, purchases: 0 }], undefined, rotation);
+  const run = () => generateCampaignRecommendation(greatflowers, products, [{ url: "https://greatflowers.net", title: "GreatFlowers", text: "Verified website message" }] as WebsitePageContext[], [], [{ itemId: "1", itemName: "Catalog bouquet", views: 3, addToCarts: 1, checkouts: 0, purchases: 0 }], undefined, rotation);
   const result = await run();
   assert.ok(prompt.includes('"required":["contentTheme","visualTreatment","selectedProductId"'));
   assert.ok(!prompt.includes("Use the greatflowers-marketing-strategist skill"));

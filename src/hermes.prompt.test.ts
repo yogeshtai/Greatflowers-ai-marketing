@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildPrompt, type CampaignInput } from "./hermes.js";
+import { greatflowers } from "./projects/index.js";
 
 test("campaign strategy prompt forbids unexplained prop metaphors", () => {
   const input: CampaignInput = {
@@ -11,7 +12,7 @@ test("campaign strategy prompt forbids unexplained prop metaphors", () => {
     platforms: ["Instagram", "Facebook"],
     priority: "medium",
   };
-  const prompt = buildPrompt(input);
+  const prompt = buildPrompt(greatflowers, input);
 
   assert.match(prompt, /must make immediate sense on first read/);
   assert.match(prompt, /Physical props such as pens, keys, cards, desks, mugs and tools/);

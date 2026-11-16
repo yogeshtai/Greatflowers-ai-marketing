@@ -1,0 +1,85 @@
+Create a 1:1 cinematic visual story scene.
+
+⚠️ WHO IS GIVING TO WHOM ⚠️
+Sender (the one giving): Adult sister
+Recipient (the one receiving): Younger sister
+Relationship: sister to sister
+Why: To celebrate a new job
+Point of view: we follow the recipient.
+The viewer must be able to tell at a glance who is giving and who is receiving.
+Never show one person alone with a bouquet that simply 'appears' — the gift must be given, handed, delivered, unwrapped, or received.
+
+
+⚠️ VISUAL CONTINUITY REQUIREMENTS ⚠️
+
+This is slide 2 of a 4-slide visual story.
+
+Story Concept: A quiet week turns into a celebration
+
+Character Continuity: Same younger sister
+Environment Continuity: Same apartment
+Color Continuity: Warm neutrals
+Styling Continuity: Casual knitwear
+
+Maintain the requested continuity with previous slides, but depict the NEW story beat, action and composition described for THIS slide.
+
+
+⚠️ STORY PROGRESSION REQUIREMENT ⚠️
+
+This is Slide 2 of 4 in a connected visual story.
+
+Story Role: Role 2
+Story Beat: Beat 2
+Reveal Slide: 3
+Scene Change: Scene change 2
+Camera Direction: Camera 2
+Previous moment: Opening shot
+Preserve story/character/style continuity, but DO NOT reproduce the previous slide's composition.
+This is a new shot and a new story moment.
+Use previous images ONLY for continuity of character/style/environment where requested.
+Do NOT copy their composition, pose, product placement, camera angle, scene arrangement, text or branding.
+PRE-REVEAL: Pure storytelling. No flowers, selected product, product names, GreatFlowers, logos, website, CTA, sales language or ecommerce/browser screenshots.
+
+This slide must visibly advance the narrative from previous slides.
+Each slide should show a DIFFERENT moment, action, or development in the story.
+Do NOT create four similar images with minor variations.
+
+CREATIVE TYPE: LIFESTYLE
+
+STRATEGIC CONCEPT:
+A thoughtful birthday moment
+
+STORY SCENE: Show only the human situation and this new story beat. No flowers, product, shopping screen or commercial solution cues.
+PRODUCT ROLE: NONE. No product reference is supplied. Do not introduce the product or flowers.
+OCCASION CONTEXT: Birthday
+
+VISUAL STYLE:
+
+Color Palette: Warm natural colors
+Composition Style: Person right, negative space left
+Lighting Style: Golden natural light
+Scene Type: Birthday gifting moment
+
+VISUAL DIRECTION:
+A warm human birthday moment
+
+MOOD & ATMOSPHERE:
+Warm and premium
+
+BACKGROUND & ENVIRONMENT:
+A warm human birthday moment
+
+⚠️ NO TEXT IN THE IMAGE ⚠️
+Do NOT render any text, letters, words, headlines, captions, typography, watermarks, signage, labels or handwriting anywhere in the image.
+The headline and subheadline are composited programmatically after generation.
+COMPOSITION SAFE AREA: the top 40% of the frame is reserved for the text overlay (top-left) and logo (top-right).
+Keep that band visually quiet: soft background, ambient depth, no faces, no product, no key story detail there.
+Place the subject, faces and product in the lower 60% of the frame.
+
+
+
+BRAND ROLE: none
+No logo, website, brand name, CTA or button-like branding. Do not reserve a logo area.
+Never recreate a logo with AI.
+
+Generate a premium, text-free 1:1 (1024x1024) photographic scene that tells this specific moment in the story while maintaining visual continuity with the overall narrative.

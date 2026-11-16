@@ -1,0 +1,145 @@
+Create a TEXT-FREE 1:1 premium social media campaign base image for GreatFlowers.
+
+⚠️ CRITICAL COMPOSITION REQUIREMENT ⚠️
+
+The sceneStrategy is a COMPOSITION REQUIREMENT, not a suggestion.
+The generated image MUST visibly follow this strategy.
+
+This campaign contains multiple creative concepts.
+DO NOT reuse the same primary composition, product placement, room/table setup, 
+camera framing, or visual hierarchy used for another variant.
+
+Changing only headline, copy, background, crop, or lighting is NOT sufficient.
+The composition, scene structure, and visual approach must be materially different.
+
+OTHER ASSIGNED DIRECTIONS — DO NOT COPY THEIR SETTING, FRAMING OR SUBJECT PLACEMENT:
+No other directions were supplied.
+
+CREATIVE TYPE: LOCATION
+
+STRATEGIC CONCEPT:
+A thoughtful birthday moment
+
+SCENE STRATEGY: LOCATION_STORY (Location-Led Composition)
+
+Create a location-oriented composition where the place/environment leads the visual.
+Location: Brooklyn brownstones
+
+The location/environment/story should be the primary visual element.
+Product supports the location story but is not the main subject.
+
+PRODUCT ROLE: OPTIONAL
+The scene may lead and the supplied product does not need to be the focus, but any bouquet or
+arrangement that appears MUST be the exact supplied product: same flowers, colors, arrangement and
+container. Never invent a different bouquet. Natural flowers are REQUIRED and must occupy a
+meaningful part of the composition (roughly 20-35% of the frame), immediately visible as the
+subject that connects this creative to GreatFlowers.
+
+OCCASION CONTEXT:
+Birthday
+Visually communicate this occasion and its emotional context.
+
+LOCATION CONTEXT:
+Brooklyn brownstones
+Incorporate this verified location/service area naturally.
+
+ENVIRONMENT (MANDATORY): living-room-seating
+A sofa, armchair or coffee-table setting with soft furnishing texture and room depth behind.
+This is the physical setting. No other variant in this campaign uses it. Do not relocate the scene to
+a different room, surface or setting, and do not reuse an environment listed for another variant.
+
+LIGHTING (MANDATORY): golden-hour
+Low warm directional sun with long shadows and a golden cast.
+Light the whole frame this way, including the background and the copy safe area.
+
+ART DIRECTION (MANDATORY): documentary-gifting
+Candid documentary photography of an authentic giving or receiving moment. Prioritize gesture, expression and human connection over a posed product shot.
+Treat this as a photographic production brief. The camera angle, action, environment and flower
+scale must visibly express this direction; changing only props or colors is not sufficient.
+
+FLOWER COMMERCE RELEVANCE (CRITICAL):
+This is a GreatFlowers marketing creative. Flowers must be immediately visible and relevant
+to the idea, even when the exact catalog product is not used. The image should make someone
+interested in choosing, sending, arranging or displaying flowers. Furniture, books, cups,
+feathers, candles and other props may establish context, but must never become the primary
+subject or visually replace the flowers. For human scenes, show an active flower-related
+moment such as giving, receiving, arranging, carrying, delivering or unboxing.
+
+COPY LAYOUT (CRITICAL): top-left-editorial
+The official GreatFlowers logo will be placed in the top left corner and the approved copy will use the assigned top left zone.
+That logo corner must be an evenly LIT, LIGHT, uncluttered area - pale wall, bright window light, sky,
+light fabric or soft-focus highlight. The wordmark is a dark indigo-to-magenta gradient that only reads
+on a light backdrop, so never place a dark window frame, deep shadow, doorway, silhouette or saturated
+dark object there, and never let that corner be half bright and half dark.
+Keep faces and the most important flower details out of those exact overlay zones, but do not empty
+an entire half of the photograph. The scene must remain visually complete and intentional.
+Do not generate, spell, draw, or recreate GreatFlowers branding or logo.
+
+VISUAL QUALITY:
+Make the flowers legible at thumbnail size: use confident close framing, visible petal texture,
+and clear separation from the background. Preserve the reference bouquet exactly, including its
+natural colors. Avoid muddy beige or orange grading, plastic-looking skin and exaggerated bokeh.
+Human scenes should capture a believable action mid-moment with natural posture and expression.
+Use the assigned composition deliberately; do not default to a console table beside a huge blank wall.
+Give the scene depth and natural color contrast while respecting the actual copy zone below.
+
+TYPOGRAPHY SAFE AREA (CRITICAL):
+The outer left 42% of the upper half must read as ONE continuous, evenly lit surface: a plain wall, a smooth
+expanse of fabric or tablecloth, soft out-of-focus room depth, open sky, or a clean uncluttered
+tabletop. Compose the scene so that area is genuinely empty - nothing crosses it. No hands, tools,
+stems, leaves, furniture edges, window frames, door frames, lamps, specular highlights or hard cast
+shadows anywhere inside it.
+It must hold a SINGLE tonal value across its full width and height: uniformly light, or uniformly
+deep. One colour of type has to read from the first word of a line to the last, so a zone that is
+bright at one end and dark at the other fails even when each end looks fine on its own.
+Prefer a light, softly lit surface there unless the whole photograph is a dark evening scene.
+Keep faces and important flower details out of that zone.
+Do not create a white rectangle, translucent card, blank paper panel or fake text box - the calm
+area must be genuine scene surface, not a graphic panel laid over the photograph.
+The application will typeset the approved headline, subheadline in this zone after generation.
+
+
+NO WEBSITE PILL:
+Use the lower portion of the frame naturally. No button or URL will be added to this variant.
+
+PRECEDENCE (CRITICAL): the ENVIRONMENT and LIGHTING assigned above are campaign-level decisions and
+outrank every descriptive field that follows. The fields below describe atmosphere, styling and
+emotion WITHIN that setting and light. Where they conflict, the assigned ENVIRONMENT and LIGHTING
+win. A seasonal or occasion mood must never convert the assigned light into candlelight or darkness:
+if the assigned lighting is bright daylight or diffused overcast, the photograph is bright, however
+moody the occasion is.
+
+CAMPAIGN BACKGROUND DIRECTION (reinterpret it for this variant; do not repeat another variant's room, surface or framing; it must not change the assigned environment):
+A real, softly lit home
+
+MOOD (emotional tone only — it does not set the time of day or the light level):
+Warm and premium
+
+VISUAL DIRECTION FOR THIS VARIANT:
+A warm human birthday moment
+
+COLOR PALETTE (props and styling only; it must not darken a brightly lit assignment):
+Warm natural colors
+
+COMPOSITION STYLE:
+Person right, negative space left
+
+LIGHTING STYLE (supporting detail for the assigned golden-hour lighting — elaborate it, never replace it):
+Golden natural light
+
+SCENE TYPE (detail within the assigned living-room-seating environment, not a different place):
+Birthday gifting moment
+
+CREATIVE GOAL:
+Create birthday consideration
+
+CONSTRAINTS:
+- Do NOT render any text, letters, numbers, handwriting, labels, prices, signs, buttons, UI, logo, brand mark, URL or watermark
+- Do NOT pre-build a text panel; typography, logo and website CTA are composited programmatically
+- Create a clean, professional social media image
+- Output format: PNG
+- Aspect ratio: 1:1 (square)
+
+Save the generated image inside ./test-creatives/ with the filename provided in the next instruction.
+
+Use image generation. Do not create SVG, HTML, or CSS.

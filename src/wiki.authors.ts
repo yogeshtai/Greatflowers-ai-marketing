@@ -1,8 +1,8 @@
-import { CONTENT_AUTHORS, DEFAULT_CONTENT_AUTHOR, isContentAuthor, selectContentAuthor } from "./content.authors.js";
+import { contentAuthors, defaultContentAuthor, isContentAuthor, selectContentAuthor } from "./content.authors.js";
 
 // Backwards-compatible wiki names; blogs and wikis deliberately share one
-// approved byline pool so the public site presents a consistent editorial team.
-export const WIKI_AUTHORS = CONTENT_AUTHORS;
-export const DEFAULT_WIKI_AUTHOR = DEFAULT_CONTENT_AUTHOR;
+// approved byline pool per project so each storefront presents a consistent editorial team.
+export const wikiAuthors = contentAuthors;
+export const defaultWikiAuthor = defaultContentAuthor;
 export const isWikiAuthor = isContentAuthor;
 export const selectWikiAuthor = selectContentAuthor;

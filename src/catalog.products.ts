@@ -1,7 +1,7 @@
 import { withTimeoutSignal } from "./http.helpers.js";
+import type { ProjectConfig } from "./projects/index.js";
 
-const PRODUCT_API =
-  "https://api.greatflowers.net/api/product";
+// Every project's storefront exposes the same public product API (see project.catalog.productApiUrl).
 
 type ApiCategory = {
   id: number;
@@ -61,7 +61,7 @@ function toNumber(value: number | string | null | undefined) {
   return Number.isNaN(number) ? null : number;
 }
 
-function cleanProduct(product: ApiProduct): MarketingProduct {
+function cleanProduct(project: ProjectConfig, product: ApiProduct): MarketingProduct {
   return {
     id: product.id,
 
@@ -79,7 +79,7 @@ function cleanProduct(product: ApiProduct): MarketingProduct {
 
     slug: product.slug,
 
-    url: `https://greatflowers.net/product/${product.slug}`,
+    url: `${project.storefront.defaultBaseUrl}/${project.storefront.paths.product}/${product.slug}`,
 
     image:
       product.product_thumbnail?.asset_url ||
@@ -105,25 +105,26 @@ function cleanProduct(product: ApiProduct): MarketingProduct {
 }
 
 async function fetchProductPage(
+  project: ProjectConfig,
   page: number,
   signal?: AbortSignal,
 ): Promise<ProductApiResponse> {
   const response = await fetch(
-    `${PRODUCT_API}?page=${page}`,
+    `${project.catalog.productApiUrl}?page=${page}`,
     { signal: withTimeoutSignal(30_000, signal) },
   );
 
   if (!response.ok) {
     throw new Error(
-      `GreatFlowers product API failed: ${response.status}`
+      `${project.brand.name} product API failed: ${response.status}`
     );
   }
 
   return response.json() as Promise<ProductApiResponse>;
 }
 
-export async function getGreatFlowersProducts(signal?: AbortSignal) {
-  const firstPage = await fetchProductPage(1, signal);
+export async function getCatalogProducts(project: ProjectConfig, signal?: AbortSignal) {
+  const firstPage = await fetchProductPage(project, 1, signal);
 
   const pages = Array.from(
     {
@@ -133,7 +134,7 @@ export async function getGreatFlowersProducts(signal?: AbortSignal) {
   );
 
   const remainingPages = await Promise.all(
-    pages.map((page) => fetchProductPage(page, signal))
+    pages.map((page) => fetchProductPage(project, page, signal))
   );
 
   const products = [
@@ -143,5 +144,5 @@ export async function getGreatFlowersProducts(signal?: AbortSignal) {
     ),
   ];
 
-  return products.map(cleanProduct);
+  return products.map((product) => cleanProduct(project, product));
 }

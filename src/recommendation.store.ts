@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { projectDataPath, type ProjectConfig } from "./projects/index.js";
 
 export interface RecommendationHistoryItem {
   productId: number;
@@ -15,35 +16,32 @@ export interface RecommendationHistoryItem {
   copyLayouts?: string[];
 }
 
-const DATA_DIR = path.join(process.cwd(), "data");
+// Each project keeps its own rotation history; GreatFlowers still uses data/recommendations.json.
+const dataFile = (project: ProjectConfig) => projectDataPath(project, "recommendations.json");
 
-const DATA_FILE = path.join(
-  DATA_DIR,
-  "recommendations.json"
-);
-
-async function ensureFile() {
-  await mkdir(DATA_DIR, {
+async function ensureFile(project: ProjectConfig) {
+  const file = dataFile(project);
+  await mkdir(path.dirname(file), {
     recursive: true,
   });
 
   try {
-    await readFile(DATA_FILE, "utf8");
+    await readFile(file, "utf8");
   } catch {
     await writeFile(
-      DATA_FILE,
+      file,
       JSON.stringify([], null, 2)
     );
   }
 }
 
-async function readHistory(): Promise<
+async function readHistory(project: ProjectConfig): Promise<
   RecommendationHistoryItem[]
 > {
-  await ensureFile();
+  await ensureFile(project);
 
   const content = await readFile(
-    DATA_FILE,
+    dataFile(project),
     "utf8"
   );
 
@@ -51,29 +49,32 @@ async function readHistory(): Promise<
 }
 
 async function writeHistory(
+  project: ProjectConfig,
   items: RecommendationHistoryItem[]
 ) {
   await writeFile(
-    DATA_FILE,
+    dataFile(project),
     JSON.stringify(items, null, 2)
   );
 }
 
 export async function getRecentRecommendations(
+  project: ProjectConfig,
   limit = 5
 ) {
-  const history = await readHistory();
+  const history = await readHistory(project);
 
   return history.slice(0, limit);
 }
 
 export async function recordRecommendation(
+  project: ProjectConfig,
   item: Omit<
     RecommendationHistoryItem,
     "recommendedAt"
   >
 ) {
-  const history = await readHistory();
+  const history = await readHistory(project);
 
   history.unshift({
     ...item,
@@ -84,5 +85,5 @@ export async function recordRecommendation(
   // Keep only latest 50
   const trimmed = history.slice(0, 50);
 
-  await writeHistory(trimmed);
+  await writeHistory(project, trimmed);
 }

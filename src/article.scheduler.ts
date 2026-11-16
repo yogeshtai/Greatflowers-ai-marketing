@@ -4,12 +4,13 @@ import { approveArticleFlow, articlePublishHourEt, publishArticleDraft, publishA
 import { getArticleDrafts } from "./article.store.js";
 import { dateKeyIn } from "./blog.time.js";
 import { enabledProjects, type ProjectConfig } from "./projects/index.js";
+import { autogenerateEnabled } from "./projects/automation.js";
 
 // Each project's draft cron and recovery cron live in project.schedule. If the scheduled Hermes
 // request times out, the recovery cron retries later the same day; the date guard below makes every
 // retry a no-op as soon as one draft has been saved successfully.
 export async function generateArticleDraftIfNeeded(project: ProjectConfig) {
-  if (project.env("ARTICLE_AUTOGENERATE") === "false") return false;
+  if (!autogenerateEnabled(project, "ARTICLE")) return false;
   const dateKey = (date?: Date) => dateKeyIn(project.schedule.timezone, date);
   const today = dateKey();
   const drafts = await getArticleDrafts(project);

@@ -4,12 +4,13 @@ import { startWikiGeneration } from "./wiki.jobs.js";
 import { approveWikiFlow, publishWikiDraft, publishWikiImmediate, wikiPublishHourEt } from "./wiki.publisher.js";
 import { getWikiDrafts } from "./wiki.store.js";
 import { enabledProjects, type ProjectConfig } from "./projects/index.js";
+import { autogenerateEnabled } from "./projects/automation.js";
 
 // Each project's draft cron and recovery crons live in project.schedule. Recovery runs retry a
 // timed-out scheduled generation later the same day; once a Wiki draft exists for that date,
 // generateWikiDraftIfNeeded returns false.
 export async function generateWikiDraftIfNeeded(project: ProjectConfig) {
-  if (project.env("WIKI_AUTOGENERATE") === "false") return false;
+  if (!autogenerateEnabled(project, "WIKI")) return false;
   const dateKey = (date?: Date) => dateKeyIn(project.schedule.timezone, date);
   const today = dateKey();
   const drafts = await getWikiDrafts(project);

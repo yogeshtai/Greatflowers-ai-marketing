@@ -4,9 +4,10 @@ import { approveFlow, publishDraft, publishHourEt, publishImmediate } from "./bl
 import { getBlogDrafts } from "./blog.store.js";
 import { dateKeyIn } from "./blog.time.js";
 import { enabledProjects, type ProjectConfig } from "./projects/index.js";
+import { autogenerateEnabled } from "./projects/automation.js";
 
 export async function generateDraftIfNeeded(project: ProjectConfig) {
-  if (project.env("BLOG_AUTOGENERATE") === "false") return false;
+  if (!autogenerateEnabled(project, "BLOG")) return false;
   const dateKey = (date?: Date) => dateKeyIn(project.schedule.timezone, date);
   const today = dateKey();
   const drafts = await getBlogDrafts(project);

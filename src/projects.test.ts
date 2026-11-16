@@ -11,6 +11,8 @@ import express from "express";
 import { greatflowers, onepriceflowers, getProject, defaultProject, enabledProjects, liveContentUrl, storefrontBase, projectLockKey, type ProjectConfig } from "./projects/index.js";
 import { projectContext, projectOf, PROJECT_HEADER } from "./projects/http.js";
 import { s3Settings } from "./projects/storage.js";
+import { autogenerateEnabled, isSafeMode } from "./projects/automation.js";
+import { missingSettings } from "./projects/readiness.js";
 import { ownedCampaignAsset } from "./campaign.assets.js";
 import { buildPrompt, generateMarketingStrategy, generateStoryCreativePlan, type CampaignInput } from "./hermes.js";
 import { generateCampaignRecommendation } from "./campaign.recommender.js";
@@ -289,4 +291,28 @@ test("strategy repair messages name the request's own brand", async (t) => {
   assert.match(opfRepair, /Independent One Price Flowers creatives must always show flowers/);
   assertNoGreatFlowers("strategy repair request", opfRepair.replace(/greatflowers-[a-z-]+/g, ""));
   assert.match(await repairRequest(greatflowers), /Independent GreatFlowers creatives must always show flowers/, "GreatFlowers' message is unchanged");
+});
+
+test("automation: GreatFlowers keeps its default, new brands start with timed drafts off", (t) => {
+  withEnv(t, { BLOG_AUTOGENERATE: undefined, OPF_BLOG_AUTOGENERATE: undefined, OPF_WIKI_AUTOGENERATE: undefined, OPF_ARTICLE_AUTOGENERATE: undefined, OPF_BLOG_PUBLISH_LIVE: undefined, OPF_WIKI_PUBLISH_LIVE: undefined, OPF_ARTICLE_PUBLISH_LIVE: undefined });
+  // GreatFlowers: only "false" ever disabled it, exactly as before.
+  for (const [value, expected] of [[undefined, true], ["false", false], ["true", true], ["yes", true], ["", true]] as const) {
+    value === undefined ? delete process.env.BLOG_AUTOGENERATE : (process.env.BLOG_AUTOGENERATE = value);
+    assert.equal(autogenerateEnabled(greatflowers, "BLOG"), expected, `BLOG_AUTOGENERATE=${value}`);
+  }
+  // One Price Flowers: off unless explicitly "true".
+  assert.equal(autogenerateEnabled(opf, "BLOG"), false);
+  assert.equal(isSafeMode(opf), true, "enabling the brand alone is safe");
+  process.env.OPF_BLOG_AUTOGENERATE = "true";
+  assert.equal(autogenerateEnabled(opf, "BLOG"), true);
+  assert.equal(isSafeMode(opf), false);
+});
+
+test("readiness: missing settings are reported by the project's own variable names", (t) => {
+  withEnv(t, { OPF_ADMIN_API_URL: "https://api.example.test/api", OPF_ADMIN_EMAIL: undefined, OPF_ADMIN_PASSWORD: " " });
+  const missing = missingSettings(opf).map((item) => item.variable);
+  assert.ok(!missing.includes("OPF_ADMIN_API_URL"));
+  assert.ok(missing.includes("OPF_ADMIN_EMAIL"));
+  assert.ok(missing.includes("OPF_ADMIN_PASSWORD"), "a blank value counts as missing");
+  assert.ok(missing.every((name) => name.startsWith("OPF_")));
 });

@@ -51,6 +51,9 @@ export interface ProjectConfig {
   env: (name: string) => string | undefined;
   // Folder for this project's JSON stores and generated images, relative to the working directory.
   dataDir: string;
+  // Whether scheduled draft generation runs when a *_AUTOGENERATE setting is unset. GreatFlowers
+  // keeps its original default (on); new brands start off until explicitly switched on.
+  autogenerateByDefault: boolean;
   brand: {
     // Name used inside prompts and marketing copy, e.g. "GreatFlowers".
     name: string;

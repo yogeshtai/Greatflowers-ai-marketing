@@ -10,6 +10,7 @@ export const greatflowers: ProjectConfig = {
   envName: (name) => name,
   env: (name) => process.env[name],
   dataDir: "data",
+  autogenerateByDefault: true,
   brand: {
     name: "GreatFlowers",
     displayName: "Great Flowers",

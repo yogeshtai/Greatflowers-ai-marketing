@@ -32,6 +32,7 @@ import { posterPhotographyBrief } from "./creative.poster.js";
 import { getCatalogProducts, type MarketingProduct } from "./catalog.products.js";
 import { getWebsiteContext } from "./website.context.js";
 import { tryAcquire } from "./ai.limits.js";
+import { createGfClient } from "./gf.admin.client.js";
 import type { StoryCreativePlan } from "./strategy.schema.js";
 import type { WikiDraft } from "./wiki.schema.js";
 import { marketingStrategySchema } from "./strategy.schema.js";
@@ -323,4 +324,37 @@ test("readiness: missing settings are reported by the project's own variable nam
   assert.ok(missing.includes("OPF_ADMIN_EMAIL"));
   assert.ok(missing.includes("OPF_ADMIN_PASSWORD"), "a blank value counts as missing");
   assert.ok(missing.every((name) => name.startsWith("OPF_")));
+});
+
+test("admin API: GreatFlowers requests are unchanged; One Price Flowers pages at 100", async (t) => {
+  withEnv(t, { GF_ADMIN_API_URL: "https://gf.test/api/admin", GF_ADMIN_EMAIL: "a@b.c", GF_ADMIN_PASSWORD: "x", OPF_ADMIN_API_URL: "https://opf.test/api/admin", OPF_ADMIN_EMAIL: "a@b.c", OPF_ADMIN_PASSWORD: "x" });
+  const urls: string[] = [];
+  t.mock.method(globalThis, "fetch", async (url: unknown) => {
+    const u = new URL(String(url));
+    urls.push(`${u.host}${u.pathname}${u.search}`);
+    const page = Number(u.searchParams.get("page") ?? 1);
+    const size = Number(u.searchParams.get("paginate") ?? 0);
+    // 250 categories on the server, served in pages of the requested size.
+    const total = u.pathname.endsWith("/category") ? 250 : 3;
+    const data = Array.from({ length: Math.max(0, Math.min(size || total, total - (page - 1) * (size || total))) }, (_, i) => ({ id: (page - 1) * size + i + 1 }));
+    return new Response(JSON.stringify({ data, current_page: page, last_page: size ? Math.ceil(total / size) : 1, total }), { status: 200 });
+  });
+  const gfClient = createGfClient(greatflowers, "token");
+  await gfClient.listBlogs(); await gfClient.listWikis(); await gfClient.listArticles();
+  const gfCategories = await gfClient.listBlogCategories();
+  await gfClient.searchProducts("", 100);
+  assert.deepEqual(urls.splice(0), [
+    "gf.test/api/admin/blog?paginate=500",
+    "gf.test/api/admin/wiki?paginate=500",
+    "gf.test/api/admin/article?paginate=500",
+    "gf.test/api/admin/category?type=post&paginate=200",
+    "gf.test/api/admin/product?status=1&is_approved=1&paginate=100",
+  ], "GreatFlowers sends exactly the requests it always has");
+  assert.equal(gfCategories.length, 200);
+  const opfCategories = await createGfClient(opf, "token").listBlogCategories();
+  assert.deepEqual(urls, [
+    "opf.test/api/admin/category?type=post&paginate=100&page=1",
+    "opf.test/api/admin/category?type=post&paginate=100&page=2",
+  ]);
+  assert.equal(opfCategories.length, 200, "same number of rows as one large request would return");
 });

@@ -36,6 +36,7 @@ export const onepriceflowers: ProjectConfig = {
   envName: (name) => (name.startsWith("GF_") ? `OPF_${name.slice(3)}` : `OPF_${name}`),
   env: (name) => process.env[name.startsWith("GF_") ? `OPF_${name.slice(3)}` : `OPF_${name}`],
   dataDir: "data/projects/onepriceflowers",
+  adminApiMaxPageSize: 100,
   // Safe first launch: no timed drafts until OPF_BLOG/WIKI/ARTICLE_AUTOGENERATE=true.
   autogenerateByDefault: false,
   brand: {

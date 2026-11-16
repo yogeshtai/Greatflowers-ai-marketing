@@ -51,6 +51,9 @@ export interface ProjectConfig {
   envName: (name: string) => string;
   // Reads one of this project's settings: process.env[envName(name)].
   env: (name: string) => string | undefined;
+  // Largest page the storefront admin API accepts (One Price Flowers rejects paginate > 100).
+  // Lists are then fetched page by page. Unset means one request asking for everything.
+  adminApiMaxPageSize?: number;
   // Folder for this project's JSON stores and generated images, relative to the working directory.
   dataDir: string;
   // Whether scheduled draft generation runs when a *_AUTOGENERATE setting is unset. GreatFlowers

@@ -59,25 +59,40 @@ export function createGfClient(project: ProjectConfig, token: string) {
     return http(`${baseUrl}${path}${qs ? `?${qs}` : ""}`, { headers: auth });
   };
   const rows = (body: any): Json[] => (Array.isArray(body) ? body : Array.isArray(body?.data) ? body.data : body?.data?.data ?? []);
+  // Fetches up to `wanted` rows. When the project's admin API caps the page size below that, it
+  // walks the pages instead; otherwise it sends the single request it always has.
+  const list = async (path: string, params: (paginate: number) => Record<string, string | number>, wanted: number): Promise<Json[]> => {
+    const maxPage = project.adminApiMaxPageSize;
+    if (!maxPage || wanted <= maxPage) return rows(await get(path, params(wanted)));
+    const all: Json[] = [];
+    for (let page = 1; ; page++) {
+      const body = await get(path, { ...params(maxPage), page });
+      const batch = rows(body);
+      all.push(...batch);
+      const lastPage = Number(body?.last_page ?? body?.data?.last_page ?? body?.meta?.last_page ?? page);
+      if (!batch.length || page >= lastPage || all.length >= wanted) break;
+    }
+    return all.slice(0, wanted);
+  };
 
   return {
     async listBlogs() {
-      return rows(await get("/blog", { paginate: 500 }));
+      return list("/blog", (paginate) => ({ paginate }), 500);
     },
     async listWikis() {
-      return rows(await get("/wiki", { paginate: 500 }));
+      return list("/wiki", (paginate) => ({ paginate }), 500);
     },
     async listArticles() {
-      return rows(await get("/article", { paginate: 500 }));
+      return list("/article", (paginate) => ({ paginate }), 500);
     },
     async listArticleTopics() {
       return rows(await get("/article-topic/options"));
     },
     async listBlogCategories() {
-      return rows(await get("/category", { type: "post", paginate: 200 }));
+      return list("/category", (paginate) => ({ type: "post", paginate }), 200);
     },
     async searchProducts(search: string, limit = 10) {
-      return rows(await get("/product", { status: 1, is_approved: 1, paginate: limit, ...(search ? { search } : {}) }));
+      return list("/product", (paginate) => ({ status: 1, is_approved: 1, paginate, ...(search ? { search } : {}) }), limit);
     },
     async uploadAttachment(file: Buffer, fileName: string, mimeType: string): Promise<number> {
       const form = new FormData();

@@ -94,6 +94,36 @@ select {
   background: #f2f2ee;
 }
 
+/* Project (brand) switcher: only rendered when more than one project is enabled. */
+.header:has(.project-switcher) {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+}
+
+.project-switcher {
+  align-self: start;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #4d4d48;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.project-switcher select {
+  border: 1px solid #d8d8d2;
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: #fff;
+  color: #1f1f1c;
+  font: inherit;
+  cursor: pointer;
+}
+
+.project-switcher select:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 /* WORKSPACE TABS */
 
 .dashboard-tabs {
@@ -557,6 +587,19 @@ a {
   .logout-button {
     align-self: center;
     padding: 8px 10px;
+  }
+
+  .header:has(.project-switcher) {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .project-switcher {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .project-switcher select {
+    flex: 1;
   }
 
   .tab-list {

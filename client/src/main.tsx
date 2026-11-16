@@ -1,10 +1,12 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import App from './App.tsx'
+// Installs the project header on every API request before anything else runs.
+import './project.ts'
+import { ProjectRoot } from './ProjectRoot.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <ProjectRoot />
   </StrictMode>,
 )

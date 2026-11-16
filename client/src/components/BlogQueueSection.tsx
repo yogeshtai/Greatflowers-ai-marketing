@@ -3,7 +3,7 @@ import { approveBlog, blogHeroUrl, deleteBlog, editBlog, generateBlog, getBlogSt
 
 const when = (iso?: string) => (iso ? new Date(iso).toLocaleString() : "");
 
-export function BlogQueueSection() {
+export function BlogQueueSection({ brandName }: { brandName: string }) {
   const [blogs, setBlogs] = useState<BlogDraft[]>([]);
   const [authors, setAuthors] = useState<string[]>([]);
   const [liveMode, setLiveMode] = useState(false);
@@ -198,7 +198,7 @@ export function BlogQueueSection() {
                             setEditing((current) => Object.fromEntries(Object.entries(current).filter(([key]) => key !== authorKey)));
                           })}>Save author</button>
                         </div>
-                        <div style={{ fontSize: 12, color: "#70706a" }}>SEO: {blog.metaTitle} | Great Flowers - {blog.metaDescription}</div>
+                        <div style={{ fontSize: 12, color: "#70706a" }}>SEO: {blog.metaTitle} | {brandName} - {blog.metaDescription}</div>
                       </div>
                     )}
                     <iframe title={blog.title} sandbox="" srcDoc={`<style>body{font-family:sans-serif;max-width:720px;margin:16px auto;padding:0 12px;line-height:1.6}.blog-product-embed{border:1px dashed #999;padding:10px;margin:12px 0;color:#666}.blog-product-embed:before{content:'[Product card shown on the live site]'}</style>${blog.html}`} style={{ width: "100%", height: 520, border: "1px solid #e0e0d8", borderRadius: 10, background: "white" }} />

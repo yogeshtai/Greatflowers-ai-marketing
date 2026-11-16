@@ -1,5 +1,6 @@
 import axios from "axios";
 import { API_BASE } from "../constants";
+import { withProjectQuery } from "../project";
 import type { GenerationState } from "./blogs";
 
 export interface WikiGenerationState extends GenerationState {
@@ -52,5 +53,5 @@ export const deleteWiki = (id: string) => call<{ success: true }>(axios.delete(u
 export const approveWiki = (id: string) => call<{ wiki: WikiDraft }>(axios.post(url(`/${id}/approve`)));
 export const rejectWiki = (id: string) => call<{ wiki: WikiDraft }>(axios.post(url(`/${id}/reject`)));
 export const publishWikiNow = (id: string) => call<{ wiki: WikiDraft }>(axios.post(url(`/${id}/publish-now`), {}, { timeout: 2 * 60_000 }));
-export const wikiImageUrl = (wiki: Pick<WikiDraft, "id" | "updatedAt">) => `${url(`/${wiki.id}/image`)}?v=${encodeURIComponent(wiki.updatedAt ?? "")}`;
+export const wikiImageUrl = (wiki: Pick<WikiDraft, "id" | "updatedAt">) => withProjectQuery(`${url(`/${wiki.id}/image`)}?v=${encodeURIComponent(wiki.updatedAt ?? "")}`);
 export const regenerateWikiImage = (id: string) => call<{ wiki: WikiDraft }>(axios.post(url(`/${id}/image/regenerate`), {}, { timeout: 12 * 60_000 }));

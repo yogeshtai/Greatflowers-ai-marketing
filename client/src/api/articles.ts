@@ -1,5 +1,6 @@
 import axios from "axios";
 import { API_BASE } from "../constants";
+import { withProjectQuery } from "../project";
 import type { GenerationState } from "./blogs";
 
 export interface ArticleGenerationState extends GenerationState { phase?: "article" | "image" }
@@ -25,5 +26,5 @@ export const deleteArticle = (id: string) => call<{ success: true }>(axios.delet
 export const approveArticle = (id: string) => call<{ article: ArticleDraft }>(axios.post(url(`/${id}/approve`)));
 export const rejectArticle = (id: string) => call<{ article: ArticleDraft }>(axios.post(url(`/${id}/reject`)));
 export const publishArticleNow = (id: string) => call<{ article: ArticleDraft }>(axios.post(url(`/${id}/publish-now`), {}, { timeout: 2 * 60_000 }));
-export const articleImageUrl = (article: Pick<ArticleDraft, "id" | "updatedAt">) => `${url(`/${article.id}/image`)}?v=${encodeURIComponent(article.updatedAt ?? "")}`;
+export const articleImageUrl = (article: Pick<ArticleDraft, "id" | "updatedAt">) => withProjectQuery(`${url(`/${article.id}/image`)}?v=${encodeURIComponent(article.updatedAt ?? "")}`);
 export const regenerateArticleImage = (id: string) => call<{ article: ArticleDraft }>(axios.post(url(`/${id}/image/regenerate`), {}, { timeout: 12 * 60_000 }));

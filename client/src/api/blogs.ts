@@ -1,5 +1,6 @@
 import axios from "axios";
 import { API_BASE } from "../constants";
+import { withProjectQuery } from "../project";
 
 export type BlogStatus = "draft" | "approved" | "published" | "rejected" | "failed";
 
@@ -55,5 +56,5 @@ export const deleteBlog = (id: string) => call<{ success: true }>(axios.delete(u
 export const approveBlog = (id: string) => call<{ blog: BlogDraft }>(axios.post(url(`/${id}/approve`)));
 export const rejectBlog = (id: string) => call<{ blog: BlogDraft }>(axios.post(url(`/${id}/reject`)));
 export const publishBlogNow = (id: string) => call<{ blog: BlogDraft }>(axios.post(url(`/${id}/publish-now`), {}, { timeout: 2 * 60_000 }));
-export const blogHeroUrl = (blog: Pick<BlogDraft, "id" | "updatedAt">) => `${url(`/${blog.id}/hero`)}?v=${encodeURIComponent(blog.updatedAt ?? "")}`;
+export const blogHeroUrl = (blog: Pick<BlogDraft, "id" | "updatedAt">) => withProjectQuery(`${url(`/${blog.id}/hero`)}?v=${encodeURIComponent(blog.updatedAt ?? "")}`);
 export const regenerateBlogHero = (id: string) => call<{ blog: BlogDraft }>(axios.post(url(`/${id}/hero/regenerate`), {}, { timeout: 12 * 60_000 }));

@@ -25,12 +25,28 @@ import { ArticleQueueSection } from "./components/ArticleQueueSection";
 import { HistorySection } from "./components/HistorySection";
 import { ScheduleModal } from "./components/ScheduleModal";
 import { LoginScreen } from "./components/LoginScreen";
+import { projectHeaders, projectInitials, type ProjectSummary } from "./project";
 
 type DashboardTab = "studio" | "campaigns" | "blogs" | "wikis" | "articles";
 
-function App() {
-  // Authentication state
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+interface AppProps {
+  // The brand this dashboard instance manages. ProjectRoot remounts App when it changes.
+  project: ProjectSummary;
+  projects: ProjectSummary[];
+  onProjectChange: (projectId: string) => void;
+}
+
+const readStoredAuth = () => {
+  try {
+    return sessionStorage.getItem("gf_auth") === "authenticated";
+  } catch {
+    return false;
+  }
+};
+
+function App({ project, projects, onProjectChange }: AppProps) {
+  // Authentication state (read up front so switching projects does not flash the login screen)
+  const [isAuthenticated, setIsAuthenticated] = useState(readStoredAuth);
   const [activeTab, setActiveTab] = useState<DashboardTab>("studio");
   
   // Campaign management state
@@ -133,6 +149,10 @@ function App() {
   if (!isAuthenticated) {
     return <LoginScreen onSuccess={() => setIsAuthenticated(true)} />;
   }
+
+  // A running strategy, recommendation or creative stream belongs to this project; switching
+  // projects mid-run would detach it from the screen that started it.
+  const generationBusy = loading || recommending || saving || generationAbortController !== null || storyAbortController !== null;
 
   const updateField = (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -607,6 +627,7 @@ function App() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...projectHeaders(),
         },
         body: JSON.stringify({
           productImageUrl: recommendedProduct.image,
@@ -720,7 +741,7 @@ function App() {
       setSelectedStoryCarousel(false);
       const planResponse = await fetch(`${API_BASE}/api/creatives/story/plan`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...projectHeaders() },
         body: JSON.stringify({ input: { ...form, platforms }, selectedProduct: recommendedProduct, strategy }),
         signal: abortController.signal,
       });
@@ -751,6 +772,7 @@ function App() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...projectHeaders(),
         },
         body: JSON.stringify({
           productImageUrl: recommendedProduct.image,
@@ -940,15 +962,30 @@ function App() {
   return (
     <main className="app">
       <header className="header">
-        <div className="brand-mark" aria-hidden="true">GF</div>
+        <div className="brand-mark" aria-hidden="true" style={project.isDefault ? undefined : { background: project.primaryColor }}>{projectInitials(project)}</div>
         <div className="header-copy">
-          <span className="eyebrow">GreatFlowers Marketing</span>
+          <span className="eyebrow">{project.name} Marketing</span>
           <h1>AI Marketing Studio</h1>
           <p>
             Plan campaigns, review AI recommendations, and publish daily blog
             articles and flower-wiki content from one focused workspace.
           </p>
         </div>
+        {projects.length > 1 && (
+          <label className="project-switcher">
+            <span>Project</span>
+            <select
+              value={project.id}
+              onChange={(event) => onProjectChange(event.target.value)}
+              disabled={generationBusy}
+              title={generationBusy ? "Finish or stop the running generation before switching projects" : "Choose which brand to manage"}
+            >
+              {projects.map((option) => (
+                <option key={option.id} value={option.id}>{option.displayName}</option>
+              ))}
+            </select>
+          </label>
+        )}
         <button
           onClick={handleLogout}
           className="logout-button"
@@ -1191,7 +1228,7 @@ function App() {
           disabled={recommending || loading}
         >
           {recommending
-            ? "Analyzing GreatFlowers Catalog..."
+            ? `Analyzing ${project.name} Catalog...`
             : "✨ Recommend Campaign"}
         </button>
 
@@ -1282,7 +1319,7 @@ function App() {
         role="tabpanel"
         aria-labelledby="blogs-tab"
       >
-        <BlogQueueSection />
+        <BlogQueueSection brandName={project.displayName} />
       </div>}
 
       {activeTab === "wikis" && <div

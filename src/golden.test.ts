@@ -12,7 +12,7 @@ import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
-import { renderPoster } from "./creative.poster.js";
+import { posterPhotographyBrief, renderPoster } from "./creative.poster.js";
 
 import { buildPrompt, generateMarketingStrategy, generateStoryCreativePlan, type CampaignInput } from "./hermes.js";
 import { generateCampaignRecommendation } from "./campaign.recommender.js";
@@ -360,8 +360,11 @@ test("golden: poster renders (PNG checksums)", async () => {
     const sums: Record<string, string> = {};
     for (const order of [1, 2, 3, 4]) {
       const output = path.join(directory, `${order}.png`);
-      await renderPoster(photo, logo, { order, headline: "A Beautiful Way to Say Thanks", subheadline: "A thoughtful surprise for someone special.", contentPoints: order === 3 ? ["Choose their favorite colors.", "Add a personal message.", "Make an ordinary day special."] : [] }, output);
+      const copy = { order, headline: "A Beautiful Way to Say Thanks", subheadline: "A thoughtful surprise for someone special.", contentPoints: order === 3 ? ["Choose their favorite colors.", "Add a personal message.", "Make an ordinary day special."] : [] };
+      await renderPoster(photo, logo, copy, output);
       sums[`poster-${order}`] = createHash("sha256").update(readFileSync(output)).digest("hex");
+      // The integrated-lettering brief sent to the image model (fixtures from pristine main e82823b).
+      golden(`poster.brief.${order}`, posterPhotographyBrief(gf, copy));
     }
     golden("poster.renders", sums);
   } finally {

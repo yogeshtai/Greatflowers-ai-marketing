@@ -28,6 +28,7 @@ import { generatedArticleJsonSchema } from "./article.schema.js";
 import { buildCodexPrompt, buildWebsiteCta, type CreativeBrief, type CreativeVariant } from "./codex.creative.js";
 import { buildStorySlidePrompt } from "./codex.story.js";
 import { buildCreativeTextOverlay } from "./creative.text.js";
+import { posterPhotographyBrief } from "./creative.poster.js";
 import { getCatalogProducts, type MarketingProduct } from "./catalog.products.js";
 import { getWebsiteContext } from "./website.context.js";
 import { tryAcquire } from "./ai.limits.js";
@@ -137,6 +138,9 @@ test("brand leak: no One Price Flowers prompt, overlay or payload contains Great
     outputs[`codex.${sceneStrategy}`] = buildCodexPrompt(opf, variant({ sceneStrategy }), brief(variant({ sceneStrategy })));
   }
   outputs.websiteCta = buildWebsiteCta(opf, 1024, 1024).input.toString();
+  for (const order of [1, 3, 4]) {
+    outputs[`posterBrief.${order}`] = posterPhotographyBrief(opf, { order, headline: "One Clear Price", subheadline: "Flowers for every moment.", contentPoints: order === 3 ? ["Trim stems", "Fresh water"] : [] });
+  }
   outputs.textOverlay = buildCreativeTextOverlay(opf.visual, variant({ cta: "Shop Now" }), "left").toString();
   outputs.textOverlayLight = buildCreativeTextOverlay(opf.visual, variant(), "left", 1024, 1024, "top", "light", 280).toString();
   const plan = { carouselConcept: "c", revealSlide: 3, giftingRelationship: { sender: "a", recipient: "b", relationship: "friends", reason: "r", pointOfView: "recipient" },
@@ -168,6 +172,8 @@ test("brand leak: no One Price Flowers prompt, overlay or payload contains Great
   assert.match(outputs.wikiPayload!, /Same-Day in Most Areas/);
   assert.match(outputs.heroOverlay!, /ONE PRICE FLOWERS JOURNAL/);
   assert.match(outputs.websiteCta!, /www\.onepriceflowers\.com/);
+  assert.match(outputs["posterBrief.4"]!, /website line: "www\.onepriceflowers\.com"/);
+  assert.match(outputs["posterBrief.1"]!, /deep forest green or warm white lettering/);
   assert.match(outputs.articleContract!, /"One Price Flowers"/);
   assert.match(outputs.textOverlay!, /fill="#154233"/, "CTA pill uses the One Price Flowers button colour");
 });

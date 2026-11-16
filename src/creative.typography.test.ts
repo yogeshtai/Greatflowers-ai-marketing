@@ -482,6 +482,18 @@ test("headline always starts below the logo with a clear gap", () => {
   }
 });
 
+test("headline and supporting typography keep the same proportions at generated image resolutions", async () => {
+  const creative = variant({ headline: "Flowers Say Thanks", copyLayout: "top-left-editorial" });
+  const reference = await sharp(buildCreativeTextOverlay(creative, "left", 1024, 1024)).resize(360, 360).raw().toBuffer();
+  for (const size of [1536, 2048]) {
+    const svg = buildCreativeTextOverlay(creative, "left", size, size);
+    assert.match(svg.toString(), /viewBox="0 0 1024 1024"/);
+    const preview = await sharp(svg).resize(360, 360).raw().toBuffer();
+    const meanDifference = preview.reduce((sum, value, index) => sum + Math.abs(value - reference[index]!), 0) / preview.length;
+    assert.ok(meanDifference < 3, `Typography changed at ${size}px: ${meanDifference}`);
+  }
+});
+
 test("image CTA pills are one or two words and the column never prints the URL", () => {
   assert.equal(shortCtaLabel("Shop Now"), "Shop Now");
   assert.equal(shortCtaLabel("Send Flowers"), "Send Flowers");

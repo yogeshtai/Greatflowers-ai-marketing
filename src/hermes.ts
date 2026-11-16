@@ -683,6 +683,9 @@ Treat the four variants as different editorial executions, not one template: alt
 The website URL is added programmatically only to the fourth variant. Do not design every variant as a direct-response advertisement.
 All four concepts and headlines must be unique. Use at least 3 materially different compositionStyle and sceneType values.
 ART DIRECTION QUALITY:
+Design a complete advertising composition before describing the photograph. For each concept specify the visual hierarchy in concept: the short headline as a dominant graphic shape, the bouquet's scale and silhouette, the human action if present, and a deliberate relationship between these elements. Think of a florist campaign poster rather than a room photograph with a caption.
+Use short headlines of 2-5 words wherever possible so they can occupy 3-4 large display lines. Avoid describing furniture or the location as the headline. Speak to the recipient, occasion or feeling: concrete and specific, without inventing claims.
+Every bouquet must remain prominent even in an occasion scene. A distant vase behind a dining table fails this brief. Give flowers the foreground and let the occasion live in background details.
 Make each post understandable at phone size in one glance. Prefer a concrete 3-7 word headline and one brief supporting thought; avoid abstract greeting-card slogans and repeating the headline in the subheadline.
 Plan the photograph and copy together. Use a tightly framed flower detail, an expressive candid gifting moment, a clear useful demonstration, and an occasion-specific composition where appropriate to the evidence. Do not repeat beige rooms, console tables, a person reading a card, or empty walls across the set.
 Preserve the real product's colors and flower varieties. Seek rich natural color separation, fresh petals, believable skin texture and directional daylight; avoid muddy amber filters, plastic petals, excessive blur and posed stock-photo smiles.

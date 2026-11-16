@@ -335,7 +335,9 @@ function fitHeadline(words: HeadlineWord[], usableWidth: number, mode: CreativeT
   // Creatives with numbered steps need the vertical room for the list, so their headline is smaller.
   const preferred = compact ? (mode === "modern-sans" ? 60 : 56) : mode === "modern-sans" ? 92 : 84;
   const widthFactor = mode === "modern-sans" ? 0.56 : 0.52;
-  const preferredLines = words.length <= 6 ? 2 : 3;
+  // Poster headlines need deliberate line breaks, not aggressive shrinking
+  // merely to squeeze a phrase into two lines.
+  const preferredLines = !compact && words.length <= 6 ? 3 : words.length <= 6 ? 2 : 3;
 
   for (let size = preferred; size >= 42; size -= 2) {
     const lines = wrapWords(words, Math.max(8, Math.floor(usableWidth / (size * widthFactor))));
@@ -400,6 +402,15 @@ export function buildCreativeTextOverlay(
   imageHue: number | null = null,
   backing: Pick<CreativeCopyBacking, "luminance" | "scrim"> | null = null,
 ): Buffer {
+  // Lay out in one design coordinate system. Generated images may be 1024,
+  // 1536 or 2048 pixels wide; fixed headline sizes previously became tiny
+  // relative to the photograph while margins and branding kept scaling.
+  if (width !== 1024) {
+    const designHeight = height * 1024 / width;
+    const svg = buildCreativeTextOverlay(creative, side, 1024, designHeight, vertical, tone, imageHue, backing).toString();
+    return Buffer.from(svg.replace(/^<svg[^>]*>/,
+      `<svg width="${width}" height="${height}" viewBox="0 0 1024 ${designHeight}" xmlns="http://www.w3.org/2000/svg">`));
+  }
   const typography = typographyForCreative(creative);
   const palette = textPaletteForCreative(creative, tone, imageHue, backing?.luminance ?? null);
   const isCaption = creative.copyLayout?.startsWith("lower-") && !creative.contentPoints?.length;
@@ -413,7 +424,7 @@ export function buildCreativeTextOverlay(
   const x = side === "left" ? margin : width - margin;
   const anchor = side === "left" ? "start" : "end";
   const hasSteps = (creative.contentPoints ?? []).some((point) => point.trim());
-  const fitted = fitHeadline(headlineWords(stripPrices(creative.headline)), usableWidth, typography.mode, hasSteps || !!isCaption);
+  const fitted = fitHeadline(headlineWords(stripPrices(creative.headline)), usableWidth, typography.mode, hasSteps);
   const lineHeight = Math.round(fitted.size * (typography.mode === "modern-sans" ? 0.94 : 1.02));
   // "top" starts below the logo that anchors the column (logo bottom + a clear gap + the first line's cap height).
   const logoBottom = margin + Math.round(width * CREATIVE_LOGO_WIDTH_RATIO * CREATIVE_LOGO_ASPECT);

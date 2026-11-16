@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { posterPhotographyBrief, renderPoster } from "./creative.poster.js";
 import {
   writeFile,
   mkdir,
@@ -1102,7 +1103,7 @@ export async function generateCreativeVariant(
     // variety without inventing a different sellable product.
     const generationReference = shouldUseProductReference(variant) ? productImagePath : null;
     let generatedPath = await executeCodex(
-      prompt,
+      `${prompt}\n\n${posterPhotographyBrief(variant.order)}`,
       generationReference,
       outputFilename,
       signal
@@ -1111,58 +1112,9 @@ export async function generateCreativeVariant(
 
     // Measure the area the copy will land on. A scrim is a patch over a frame that did not leave
     // room for the text, so spend one more generation trying to get a frame that does not need one.
-    const zone = await measureCopyZone(generatedPath, variant, textSide, textVertical);
-    if (zone.backing.scrim >= COPY_ZONE_RETRY_SCRIM) {
-      console.log(`🔁 ${variant.creativeType}: copy zone needs a ${zone.backing.scrim.toFixed(2)} scrim, regenerating once`);
-      const retryPath = await executeCodex(
-        `${prompt}\n\n${copyZoneCorrection(textSide, zone.tone)}`,
-        generationReference,
-        `retry-${outputFilename}`,
-        signal
-      );
-      tempFiles.add(retryPath);
-      const retryZone = await measureCopyZone(retryPath, variant, textSide, textVertical);
-      // A retry can come back worse, so keep whichever frame needs less painting over.
-      if (retryZone.backing.scrim < zone.backing.scrim) {
-        console.log(`✅ ${variant.creativeType}: retry needs ${retryZone.backing.scrim.toFixed(2)}, keeping it`);
-        generatedPath = retryPath;
-      } else {
-        console.log(`↩️  ${variant.creativeType}: retry was no better, keeping the original`);
-      }
-    }
-
-    // Step 2: Typeset exact approved copy with purpose-specific typography.
-    const textOutputPath = join(OUTPUT_DIR, `text-${outputFilename}`);
-    tempFiles.add(textOutputPath);
-    await addCreativeText(generatedPath, textOutputPath, variant, textSide, textVertical);
-
-    // Step 3: Programmatically overlay the official GreatFlowers logo
-    console.log(`🎨 Adding GreatFlowers logo to ${variant.creativeType}...`);
-    const logoOutputPath = join(OUTPUT_DIR, `logo-${outputFilename}`);
-    tempFiles.add(logoOutputPath);
-    await addOfficialLogo(
-      textOutputPath,
-      logoPath,
-      logoPosition,
-      logoOutputPath
-    );
-    console.log(`✅ Logo added to ${variant.creativeType}`);
-
-    // Step 4: Keep most feed creatives editorial. Only the final option carries
-    // the website pill; every post still receives its CTA in the caption.
-    let finalPath = logoOutputPath;
-    if (shouldShowWebsiteCta(variant)) {
-      console.log(`🔗 Adding CTA button to ${variant.creativeType}...`);
-      finalPath = join(OUTPUT_DIR, outputFilename);
-      tempFiles.add(finalPath);
-      await addCTAButton(
-        logoOutputPath,
-        "www.greatflowers.net",
-        finalPath
-      );
-      console.log(`✅ CTA button added to ${variant.creativeType}`);
-    }
-
+    const finalPath = join(OUTPUT_DIR, outputFilename);
+    tempFiles.add(finalPath);
+    await renderPoster(generatedPath, logoPath, variant, finalPath);
     // Step 5: Upload the final composed image to S3
     console.log(`📤 Uploading ${variant.creativeType} to S3...`);
     const s3Url = await uploadToS3(finalPath, outputFilename);

@@ -264,7 +264,9 @@ bylines, cron times and data folder.
 1. Copy `src/projects/onepriceflowers.ts`, fill in the brand, and add it to `PROJECTS` in
    `src/projects/index.ts`.
 2. Add its prefixed settings to `.env` (admin API user, Meta page/Instagram/token, GA4 property,
-   S3 bucket and keys) and start in safe mode (`*_AUTOGENERATE=false`, `*_PUBLISH_LIVE=false`).
+   S3 bucket and keys). New brands start in safe mode: no timed drafts until `<PREFIX>_*_AUTOGENERATE=true`,
+   and posts stay hidden until `<PREFIX>_*_PUBLISH_LIVE=true`. Check it with
+   `npm run check:project -- <id> --s3-write-test` (see DEPLOYMENT.md for the full runbook).
 3. Create its Hermes skills (`<id>-marketing-strategist`, `<id>-content-entries`) on the Hermes host.
 4. Give its cron jobs a window that does not overlap any other project.
 5. Run `npm test`: `src/projects.test.ts` checks that no other brand's name or colours leak in.

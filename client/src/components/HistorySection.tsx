@@ -1,6 +1,15 @@
 import type { SavedCampaign, CampaignStatus, ScheduleForm } from "../types";
 import { cancelCampaignSchedule } from "../api/schedule";
 
+// When the brand's Instagram account posted too recently, the scheduler moves the campaign to the
+// first allowed time and saves the reason. The note is shown only while the schedule is still the
+// one the scheduler picked, so a later manual reschedule hides it.
+function movedForInstagramGap(campaign: SavedCampaign): boolean {
+  const match = campaign.publishError?.match(/^Instagram posted recently; retry after (\S+) to avoid/);
+  if (!match || !campaign.scheduledAt) return false;
+  return new Date(match[1]).getTime() === new Date(campaign.scheduledAt).getTime();
+}
+
 export function HistorySection({
   campaigns,
   historyLoading,
@@ -107,6 +116,15 @@ export function HistorySection({
                           campaign.scheduledAt
                         ).toLocaleString()}
                       </div>
+
+                      {movedForInstagramGap(campaign) && (
+                        <div className="schedule-note" role="note">
+                          <strong>Moved automatically.</strong> The Instagram account
+                          already had a recent post, and posts are kept apart so they
+                          don't compete. Facebook and Instagram will both publish at
+                          the time above.
+                        </div>
+                      )}
 
                       <div>
                         Platforms:{" "}

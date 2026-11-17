@@ -1210,6 +1210,17 @@ a {
   color: #666;
 }
 
+/* Why the scheduler moved a campaign (for example the Instagram posting gap). */
+.schedule-note {
+  margin: 6px 0;
+  padding: 8px 11px;
+  border: 1px solid #f0dcae;
+  border-radius: 9px;
+  background: #fff8e8;
+  color: #6f5316;
+  line-height: 1.5;
+}
+
 .schedule-error {
   margin-top: 8px;
   color: #a33636;

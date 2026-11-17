@@ -77,51 +77,130 @@ select {
   line-height: 1.5;
 }
 
-.logout-button {
+/* Right side of the header: brand switcher and Logout, one row of equal-height controls. */
+.header-actions {
   align-self: start;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logout-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 46px;
   border: 1px solid #d8d8d2;
-  border-radius: 10px;
-  padding: 9px 14px;
+  border-radius: 12px;
+  padding: 0 16px;
   background: #fff;
   color: #4d4d48;
   font-size: 13px;
   font-weight: 650;
-  transition: border-color 0.2s ease, background 0.2s ease;
+  white-space: nowrap;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
 .logout-button:hover {
   border-color: #999990;
   background: #f2f2ee;
+  color: #20201e;
+}
+
+.logout-button:focus-visible {
+  outline: none;
+  border-color: #55554f;
+  box-shadow: 0 0 0 3px rgba(32, 32, 30, 0.08);
 }
 
 /* Project (brand) switcher: only rendered when more than one project is enabled. */
-.header:has(.project-switcher) {
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-}
-
 .project-switcher {
-  align-self: start;
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: #4d4d48;
-  font-size: 13px;
-  font-weight: 650;
+  gap: 10px;
+  height: 46px;
+  min-width: 200px;
+  padding: 0 14px 0 13px;
+  border: 1px solid #d8d8d2;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(32, 32, 30, 0.04);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.project-switcher:hover {
+  border-color: #999990;
+}
+
+.project-switcher:focus-within {
+  border-color: #55554f;
+  box-shadow: 0 0 0 3px rgba(32, 32, 30, 0.08);
+}
+
+.project-switcher-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(32, 32, 30, 0.07);
+}
+
+.project-switcher-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.project-switcher-caption {
+  color: #8a8a84;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.project-switcher-value {
+  overflow: hidden;
+  color: #20201e;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.project-switcher-chevron {
+  flex: none;
+  color: #55554f;
 }
 
 .project-switcher select {
-  border: 1px solid #d8d8d2;
-  border-radius: 10px;
-  padding: 8px 12px;
-  background: #fff;
-  color: #1f1f1c;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  opacity: 0;
   font: inherit;
   cursor: pointer;
 }
 
-.project-switcher select:disabled {
-  cursor: not-allowed;
+.project-switcher:has(select:disabled) {
   opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Lets the card's tooltip explain why switching is paused. */
+.project-switcher select:disabled {
+  pointer-events: none;
 }
 
 /* WORKSPACE TABS */
@@ -583,6 +662,12 @@ a {
     letter-spacing: -1px;
   }
 
+  /* With a brand switcher, the controls take their own row under the title. */
+  .header-actions:has(.project-switcher) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
   .dashboard-tabs {
     top: 8px;
   }
@@ -618,22 +703,22 @@ a {
     display: none;
   }
 
-  .logout-button {
+  .header-actions {
     align-self: center;
-    padding: 8px 10px;
   }
 
-  .header:has(.project-switcher) {
-    grid-template-columns: auto minmax(0, 1fr) auto;
+  .logout-button {
+    height: 40px;
+    padding: 0 12px;
+  }
+
+  .header-actions:has(.project-switcher) .logout-button {
+    height: 46px;
   }
 
   .project-switcher {
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
-
-  .project-switcher select {
     flex: 1;
+    min-width: 0;
   }
 
   .tab-list {

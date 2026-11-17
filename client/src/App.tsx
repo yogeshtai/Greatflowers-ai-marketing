@@ -971,27 +971,47 @@ function App({ project, projects, onProjectChange }: AppProps) {
             articles and flower-wiki content from one focused workspace.
           </p>
         </div>
-        {projects.length > 1 && (
-          <label className="project-switcher">
-            <span>Project</span>
-            <select
-              value={project.id}
-              onChange={(event) => onProjectChange(event.target.value)}
-              disabled={generationBusy}
+        <div className="header-actions">
+          {projects.length > 1 && (
+            // The native select is stretched invisibly over the card, so the whole card opens it
+            // and keyboard and screen-reader behaviour stay native.
+            <div
+              className="project-switcher"
               title={generationBusy ? "Finish or stop the running generation before switching projects" : "Choose which brand to manage"}
             >
-              {projects.map((option) => (
-                <option key={option.id} value={option.id}>{option.displayName}</option>
-              ))}
-            </select>
-          </label>
-        )}
-        <button
-          onClick={handleLogout}
-          className="logout-button"
-        >
-          Logout
-        </button>
+              <span className="project-switcher-dot" style={{ background: project.primaryColor }} aria-hidden="true" />
+              <span className="project-switcher-text" aria-hidden="true">
+                <span className="project-switcher-caption">Project</span>
+                <span className="project-switcher-value">{project.displayName}</span>
+              </span>
+              <svg className="project-switcher-chevron" width="12" height="8" viewBox="0 0 12 8" fill="none" aria-hidden="true">
+                <path d="M1 1.5l5 5 5-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <select
+                aria-label="Project"
+                value={project.id}
+                onChange={(event) => onProjectChange(event.target.value)}
+                disabled={generationBusy}
+              >
+                {projects.map((option) => (
+                  <option key={option.id} value={option.id}>{option.displayName}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="logout-button"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <path d="M16 17l5-5-5-5" />
+              <path d="M21 12H9" />
+            </svg>
+            Logout
+          </button>
+        </div>
       </header>
 
       <nav className="dashboard-tabs" aria-label="Marketing workspace">

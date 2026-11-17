@@ -60,11 +60,15 @@ cp .env.example .env
 ```
 
 Fill in your credentials:
-- `GA4_PROPERTY_ID`: Your Google Analytics 4 property ID
-- `META_ACCESS_TOKEN`: Your Meta (Facebook) access token
-- `META_AD_ACCOUNT_ID`: Your Meta ad account ID
+- `GA4_PROPERTY_ID` and `GOOGLE_APPLICATION_CREDENTIALS`: Your Google Analytics 4 property ID and service-account file
+- `META_PAGE_ID`, `META_INSTAGRAM_ACCOUNT_ID`, `META_PAGE_ACCESS_TOKEN`: Your Facebook page, its Instagram business account and a Page access token
+- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_S3_BUCKET`: S3 storage for campaign images
+- `GF_ADMIN_API_URL`, `GF_ADMIN_EMAIL`, `GF_ADMIN_PASSWORD`: The storefront admin API used to publish blogs, wiki entries and articles
 - `HERMES_API_KEY`: Your Hermes AI API key
 - `PORT`: Backend server port (default: 3000)
+
+`.env.example` lists every setting with its default, including the optional ones and the
+settings for additional brands.
 
 ### 4. Google Analytics Setup
 

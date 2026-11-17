@@ -50,8 +50,22 @@ export const onepriceflowers: ProjectConfig = {
     businessDescription: "a US online florist where each bouquet size has one clear price that already includes standard delivery and applicable tax, with same-day delivery in many areas",
     featureExamples: "Build Your Own Bouquet, same-day delivery in eligible areas, one clear price with no additional charges for standard delivery or tax",
     promptAddendum: PRICING_RULES,
-    authors: ["One Price Flowers"],
-    defaultAuthor: "One Price Flowers",
+    // Bylines already used on onepriceflowers.com wiki entries and articles (checked 2026-11-17). The
+    // first is the stable byline for new content; the writers share their names with GreatFlowers'
+    // storefront. "One Price Flowers" stays valid for the drafts written before this list existed.
+    authors: [
+      "One Price Flowers Editorial Team",
+      "Mason Thomas",
+      "Olivia Bennett",
+      "Ethan Parker",
+      "Grace Mitchell",
+      "Noah Carter",
+      "Ava Reynolds",
+      "Lucas Hayes",
+      "Chloe Morgan",
+      "One Price Flowers",
+    ],
+    defaultAuthor: "One Price Flowers Editorial Team",
     journalLabel: "ONE PRICE FLOWERS JOURNAL",
     // The storefront's own wording; same-day delivery depends on the ZIP and cutoff.
     productCardBadge: "Same-Day in Most Areas",

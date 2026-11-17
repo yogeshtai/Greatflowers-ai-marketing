@@ -130,9 +130,9 @@ test("brand leak: no One Price Flowers prompt, overlay or payload contains Great
   outputs.wikiPrompt = buildWikiPrompt(opf, WIKI_SUBJECTS[0]!, catalog, []);
   outputs.wikiLinks = resolveWikiLinks(opf, '<a href="PRODUCT:7">x</a><a href="HOME">y</a>', catalog, storefrontBase(opf));
   outputs.wikiImage = buildWikiImagePrompt(opf, { title: "Roses", botanicalName: "Rosa", imageConcept: "A rose." });
-  const draft = { id: "1", title: "Roses", slug: "roses", botanicalName: "Rosa", authorName: "One Price Flowers", description: "d", metaTitle: "m", metaDescription: "m", productIds: [7], heroProductId: 7, imageConcept: "c", html: "<p>Roses</p>", status: "approved", createdAt: "", updatedAt: "", attempts: 0, environment: "x" } as unknown as WikiDraft;
+  const draft = { id: "1", title: "Roses", slug: "roses", botanicalName: "Rosa", authorName: "One Price Flowers Editorial Team", description: "d", metaTitle: "m", metaDescription: "m", productIds: [7], heroProductId: 7, imageConcept: "c", html: "<p>Roses</p>", status: "approved", createdAt: "", updatedAt: "", attempts: 0, environment: "x" } as unknown as WikiDraft;
   outputs.wikiPayload = JSON.stringify(buildWikiPublishPayload(opf, draft, 1, 1, [catalog[0]!]));
-  outputs.articlePrompt = buildArticlePrompt({ project: opf, topic: "Flower Care", direction: "routines", format: "HOW_TO", authorName: "One Price Flowers", existingTitles: [], products: catalog, related: [] });
+  outputs.articlePrompt = buildArticlePrompt({ project: opf, topic: "Flower Care", direction: "routines", format: "HOW_TO", authorName: "One Price Flowers Editorial Team", existingTitles: [], products: catalog, related: [] });
   outputs.articleLinks = resolveArticleLinks(opf, '<a href="PRODUCT:7">x</a><a href="ARTICLE:care">y</a><a href="HOME">z</a>', catalog, new Set(["care"]), storefrontBase(opf));
   outputs.articleImage = buildArticleImagePrompt(opf, { title: "Care", topic: "Flower Care", imageConcept: "A vase." });
   outputs.articleContract = JSON.stringify(generatedArticleJsonSchema(opf));
@@ -177,7 +177,7 @@ test("brand leak: no One Price Flowers prompt, overlay or payload contains Great
   assert.match(outputs["posterBrief.4"]!, /website line: "www\.onepriceflowers\.com"/);
   assert.match(outputs["posterBrief.1"]!, /deep forest green or warm white lettering/);
   assert.match(outputs["codex.BRAND_STORY"]!, /The wordmark is a solid dark forest green that only reads/);
-  assert.match(outputs.articleContract!, /"One Price Flowers"/);
+  assert.match(outputs.articleContract!, /"One Price Flowers Editorial Team"/);
   assert.match(outputs.textOverlay!, /fill="#154233"/, "CTA pill uses the One Price Flowers button colour");
 });
 

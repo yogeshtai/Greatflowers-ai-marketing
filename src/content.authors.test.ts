@@ -25,10 +25,14 @@ test("blog edits accept only an approved author", () => {
   assert.throws(() => blogEditSchema(greatflowers).parse({ authorName: "Unknown Writer" }));
 });
 
-test("each project has its own byline and never accepts another brand's authors", () => {
-  assert.equal(selectContentAuthor(onepriceflowers, ["Great Flowers Editorial Team"]), "One Price Flowers");
+test("each project has its own editorial byline and never accepts the other brand's", () => {
+  assert.equal(selectContentAuthor(onepriceflowers, ["Great Flowers Editorial Team"]), "One Price Flowers Editorial Team");
   assert.equal(isContentAuthor(onepriceflowers, "Great Flowers Editorial Team"), false);
+  assert.equal(isContentAuthor(greatflowers, "One Price Flowers Editorial Team"), false);
   assert.equal(isContentAuthor(greatflowers, "One Price Flowers"), false);
-  assert.throws(() => blogEditSchema(onepriceflowers).parse({ authorName: "Mason Thomas" }));
+  assert.throws(() => blogEditSchema(onepriceflowers).parse({ authorName: "Great Flowers Editorial Team" }));
+  // Both storefronts publish under the same writer names.
+  assert.equal(blogEditSchema(onepriceflowers).parse({ authorName: "Mason Thomas" }).authorName, "Mason Thomas");
+  // Drafts written with the earlier byline can still be edited.
   assert.equal(blogEditSchema(onepriceflowers).parse({ authorName: "One Price Flowers" }).authorName, "One Price Flowers");
 });

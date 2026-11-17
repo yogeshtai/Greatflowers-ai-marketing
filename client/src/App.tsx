@@ -1103,11 +1103,15 @@ function App({ project, projects, onProjectChange }: AppProps) {
             Product / Feature
             <select value={productChoice} onChange={handleProductSelect}>
               <option value="custom">Type a custom product...</option>
-              {catalogProducts.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.name}{product.price ? ` — $${product.price}` : ""}
-                </option>
-              ))}
+              {catalogProducts.length > 0 && (
+                <optgroup label={`${project.name} catalog (${catalogProducts.length} products)`}>
+                  {catalogProducts.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.name}{product.price ? ` — $${product.price}` : ""}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </label>
 

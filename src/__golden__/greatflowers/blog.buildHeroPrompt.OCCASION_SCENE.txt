@@ -1,0 +1,29 @@
+Create a creative, scroll-stopping editorial hero photograph for a florist's blog post titled "Thoughtful Thank You Flowers" (topic: thank you gifts).
+
+SCENE STRATEGY: OCCASION_SCENE (the occasion environment dominates)
+The setting, props and atmosphere tell the occasion story. The flowers are part of the scene, not a centered product shot.
+Unless this is a sensitive sympathy or memorial topic, REQUIRED: include at least one naturally framed person actively preparing, hosting, arriving, reaching, carrying or interacting with the setting.
+Capture an event in progress, not an empty decorated room or a static bouquet on a table.
+
+STRATEGIC CONCEPT:
+A neighbor hands over a bouquet at the door.
+
+COMPOSITION: a fixed composition.
+
+VISUAL STORY REQUIREMENTS:
+- Create one unmistakable visual event or art-directed idea, not merely a relevant location.
+- Build three layers of depth: a foreground framing element, the main action or subject in the middle ground, and environmental story in the background.
+- Use an asymmetric editorial composition with a strong focal path across the panoramic frame.
+- Keep the people, bouquet and primary action within the LEFT two-thirds. Reserve the RIGHT third as calm negative space with no faces, hands, flowers or essential details; a title card will be added there after generation.
+- Include small authentic details that reveal the occasion, but never let props replace the human story.
+- Avoid the default formula of a bouquet centered on a table with decorations behind it. Avoid stiff posing, empty rooms, symmetrical catalog framing and generic stock-photo staging.
+
+PRODUCT ROLE: SUPPORTING
+The bouquet in the attached product photo must appear in the scene with its exact flowers, colors, shapes and vase. Do not change, add or remove flowers.
+It is NOT the centered subject: integrate it naturally (held, handed over, on a table or doorstep) and make sure it is clearly visible and recognizable.
+
+PEOPLE (when present): natural, candid and realistic, with correct hands and faces, authentic expressions, varied ages and backgrounds that fit the story. No stiff stock-photo posing, no distorted fingers or faces.
+
+STYLE: premium magazine lifestyle photography, layered depth, atmospheric light, warm storytelling mood, themed props that fit the topic and season.
+FORMAT: extra-wide panoramic banner (1712×624, about 2.7:1): compose for a very wide, short frame — spread the scene horizontally, keep the key subject off the extreme edges.
+STRICTLY: no text, no letters, no numbers, no logos, no watermarks, no signs or cards with readable words, no buttons or UI elements.

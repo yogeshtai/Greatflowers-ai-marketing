@@ -10,6 +10,7 @@ import {
 import { hermesDispatcher, hermesSignal } from "./ai.limits.js";
 import { parseModelJSON } from "./model.json.js";
 import { ART_DIRECTIONS, artDirectionPreferences, SCENE_ENVIRONMENTS, LIGHTING_SETUPS } from "./creative.direction.js";
+import { promptAddendum, type ProjectConfig } from "./projects/index.js";
 
 export interface CampaignInput {
   campaignGoal: string;
@@ -25,18 +26,18 @@ export interface CampaignInput {
   additionalContext?: string | undefined;
 }
 
-const STORY_FIRST_RULES = `STORY-FIRST RULES (override generic product/advertising guidance for story slides only):
+const storyFirstRules = (project: ProjectConfig) => `STORY-FIRST RULES (override generic product/advertising guidance for story slides only):
 Set creativeBrief.revealSlide to 2, 3, or 4: the intentional first commercial solution reveal.
 Choose the timing for this campaign; prefer meaningful buildup (often 3 or 4 for gifting),
 without imposing a fixed sequence of narrative roles. First establish a human situation,
 emotion, desire, need, question, tension or occasion. The solution must answer that setup.
 Before revealSlide, every slide MUST have productRole "none", brandRole "none", cta "".
-No selected product, flowers as a commercial solution, product names, GreatFlowers, logo,
+No selected product, flowers as a commercial solution, product names, ${project.brand.name}, logo,
 website, ecommerce/browser screenshots, sales language, Buy/Shop/Send-this-bouquet CTAs,
 or premature visual solution cues. Headlines/subheadlines must read as storytelling.
-At revealSlide naturally introduce flowers, the selected product, GreatFlowers, or a verified
+At revealSlide naturally introduce flowers, the selected product, ${project.brand.name}, or a verified
 feature. Later slides show consequences and emotional payoff, not repeated product ads.
-The final slide MUST use brandRole "reveal" and cta "Shop flowers — https://greatflowers.net", with an emotional resolution. The deterministic official GreatFlowers logo will be composited at the top-right corner; keep the top corners clear of text, faces and important details. The CTA and URL stay in the post caption/metadata, never inside the image; do not ask AI to recreate the logo.
+The final slide MUST use brandRole "reveal" and cta "Shop flowers — ${project.storefront.defaultBaseUrl}", with an emotional resolution. The deterministic official ${project.brand.name} logo will be composited at the top-right corner; keep the top corners clear of text, faces and important details. The CTA and URL stay in the post caption/metadata, never inside the image; do not ask AI to recreate the logo.
 For EVERY slide add brandRole ("none", "subtle", "reveal"), sceneChange (what is visually
 new versus the previous shot; for slide 1 define the opening), and cameraDirection
 (the framing/composition for this beat). Hermes decides these roles per slide.
@@ -107,7 +108,8 @@ CLEAR alternative:
 - Headline: "For the person who made your work better."
 - Subheadline: "Thank the mentor or teammate whose thoughtful feedback made a difference."`;
 
-export function buildPrompt(input: CampaignInput): string {
+export function buildPrompt(project: ProjectConfig, input: CampaignInput): string {
+  const brand = project.brand.name;
   return `
 Campaign Goal: ${input.campaignGoal}
 
@@ -123,7 +125,7 @@ Visual Treatment: ${input.visualTreatment || "Choose a suitable treatment"}
 CONTENT MIX RULES:
 Preserve the supplied theme, creative scenario and goal in captions, headlines, CTAs and the
 creative brief. Use the supplied visual treatment as the primary art-direction anchor while the
-other variants explore complementary treatments. Promote GreatFlowers naturally in every theme.
+other variants explore complementary treatments. Promote ${brand} naturally in every theme.
 For home-styling, flower-care, product-spotlight, seasonal-inspiration and conversation-starter,
 use independent creativeMode, without forcing a sender/recipient or gifting narrative.
 Use save/share/comment CTAs for engagement and discovery CTAs for awareness/consideration,
@@ -185,7 +187,7 @@ ${CREATIVE_COPY_CLARITY_RULES}
 
 FACT VS HYPOTHESIS RULE:
 
-If a marketing statement is not supported by verified GreatFlowers data,
+If a marketing statement is not supported by verified ${brand} data,
 treat it as a hypothesis or recommendation.
 
 Do not present assumptions about customer behavior,
@@ -195,7 +197,7 @@ Put important hypotheses inside the "assumptions" array.
 
 VERIFIED PRODUCT DATA RULE:
 
-When live GreatFlowers product information is provided
+When live ${brand} product information is provided
 inside Additional Context, treat those supplied product fields
 as verified.
 
@@ -477,8 +479,8 @@ Independent is appropriate when:
 The creativeBrief is for a future AI visual-generation system that will create social media campaign images.
 
 The future system will use:
-- the REAL GreatFlowers product image from the catalog
-- the official GreatFlowers logo (https://greatflowers.net/assets/svg/greatflowers-logo.svg)
+- the REAL ${brand} product image from the catalog
+- the official ${brand} logo (${project.visual.logoUrl})
 - your creative brief instructions
 
 to generate finished campaign creatives.
@@ -510,7 +512,7 @@ productTreatment field:
 Must explicitly state to preserve the real product.
 
 Example wording:
-"Use the real GreatFlowers product image as the hero product. Preserve the bouquet, flower colors, arrangement, container and important product details faithfully. Do not redesign the product."
+"Use the real ${brand} product image as the hero product. Preserve the bouquet, flower colors, arrangement, container and important product details faithfully. Do not redesign the product."
 
 You may adapt slightly based on the product, but the meaning must remain.
 
@@ -585,7 +587,7 @@ Do NOT tell the generator to replace or redesign the bouquet.
 
 logoPlacement:
 
-Simple design instruction for the GreatFlowers logo.
+Simple design instruction for the ${brand} logo.
 The logo MUST always be placed in a top corner: "top-left" or "top-right" only.
 Never place the logo at the bottom, center or middle of the image.
 
@@ -694,7 +696,7 @@ Save/share/comment actions belong in captions. Prefer a modest invitation over u
 
 FOR STORY-CAROUSEL MODE:
 
-${STORY_FIRST_RULES}
+${storyFirstRules(project)}
 
 Each of the 4 slides must include:
 
@@ -744,7 +746,7 @@ The story must have PROGRESSION, not repetition.
 Available creative types:
 
 1. creativeType: "product"
-   Product-focused creative showcasing the specific GreatFlowers product.
+   Product-focused creative showcasing the specific ${brand} product.
    productRole: typically "hero"
    Use when: Product is central to the campaign goal.
 
@@ -767,10 +769,10 @@ Available creative types:
    CRITICAL: Do NOT invent locations. Only use verified delivery areas from Additional Context.
 
 5. creativeType: "feature"
-   Feature-focused creative promoting specific GreatFlowers services (e.g. Build Your Bouquet, same-day delivery, subscription).
+   Feature-focused creative promoting specific ${brand} services (e.g. ${project.brand.featureExamples}).
    productRole: "supporting", "optional", or "none"
    Use when: A specific verified feature is the campaign focus.
-   CRITICAL: Only promote features explicitly mentioned in Additional Context or verified GreatFlowers data.
+   CRITICAL: Only promote features explicitly mentioned in Additional Context or verified ${brand} data.
 
 6. creativeType: "informational"
    Educational/content creative providing value (flower care tips, occasion guides, calendar content).
@@ -779,7 +781,7 @@ Available creative types:
    Use when: Building brand authority or providing helpful content is the goal.
 
 7. creativeType: "brand-awareness"
-   Brand-focused creative highlighting GreatFlowers' values, quality, or service promise.
+   Brand-focused creative highlighting ${brand}' values, quality, or service promise.
    productRole: "optional" or "none"
    Use when: Building brand recognition or trust is the primary objective.
 
@@ -990,7 +992,7 @@ Examples:
 
 productRole field:
 
-Describes how the actual GreatFlowers product participates in this creative:
+Describes how the actual ${brand} product participates in this creative:
 
 - "hero": Product is the main visual focus
 - "supporting": Product is visible but not the primary focus
@@ -1058,10 +1060,10 @@ URL RULES:
 All URL fields must contain ONLY the raw URL.
 
 Correct:
-"https://greatflowers.net/build-your-bouquet/"
+"${project.storefront.defaultBaseUrl}/build-your-bouquet/"
 
 Incorrect:
-"[https://greatflowers.net/build-your-bouquet/](https://greatflowers.net/build-your-bouquet/)"
+"[${project.storefront.defaultBaseUrl}/build-your-bouquet/](${project.storefront.defaultBaseUrl}/build-your-bouquet/)"
 
 Never use Markdown link syntax anywhere in the JSON.
 
@@ -1076,7 +1078,7 @@ Hashtag requirements:
 - Do NOT include the "#" symbol in the strings (the backend adds it)
 - Each hashtag must be a single word or compound word with no spaces
 - Prefer focused occasion, flower, recipient, product and local-delivery tags over generic tags
-- Always include "GreatFlowers" as one of the hashtags
+- Always include "${project.brand.hashtag}" as one of the hashtags
 - Include only directly relevant occasion, product-type, and audience tags
 - No duplicate hashtags
 
@@ -1136,7 +1138,7 @@ Your final response MUST start with {
 and MUST end with }
 
 Return the complete JSON object directly.
-`.trim();
+${promptAddendum(project)}`.trim();
 }
 
 function extractJSON(output: string): string {
@@ -1170,6 +1172,7 @@ function normalizeUrl(value?: string): string | undefined {
 }
 
 function normalizeHashtags(
+  project: ProjectConfig,
   hashtags: unknown
 ): string[] {
   if (!Array.isArray(hashtags)) {
@@ -1204,8 +1207,10 @@ function normalizeHashtags(
     normalized.push(tag);
   }
 
-  const withoutBrand = normalized.filter((tag) => tag.toLowerCase() !== "greatflowers");
-  return ["GreatFlowers", ...withoutBrand].slice(0, 10);
+  // Every post carries the brand hashtag first, exactly once.
+  const brandTag = project.brand.hashtag;
+  const withoutBrand = normalized.filter((tag) => tag.toLowerCase() !== brandTag.toLowerCase());
+  return [brandTag, ...withoutBrand].slice(0, 10);
 }
 
 function normalizeInstagramCaption(value: unknown): unknown {
@@ -1217,7 +1222,7 @@ function normalizeInstagramCaption(value: unknown): unknown {
     .trim();
 }
 
-function normalizeStrategyUrls(data: any) {
+function normalizeStrategyUrls(project: ProjectConfig, data: any) {
   if (data?.cta?.destinationUrl) {
     data.cta.destinationUrl = normalizeUrl(
       data.cta.destinationUrl
@@ -1234,6 +1239,7 @@ function normalizeStrategyUrls(data: any) {
   if (data?.platformContent?.instagram?.hashtags) {
     data.platformContent.instagram.hashtags =
       normalizeHashtags(
+        project,
         data.platformContent.instagram.hashtags
       );
   }
@@ -1252,18 +1258,30 @@ function normalizeStrategyUrls(data: any) {
   return data;
 }
 
+// Schema validation messages are sent back to Hermes in the repair request. A few of them name
+// GreatFlowers, so other brands see their own name instead; GreatFlowers' messages are unchanged.
+function parseStrategy(project: ProjectConfig, value: unknown): MarketingStrategy {
+  try {
+    return marketingStrategySchema.parse(value);
+  } catch (error) {
+    if (project.isDefault || !(error instanceof z.ZodError)) throw error;
+    throw new z.ZodError(error.issues.map((issue) => ({ ...issue, message: issue.message.replaceAll("GreatFlowers", project.brand.name) })));
+  }
+}
+
 export async function generateMarketingStrategy(
+  project: ProjectConfig,
   input: CampaignInput,
   signal?: AbortSignal
 ): Promise<MarketingStrategy> {
-  return requestHermesJSON(`Use the greatflowers-marketing-strategist skill.\n\n${buildPrompt(input)}`, (output) => {
+  return requestHermesJSON(`Use the ${project.brand.hermesSkill} skill.\n\n${buildPrompt(project, input)}`, (output) => {
     const jsonText = extractJSON(output);
     const parsedJSON = parseModelJSON(jsonText);
 
     const normalizedJSON =
-      normalizeStrategyUrls(parsedJSON);
+      normalizeStrategyUrls(project, parsedJSON);
 
-    const strategy = marketingStrategySchema.parse(normalizedJSON);
+    const strategy = parseStrategy(project, normalizedJSON);
     if (input.contentTheme && input.contentTheme !== "gifting-story" && strategy.creativeBrief?.creativeMode === "story-carousel") {
       throw new Error("Non-gifting content must preserve its theme using independent creatives");
     }
@@ -1327,12 +1345,13 @@ async function requestHermes(prompt: string, signal?: AbortSignal): Promise<stri
 }
 
 export async function generateStoryCreativePlan(
+  project: ProjectConfig,
   input: CampaignInput,
   selectedProduct: unknown,
   strategy: Record<string, unknown>
 ): Promise<StoryCreativePlan> {
   const output = await requestHermes(`
-Use the greatflowers-marketing-strategist skill.
+Use the ${project.brand.hermesSkill} skill.
 Create ONLY a dedicated four-slide StoryCreativePlan for the supplied campaign.
 The user explicitly selected Story Creatives. Always produce the connected story,
 regardless of the original creativeMode. Do not regenerate the campaign strategy,
@@ -1340,12 +1359,12 @@ change the selected product, or create independent advertisements.
 Campaign: ${JSON.stringify(input)}
 Selected catalog product: ${JSON.stringify(selectedProduct)}
 Existing strategy (context only): ${JSON.stringify(strategy)}
-${STORY_FIRST_RULES}
+${storyFirstRules(project)}
 For this standalone output put revealSlide and carouselConcept at the ROOT and use
 slides (not creativeBrief or variants). Include a visualContinuity plan identifying
 recurring characters and consistent style, while each shot advances the story.
 Use only supplied product facts and verified campaign context. Do not invent prices,
-discounts, delivery guarantees, reviews or service claims. Keep hypotheses out of factual copy.
+discounts, delivery guarantees, reviews or service claims. Keep hypotheses out of factual copy.${promptAddendum(project)}
 Return ONLY JSON conforming to this schema, with no markdown or explanation:
 ${JSON.stringify(storyCreativePlanSchema.toJSONSchema())}
 `);

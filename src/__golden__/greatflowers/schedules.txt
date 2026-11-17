@@ -1,0 +1,9 @@
+{
+  "WIKI_DRAFT_CRON": "0 19 * * 2,4,6",
+  "WIKI_RECOVERY_CRONS": [
+    "30 19 * * 2,4,6",
+    "0,30 20-23 * * 2,4,6"
+  ],
+  "ARTICLE_DRAFT_CRON": "30 18 * * 0",
+  "ARTICLE_RECOVERY_CRON": "0,30 19-23 * * 0"
+}

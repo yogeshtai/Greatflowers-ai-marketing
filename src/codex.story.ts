@@ -13,7 +13,8 @@ import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { storyCreativePlanSchema, type StoryCreativePlan, type StoryCreativeSlide as StorySlide } from "./strategy.schema.js";
 import sharp from "sharp";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import type { ProjectConfig } from "./projects/index.js";
+import { uploadProjectImage } from "./projects/storage.js";
 import { CODEX_SPAWN_OPTIONS, codexLimitArgs, guardCodexProcess } from "./ai.limits.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -51,17 +52,6 @@ async function getCodexGeneratedImages(): Promise<string[]> {
   return images;
 }
 
-const REGION = process.env.AWS_REGION!;
-const BUCKET = process.env.AWS_S3_BUCKET!;
-const PREFIX = process.env.AWS_S3_CREATIVE_PREFIX || "campaign";
-
-const s3 = new S3Client({
-  region: REGION,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  },
-});
 
 interface CreativeBrief {
   headline: string;
@@ -127,21 +117,10 @@ async function downloadAsset(url: string, tempPath: string): Promise<void> {
   await writeFile(tempPath, Buffer.from(buffer));
 }
 
-async function uploadToS3(localPath: string): Promise<string> {
+async function uploadToS3(project: ProjectConfig, localPath: string): Promise<string> {
   const buffer = await readFile(localPath);
   const filename = `${randomUUID()}.png`;
-  const key = `${PREFIX}/${filename}`;
-
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: BUCKET,
-      Key: key,
-      Body: buffer,
-      ContentType: "image/png",
-    })
-  );
-
-  return `https://${BUCKET}.s3.${REGION}.amazonaws.com/${key}`;
+  return uploadProjectImage(project, "creative", filename, buffer, "image/png");
 }
 
 async function compositeLogoOnImage(
@@ -298,11 +277,13 @@ async function compositeTextOnImage(
 }
 
 export function buildStorySlidePrompt(
+  project: ProjectConfig,
   slide: StorySlide,
   creativeBrief: CreativeBrief,
   storyPlan: StoryCreativePlan,
   previousSlides: GeneratedSlide[]
 ): string {
+  const brand = project.brand.name;
   const preReveal = slide.order < storyPlan.revealSlide;
   const isReveal = slide.order === storyPlan.revealSlide;
   const isFinal = slide.order === 4;
@@ -405,7 +386,7 @@ Show the practical value in action.`;
     case "BRAND_STORY":
       sceneStrategyInstructions = `SCENE STRATEGY: BRAND_STORY
 Communicate broader brand values and identity.
-Focus on the overall GreatFlowers experience.
+Focus on the overall ${brand} experience.
 The specific product may be less prominent.`;
       break;
   }
@@ -474,7 +455,7 @@ Preserve story/character/style continuity, but DO NOT reproduce the previous sli
 This is a new shot and a new story moment.
 Use previous images ONLY for continuity of character/style/environment where requested.
 Do NOT copy their composition, pose, product placement, camera angle, scene arrangement, text or branding.
-${preReveal ? "PRE-REVEAL: Pure storytelling. No flowers, selected product, product names, GreatFlowers, logos, website, CTA, sales language or ecommerce/browser screenshots." : "Introduce the solution as the answer to the setup; after reveal emphasize its emotional consequence."}
+${preReveal ? `PRE-REVEAL: Pure storytelling. No flowers, selected product, product names, ${brand}, logos, website, CTA, sales language or ecommerce/browser screenshots.` : "Introduce the solution as the answer to the setup; after reveal emphasize its emotional consequence."}
 
 This slide must visibly advance the narrative from previous slides.
 Each slide should show a DIFFERENT moment, action, or development in the story.
@@ -645,6 +626,7 @@ export function storyReferencePolicy(slide: StorySlide, previousSlides: Generate
 }
 
 async function generateStorySlide(
+  project: ProjectConfig,
   slide: StorySlide,
   creativeBrief: CreativeBrief,
   storyPlan: StoryCreativePlan,
@@ -661,7 +643,7 @@ async function generateStorySlide(
   try {
     onProgress?.(`[Slide ${slide.order}] Generating ${slide.storyRole}...`);
 
-    const prompt = buildStorySlidePrompt(slide, creativeBrief, storyPlan, previousSlides);
+    const prompt = buildStorySlidePrompt(project, slide, creativeBrief, storyPlan, previousSlides);
 
     const referenceImages: string[] = [];
     const referencePolicy = storyReferencePolicy(slide, previousSlides);
@@ -703,12 +685,12 @@ async function generateStorySlide(
     if (referencePolicy.compositeLogo) {
       onProgress?.(`[Slide ${slide.order}] Compositing logo...`);
       await compositeLogoOnImage(generatedPath,
-        "https://greatflowers.net/assets/svg/greatflowers-logo.svg", slide.brandRole === "subtle");
+        project.visual.logoUrl, slide.brandRole === "subtle");
     }
 
     onProgress?.(`[Slide ${slide.order}] Uploading to S3...`);
 
-    const imageUrl = await uploadToS3(generatedPath);
+    const imageUrl = await uploadToS3(project, generatedPath);
 
     // Cleanup temp files
     try {
@@ -781,6 +763,7 @@ async function generateStorySlide(
 }
 
 export async function generateStoryCreatives(
+  project: ProjectConfig,
   storyPlan: StoryCreativePlan,
   creativeBrief: CreativeBrief,
   productImageUrl: string | null,
@@ -791,7 +774,7 @@ export async function generateStoryCreatives(
   storyPlan = storyCreativePlanSchema.parse(storyPlan);
   // Apply the final-image requirement to older saved plans as well.
   storyPlan = { ...storyPlan, slides: storyPlan.slides.map(slide => slide.order === 4
-    ? { ...slide, brandRole: "reveal", cta: "Shop flowers — https://greatflowers.net" }
+    ? { ...slide, brandRole: "reveal", cta: `Shop flowers — ${project.storefront.defaultBaseUrl}` }
     : slide) };
   const report = `revealSlide: ${storyPlan.revealSlide}\n` +
     [...storyPlan.slides].sort((a, b) => a.order - b.order).map(slide =>
@@ -817,6 +800,7 @@ export async function generateStoryCreatives(
     }
 
     const result = await generateStorySlide(
+      project,
       slide,
       creativeBrief,
       storyPlan,

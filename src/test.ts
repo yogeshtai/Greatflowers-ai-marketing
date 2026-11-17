@@ -1,7 +1,8 @@
 import { generateMarketingStrategy } from "./hermes.js";
+import { greatflowers } from "./projects/index.js";
 
 async function main() {
-  const strategy = await generateMarketingStrategy({
+  const strategy = await generateMarketingStrategy(greatflowers, {
     campaignGoal: "Generate orders",
     product: "Build Your Bouquet",
     occasion: "Anniversary",

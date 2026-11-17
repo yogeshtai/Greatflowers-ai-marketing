@@ -1,5 +1,6 @@
 import { gfApiHost, withGfClient } from "./gf.admin.client.js";
-import { DEFAULT_WIKI_AUTHOR, isWikiAuthor, selectWikiAuthor } from "./wiki.authors.js";
+import { isWikiAuthor, selectWikiAuthor } from "./wiki.authors.js";
+import { contentSkillPrefix, productPageUrl, promptAddendum, storefrontBase, type ProjectConfig } from "./projects/index.js";
 import { requestHermesJSON } from "./hermes.json.js";
 import { parseModelJSONCandidates } from "./model.json.js";
 import { toCatalogProduct, type CatalogProduct } from "./blog.generator.js";
@@ -82,7 +83,7 @@ export function selectWikiSubject(existingTitles: string[], products: CatalogPro
   return ranked[0].subject;
 }
 
-export function resolveWikiLinks(html: string, products: CatalogProduct[], base: string): string {
+export function resolveWikiLinks(project: ProjectConfig, html: string, products: CatalogProduct[], base: string): string {
   if ((html.match(/href\s*=/gi) ?? []).length !== (html.match(/href="[^"]*"/gi) ?? []).length) {
     throw new Error('every link must use the exact form href="..." with double quotes');
   }
@@ -93,12 +94,13 @@ export function resolveWikiLinks(html: string, products: CatalogProduct[], base:
     if (!product) throw new Error(`link target "${href.slice(0, 60)}" is not allowed; use PRODUCT:<id> or HOME`);
     const slug = slugs.get(Number(product[1]));
     if (!slug) throw new Error(`link to unknown product ${product[1]}`);
-    return `href="${base}/product/${slug}/"`;
+    return `href="${productPageUrl(project, base, slug)}"`;
   });
 }
 
-export function buildWikiPrompt(subject: WikiSubject, products: CatalogProduct[], existingTitles: string[], authorName: string = DEFAULT_WIKI_AUTHOR): string {
-  return `You are writing one factual evergreen entry for the Great Flowers A-Z Flower & Plant Wiki.
+export function buildWikiPrompt(project: ProjectConfig, subject: WikiSubject, products: CatalogProduct[], existingTitles: string[], authorName: string = project.brand.defaultAuthor): string {
+  const brand = project.brand.displayName;
+  return `You are writing one factual evergreen entry for the ${brand} A-Z Flower & Plant Wiki.
 
 ASSIGNED SUBJECT (do not change it)
 - Common title: ${subject.title}
@@ -107,7 +109,7 @@ ASSIGNED SUBJECT (do not change it)
 
 Already published or queued titles (never duplicate): ${existingTitles.join(", ") || "none"}
 
-VERIFIED GREAT FLOWERS PRODUCTS (the only products you may name or link):
+VERIFIED ${brand.toUpperCase()} PRODUCTS (the only products you may name or link):
 ${products.map((product) => `- id ${product.id}: ${product.name}${product.description ? ` | ${product.description}` : " | no verified description"}`).join("\n")}
 
 Write 900-1,250 words for readers who want to understand, choose, care for or give ${subject.title}. The entry must be useful without making a purchase.
@@ -125,7 +127,7 @@ PRODUCT RULES
 - Choose 1-4 genuinely relevant products from the supplied catalog. Every productId must come from the list. Up to the first two will also appear as product cards inside the wiki.
 - Mention each selected product naturally once and link it exactly as <a href="PRODUCT:<id>">Product Name</a>.
 - Do not describe colors, flowers, vase or style unless the supplied catalog description explicitly confirms them.
-- End with one modest sentence linking <a href="HOME">Great Flowers</a>.
+- End with one modest sentence linking <a href="HOME">${brand}</a>.
 
 HTML may contain only <p>, <h2>, <h3>, <ul>, <li>, <strong>, <em> and <a>. No <h1>, images, product-card markup, styles or scripts.
 
@@ -137,9 +139,9 @@ SEO
 - title must be exactly "${subject.title}".
 - botanicalName must be exactly "${subject.botanicalName}".
 - authorName must be exactly "${authorName}".
-- metaTitle is 35-55 characters without "Great Flowers".
+- metaTitle is 35-55 characters without "${brand}".
 - metaDescription is 120-165 characters.
-- Return JSON only.
+- Return JSON only.${promptAddendum(project)}
 
 OUTPUT CONTRACT
 Return this object itself at the top level—never a validation report, summary, wrapper, file or status object:
@@ -148,7 +150,7 @@ Return this object itself at the top level—never a validation report, summary,
 
 const WIKI_KEYS = ["title", "slug", "botanicalName", "authorName", "description", "metaTitle", "metaDescription", "productIds", "heroProductId", "imageConcept", "html"] as const;
 
-export function validateWiki(output: string, context: { subject: WikiSubject; existingTitles: string[]; existingSlugs: string[]; products: CatalogProduct[]; base: string }): GeneratedWiki {
+export function validateWiki(output: string, context: { project: ProjectConfig; subject: WikiSubject; existingTitles: string[]; existingSlugs: string[]; products: CatalogProduct[]; base: string }): GeneratedWiki {
   const roots = parseModelJSONCandidates(output);
   const candidates: unknown[] = [];
   const queue: Array<{ value: unknown; depth: number }> = roots.map((value) => ({ value, depth: 0 }));
@@ -190,8 +192,9 @@ export function validateWiki(output: string, context: { subject: WikiSubject; ex
   if (wiki.title !== context.subject.title) throw new Error(`title must be exactly ${context.subject.title}`);
   if (wiki.botanicalName !== context.subject.botanicalName) throw new Error(`botanicalName must be exactly ${context.subject.botanicalName}`);
   if (wiki.slug !== expectedSlug) throw new Error(`slug must be exactly ${expectedSlug}`);
-  if (!isWikiAuthor(wiki.authorName)) throw new Error("authorName must be an approved Great Flowers wiki author");
-  if (/great\s*flowers/i.test(wiki.metaTitle)) throw new Error("metaTitle must not contain the Great Flowers brand name");
+  const brand = context.project.brand;
+  if (!isWikiAuthor(context.project, wiki.authorName)) throw new Error(`authorName must be an approved ${brand.displayName} wiki author`);
+  if (brand.namePattern.test(wiki.metaTitle)) throw new Error(`metaTitle must not contain the ${brand.displayName} brand name`);
   if (context.existingTitles.some((title) => normalized(title) === normalized(wiki.title))) throw new Error("title duplicates an existing wiki entry");
   if (context.existingSlugs.includes(wiki.slug)) throw new Error("slug duplicates an existing wiki entry");
   const allowed = new Set(context.products.map((product) => product.id));
@@ -204,21 +207,19 @@ export function validateWiki(output: string, context: { subject: WikiSubject; ex
     if (!new RegExp(`href="PRODUCT:${id}"`).test(wiki.html)) throw new Error(`selected product ${id} must be linked in html`);
   }
   if (!/href="HOME"/.test(wiki.html)) throw new Error("html must link HOME");
-  return { ...wiki, html: resolveWikiLinks(wiki.html, context.products, context.base) };
+  return { ...wiki, html: resolveWikiLinks(context.project, wiki.html, context.products, context.base) };
 }
 
-const storefrontBase = () => (process.env.GF_STOREFRONT_URL || "https://greatflowers.net").replace(/\/+$/, "");
-
-export async function generateDailyWikiDraft(signal?: AbortSignal, onDraftSaved?: () => void) {
-  const environment = gfApiHost();
-  const context = await withGfClient(async (client) => {
+export async function generateDailyWikiDraft(project: ProjectConfig, signal?: AbortSignal, onDraftSaved?: () => void) {
+  const environment = gfApiHost(project);
+  const context = await withGfClient(project, async (client) => {
     const [wikis, rawProducts] = await Promise.all([client.listWikis(), client.searchProducts("", 100)]);
     return { wikis, products: rawProducts.map(toCatalogProduct).filter((product) => product.imageUrl) };
   });
   if (!context.products.length) throw new Error("No catalog products with images are available for the wiki entry");
 
-  const localDrafts = (await getWikiDrafts()).filter((draft) => draft.environment === environment && draft.status !== "rejected");
-  const authorName = selectWikiAuthor(localDrafts.map((draft) => draft.authorName));
+  const localDrafts = (await getWikiDrafts(project)).filter((draft) => draft.environment === environment && draft.status !== "rejected");
+  const authorName = selectWikiAuthor(project, localDrafts.map((draft) => draft.authorName));
   const existingTitles = [...context.wikis.map((wiki: any) => String(wiki.title)), ...localDrafts.map((draft) => draft.title)];
   const existingSlugs = [...context.wikis.map((wiki: any) => String(wiki.slug)), ...localDrafts.map((draft) => draft.slug)];
   const existingBotanicalNames = [...context.wikis.map((wiki: any) => String(wiki.botanical_name ?? "")), ...localDrafts.map((draft) => draft.botanicalName)];
@@ -227,20 +228,20 @@ export async function generateDailyWikiDraft(signal?: AbortSignal, onDraftSaved?
   // Only expose products whose verified name/description mentions the assigned flower.
   // This prevents the model from forcing an unrelated bouquet into an encyclopedia entry.
   const promptProducts = matching.slice(0, 50);
-  const base = storefrontBase();
+  const base = storefrontBase(project);
   const wiki = await requestHermesJSON(
-    buildWikiPrompt(subject, promptProducts, existingTitles, authorName),
-    (output) => validateWiki(output, { subject, existingTitles, existingSlugs, products: promptProducts, base }),
+    `${contentSkillPrefix(project)}${buildWikiPrompt(project, subject, promptProducts, existingTitles, authorName)}`,
+    (output) => validateWiki(output, { project, subject, existingTitles, existingSlugs, products: promptProducts, base }),
     signal,
     GeneratedWikiJsonSchema,
     { freshRetries: 1 },
   );
-  const draft = await addWikiDraft({ ...wiki, authorName, environment });
+  const draft = await addWikiDraft(project, { ...wiki, authorName, environment });
   onDraftSaved?.();
-  return attachWikiImage(draft.id, wiki, promptProducts.find((product) => product.id === wiki.heroProductId)?.imageUrl, signal);
+  return attachWikiImage(project, draft.id, wiki, promptProducts.find((product) => product.id === wiki.heroProductId)?.imageUrl, signal);
 }
 
-export async function attachWikiImage(id: string, wiki: WikiImageInput, productImageUrl: string | null | undefined, signal?: AbortSignal) {
-  const ai = productImageUrl ? await generateWikiImage(id, wiki, productImageUrl, signal) : false;
-  return (await updateWikiDraft(id, (draft) => ({ ...draft, imageSource: ai ? "ai" : draft.imageSource ?? "product" })))!;
+export async function attachWikiImage(project: ProjectConfig, id: string, wiki: WikiImageInput, productImageUrl: string | null | undefined, signal?: AbortSignal) {
+  const ai = productImageUrl ? await generateWikiImage(project, id, wiki, productImageUrl, signal) : false;
+  return (await updateWikiDraft(project, id, (draft) => ({ ...draft, imageSource: ai ? "ai" : draft.imageSource ?? "product" })))!;
 }

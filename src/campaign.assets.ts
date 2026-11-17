@@ -1,7 +1,9 @@
-import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { unlink } from "node:fs/promises";
 import path from "node:path";
 import type { SavedCampaign } from "./campaign.store.js";
+import type { ProjectConfig } from "./projects/index.js";
+import { createProjectS3Client, s3Settings } from "./projects/storage.js";
 
 export function campaignAssetUrls(campaign: SavedCampaign): string[] {
   return [...new Set([
@@ -13,11 +15,14 @@ export function campaignAssetUrls(campaign: SavedCampaign): string[] {
   ].filter((url): url is string => Boolean(url)))];
 }
 
-export function ownedCampaignAsset(value: string): { key: string } | { localPath: string } | null {
-  const bucket = process.env.AWS_S3_BUCKET;
-  const region = process.env.AWS_REGION;
-  const prefix = (process.env.AWS_S3_CREATIVE_PREFIX || "campaign").replace(/\/$/, "");
-  const prefixes = [prefix, (process.env.AWS_S3_CAMPAIGN_PREFIX || "campaign").replace(/\/$/, "")];
+// Only images this project's marketing pipeline created are owned: its bucket AND one of its
+// marketing prefixes. A storefront product photo in the same bucket is never owned.
+export function ownedCampaignAsset(project: ProjectConfig, value: string): { key: string } | { localPath: string } | null {
+  const settings = s3Settings(project);
+  const bucket = settings.bucket;
+  const region = settings.region;
+  const prefix = settings.creativePrefix.replace(/\/$/, "");
+  const prefixes = [prefix, settings.campaignPrefix.replace(/\/$/, "")];
   try {
     const url = new URL(value);
     if (url.protocol !== "https:" || url.host !== `${bucket}.s3.${region}.amazonaws.com`) return null;
@@ -32,22 +37,20 @@ export function ownedCampaignAsset(value: string): { key: string } | { localPath
   }
 }
 
-export async function deleteCampaignAssets(campaign: SavedCampaign, others: SavedCampaign[]) {
-  const identity = (value: string) => JSON.stringify(ownedCampaignAsset(value));
+export async function deleteCampaignAssets(project: ProjectConfig, campaign: SavedCampaign, others: SavedCampaign[]) {
+  const identity = (value: string) => JSON.stringify(ownedCampaignAsset(project, value));
   const protectedAssets = new Set([
     ...others.flatMap(campaignAssetUrls),
     ...[campaign, ...others].map(c => c.selectedProduct?.image).filter((v): v is string => Boolean(v)),
   ].map(identity));
-  const s3 = new S3Client({ region: process.env.AWS_REGION || "us-east-1",
-    ...(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY ? { credentials: {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID, secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    } } : {}) });
+  const settings = s3Settings(project);
+  const s3 = createProjectS3Client(settings, "us-east-1");
   try {
     for (const url of campaignAssetUrls(campaign)) {
-      const asset = ownedCampaignAsset(url);
+      const asset = ownedCampaignAsset(project, url);
       if (!asset || protectedAssets.has(identity(url))) continue;
       if ("key" in asset) {
-        await s3.send(new DeleteObjectCommand({ Bucket: process.env.AWS_S3_BUCKET!, Key: asset.key }));
+        await s3.send(new DeleteObjectCommand({ Bucket: settings.bucket!, Key: asset.key }));
       } else {
         await unlink(asset.localPath).catch(error => { if (error.code !== "ENOENT") throw error; });
       }

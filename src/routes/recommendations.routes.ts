@@ -1,14 +1,16 @@
 import { createRotationPlan, publishedRotationHistory } from "../campaign.rotation.js";
-import { getGreatFlowersProducts } from "../greatflowers.products.js";
+import { getCatalogProducts } from "../catalog.products.js";
 import { generateCampaignRecommendation } from "../campaign.recommender.js";
 import { getProductAnalytics } from "../ga4.analytics.js";
 import { getCampaigns } from "../campaign.store.js";
 import { generateMarketingStrategy } from "../hermes.js";
-import { getGreatFlowersWebsiteContext } from "../website.context.js";
+import { getWebsiteContext } from "../website.context.js";
 import { getRecentRecommendations, recordRecommendation } from "../recommendation.store.js";
 import { singleFlight, abortOnDisconnect, withRetry } from "../http.helpers.js";
 import { HermesUpstreamError } from "../hermes.json.js";
 import { HERMES_TIMEOUT_MS } from "../ai.limits.js";
+import { projectLockKey } from "../projects/index.js";
+import { projectOf } from "../projects/http.js";
 import express from "express";
 
 const RECOMMENDATION_PIPELINE_TIMEOUT_MS = Math.max(
@@ -20,7 +22,8 @@ const router = express.Router();
 
 router.post(
   "/api/recommendations/generate",
-  singleFlight("recommendation", async (_req, res) => {
+  singleFlight((res) => projectLockKey(projectOf(res), "recommendation"), async (_req, res) => {
+    const project = projectOf(res);
     const signal = AbortSignal.any([
       abortOnDisconnect(res),
       AbortSignal.timeout(RECOMMENDATION_PIPELINE_TIMEOUT_MS),
@@ -29,7 +32,7 @@ router.post(
     try {
       console.log("① Fetching catalog + website...");
 
-      // 1. Fetch real GreatFlowers products + website context
+      // 1. Fetch the project's real products + website context
       const [
         products,
         websiteContext,
@@ -37,16 +40,16 @@ router.post(
         rawAnalytics,
         savedCampaigns,
       ] = await Promise.all([
-        getGreatFlowersProducts(signal),
-        getGreatFlowersWebsiteContext(signal),
-        getRecentRecommendations(20),
+        getCatalogProducts(project, signal),
+        getWebsiteContext(project, signal),
+        getRecentRecommendations(project, 20),
 
         // Use clean/new tracking initially.
-        getProductAnalytics("today").catch((error) => {
+        getProductAnalytics(project, "today").catch((error) => {
           console.warn("GA4 analytics unavailable for recommendation; continuing without it:", error);
           return [];
         }),
-        getCampaigns(),
+        getCampaigns(project),
       ]);
 
       const validProductIds =
@@ -69,7 +72,7 @@ router.post(
         productAnalytics
       );
 
-      const rotationPlan = createRotationPlan(products, recentRecommendations, publishedRotationHistory(savedCampaigns));
+      const rotationPlan = createRotationPlan(project, products, recentRecommendations, publishedRotationHistory(savedCampaigns));
 
       const recentHistory =
         recentRecommendations.map(
@@ -88,6 +91,7 @@ router.post(
       const recommendation =
         await withRetry(() =>
           generateCampaignRecommendation(
+            project,
             products,
             websiteContext,
             recentHistory,
@@ -130,7 +134,7 @@ router.post(
       // 4. Generate complete strategy
       const strategy =
         await withRetry(() =>
-          generateMarketingStrategy({
+          generateMarketingStrategy(project, {
             contentTheme: recommendation.contentTheme,
             visualTreatment: recommendation.visualTreatment,
             campaignGoal:
@@ -158,7 +162,7 @@ router.post(
               recommendation.priority,
 
             additionalContext: `
-Recommended automatically from the live GreatFlowers catalog.
+Recommended automatically from the live ${project.brand.name} catalog.
 
 VERIFIED LIVE PRODUCT DATA:
 
@@ -187,7 +191,7 @@ Product Description:
 ${selectedProduct.description}
 
 IMPORTANT:
-The information above came directly from the live GreatFlowers product API.
+The information above came directly from the live ${project.brand.name} product API.
 Treat it as verified product information.
 
 Do not put these supplied facts inside needsVerification.
@@ -211,7 +215,7 @@ ${recommendation.additionalContext}
 
       console.log("⑥ Strategy complete");
 
-      await recordRecommendation({
+      await recordRecommendation(project, {
         productId: selectedProduct.id,
         productName: selectedProduct.name,
         occasion: recommendation.occasion,

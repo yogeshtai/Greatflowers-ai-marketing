@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CONTENT_AUTHORS } from "./content.authors.js";
+import type { ProjectConfig } from "./projects/index.js";
 
 export const BLOG_STATUSES = ["draft", "approved", "published", "rejected", "failed"] as const;
 export type BlogDraftStatus = (typeof BLOG_STATUSES)[number];
@@ -39,8 +39,9 @@ export const BlogGenerateRequestSchema = z.object({
   occasion: z.preprocess((value) => typeof value === "string" && !value.trim() ? undefined : value, OccasionSchema.optional()),
 });
 
-export const BlogEditSchema = z.object({
-  authorName: z.enum(CONTENT_AUTHORS),
+// Edits may only use one of the project's approved bylines.
+export const blogEditSchema = (project: ProjectConfig) => z.object({
+  authorName: z.enum(project.brand.authors as [string, ...string[]]),
   // Preserve compatibility with drafts created before new titles were capped at 60.
   title: z.string().min(10).max(120),
   metaTitle: z.string().min(10).max(70),

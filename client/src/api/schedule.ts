@@ -1,4 +1,5 @@
 import { API_BASE } from "../constants";
+import { projectHeaders } from "../project";
 
 export async function scheduleCampaignPost(campaignId: string, payload: any) {
   const response = await fetch(
@@ -7,6 +8,7 @@ export async function scheduleCampaignPost(campaignId: string, payload: any) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...projectHeaders(),
       },
       body: JSON.stringify(payload),
     }
@@ -28,6 +30,7 @@ export async function rescheduleCampaignPost(campaignId: string, payload: any) {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
+        ...projectHeaders(),
       },
       body: JSON.stringify(payload),
     }

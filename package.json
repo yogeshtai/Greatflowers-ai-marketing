@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "node --import tsx --test src/*.test.ts",
-    "dev": "tsx watch src/server.ts"
+    "dev": "tsx watch src/server.ts",
+    "check:project": "tsx src/scripts/check-project.ts"
   },
   "keywords": [],
   "author": "",

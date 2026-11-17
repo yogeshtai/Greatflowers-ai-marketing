@@ -7,24 +7,24 @@ import { nextNewYorkHour } from "./blog.time.js";
 import { withGfClient } from "./gf.admin.client.js";
 import { errorDetail } from "./http.helpers.js";
 import { assertNoTitleCollision } from "./content.overlap.js";
+import { liveContentUrl, type ProjectConfig } from "./projects/index.js";
 
-export const ARTICLE_PUBLISH_HOUR_ET = Number(process.env.ARTICLE_PUBLISH_HOUR_ET ?? 10);
+export const articlePublishHourEt = (project: ProjectConfig) => Number(project.env("ARTICLE_PUBLISH_HOUR_ET") ?? 10);
 const MAX_ATTEMPTS = 3;
-const liveMode = () => process.env.ARTICLE_PUBLISH_LIVE === "true";
-export const publishArticleImmediate = () => (process.env.ARTICLE_PUBLISH_MODE ?? "immediate") === "immediate";
-export const articlePublishAfterFor = (now: Date = new Date()) => publishArticleImmediate() ? now : nextNewYorkHour(ARTICLE_PUBLISH_HOUR_ET, now);
-export const articleStorefrontUrl = (slug: string) => process.env.GF_STOREFRONT_URL
-  ? `${process.env.GF_STOREFRONT_URL.replace(/\/+$/, "")}/greatflowers-articles/${slug}/`
-  : undefined;
+export const articleLiveMode = (project: ProjectConfig) => project.env("ARTICLE_PUBLISH_LIVE") === "true";
+export const publishArticleImmediate = (project: ProjectConfig) => (project.env("ARTICLE_PUBLISH_MODE") ?? "immediate") === "immediate";
+export const articlePublishAfterFor = (project: ProjectConfig, now: Date = new Date()) =>
+  publishArticleImmediate(project) ? now : nextNewYorkHour(articlePublishHourEt(project), now);
+export const articleStorefrontUrl = (project: ProjectConfig, slug: string) => liveContentUrl(project, "article", slug);
 
 const publishingDraftIds = new Set<string>();
 export const isArticleDraftPublishing = (id: string) => publishingDraftIds.has(id);
-export function approveArticleDraft(id: string, now: Date = new Date()) {
-  return updateArticleDraft(id, (draft) => draft.status === "draft" || draft.status === "failed"
-    ? { ...draft, status: "approved", approvedAt: now.toISOString(), publishAfter: articlePublishAfterFor(now).toISOString(), attempts: 0 }
+export function approveArticleDraft(project: ProjectConfig, id: string, now: Date = new Date()) {
+  return updateArticleDraft(project, id, (draft) => draft.status === "draft" || draft.status === "failed"
+    ? { ...draft, status: "approved", approvedAt: now.toISOString(), publishAfter: articlePublishAfterFor(project, now).toISOString(), attempts: 0 }
     : null);
 }
-export const rejectArticleDraft = (id: string) => updateArticleDraft(id, (draft) => draft.status === "published" ? null : { ...draft, status: "rejected" });
+export const rejectArticleDraft = (project: ProjectConfig, id: string) => updateArticleDraft(project, id, (draft) => draft.status === "published" ? null : { ...draft, status: "rejected" });
 
 export type ArticleApproveResult =
   | { outcome: "approved" | "published" | "publish-failed"; article: ArticleDraft }
@@ -32,14 +32,14 @@ export type ArticleApproveResult =
   | { outcome: "image-pending" }
   | { outcome: "missing" };
 
-export async function approveArticleFlow(id: string): Promise<ArticleApproveResult> {
-  const draft = await getArticleDraft(id);
+export async function approveArticleFlow(project: ProjectConfig, id: string): Promise<ArticleApproveResult> {
+  const draft = await getArticleDraft(project, id);
   if (!draft) return { outcome: "missing" };
-  if (isArticleDraftImagePending(draft)) return { outcome: "image-pending" };
-  const approved = await approveArticleDraft(id);
+  if (isArticleDraftImagePending(project, draft)) return { outcome: "image-pending" };
+  const approved = await approveArticleDraft(project, id);
   if (!approved) return { outcome: "not-actionable", status: draft.status };
-  if (!publishArticleImmediate()) return { outcome: "approved", article: approved };
-  const published = await publishArticleDraft(id);
+  if (!publishArticleImmediate(project)) return { outcome: "approved", article: approved };
+  const published = await publishArticleDraft(project, id);
   if (!published || published.status !== "published") return { outcome: "publish-failed", article: published ?? approved };
   return { outcome: "published", article: published };
 }
@@ -50,8 +50,8 @@ async function productImage(imageUrl: string): Promise<Buffer> {
   return optimizeArticleImage(Buffer.from(await response.arrayBuffer()));
 }
 
-async function publish(draft: ArticleDraft) {
-  return withGfClient(async (client) => {
+async function publish(project: ProjectConfig, draft: ArticleDraft) {
+  return withGfClient(project, async (client) => {
     const products = (await client.searchProducts("", 100)).map(toCatalogProduct);
     const [remoteArticles, remoteBlogs, remoteWikis] = await Promise.all([client.listArticles(), client.listBlogs(), client.listWikis()]);
     const existing = remoteArticles.find((article: any) => article.slug === draft.slug);
@@ -64,11 +64,11 @@ async function publish(draft: ArticleDraft) {
       ...remoteBlogs.map((item: any) => ({ kind: "blog" as const, title: String(item.title), slug: String(item.slug ?? "") })),
       ...remoteWikis.map((item: any) => ({ kind: "wiki" as const, title: String(item.title), slug: String(item.slug ?? "") })),
     ]);
-    const aiImage = await readArticleImage(draft.id);
+    const aiImage = await readArticleImage(project, draft.id);
     const hero = products.find((product) => product.id === draft.heroProductId);
     if (!aiImage && !hero?.imageUrl) throw new Error(`article hero product ${draft.heroProductId} has no image on the target environment`);
     const imageId = await client.uploadAttachment(aiImage ?? await productImage(hero!.imageUrl!), `${draft.slug}.${ARTICLE_IMAGE_FILE_EXTENSION}`, ARTICLE_IMAGE_MIME_TYPE);
-    const status: 0 | 1 = liveMode() ? 1 : 0;
+    const status: 0 | 1 = articleLiveMode(project) ? 1 : 0;
     const created = await client.createArticle({
       title: draft.title,
       slug: draft.slug,
@@ -90,23 +90,23 @@ async function publish(draft: ArticleDraft) {
   });
 }
 
-export async function publishArticleDraft(id: string) {
-  if (publishingDraftIds.has(id)) return getArticleDraft(id);
+export async function publishArticleDraft(project: ProjectConfig, id: string) {
+  if (publishingDraftIds.has(id)) return getArticleDraft(project, id);
   publishingDraftIds.add(id);
   try {
-    const draft = await getArticleDraft(id);
+    const draft = await getArticleDraft(project, id);
     if (!draft || draft.status !== "approved") return draft ?? null;
-    if (isArticleDraftImagePending(draft)) return draft;
+    if (isArticleDraftImagePending(project, draft)) return draft;
     const attempts = draft.attempts + 1;
-    await updateArticleDraft(id, (current) => ({ ...current, attempts }));
+    await updateArticleDraft(project, id, (current) => ({ ...current, attempts }));
     try {
-      const result = await publish(draft);
-      const url = articleStorefrontUrl(draft.slug);
-      return updateArticleDraft(id, (current) => ({ ...current, status: "published", publishedAt: new Date().toISOString(), remoteId: result.id, remoteStatus: result.status, ...(url ? { url } : {}) }));
+      const result = await publish(project, draft);
+      const url = articleStorefrontUrl(project, draft.slug);
+      return updateArticleDraft(project, id, (current) => ({ ...current, status: "published", publishedAt: new Date().toISOString(), remoteId: result.id, remoteStatus: result.status, ...(url ? { url } : {}) }));
     } catch (error) {
       const message = errorDetail(error);
       console.error(`Article publish failed (${attempts}/${MAX_ATTEMPTS}) for ${draft.slug}:`, message);
-      return updateArticleDraft(id, (current) => ({ ...current, error: message, status: attempts >= MAX_ATTEMPTS ? "failed" : "approved" }));
+      return updateArticleDraft(project, id, (current) => ({ ...current, error: message, status: attempts >= MAX_ATTEMPTS ? "failed" : "approved" }));
     }
   } finally {
     publishingDraftIds.delete(id);

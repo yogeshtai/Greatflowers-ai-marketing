@@ -3,6 +3,8 @@ import type { StoryCreativePlan } from "./strategy.schema.js";
 import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { withFileLock } from "./json.file.js";
+import { projectDataPath, type ProjectConfig } from "./projects/index.js";
 
 import type { CampaignInput } from "./hermes.js";
 import type { MarketingStrategy } from "./strategy.schema.js";
@@ -127,55 +129,51 @@ export interface SavedCampaign {
   selectedStoryCarousel?: boolean;
 }
 
-const DATA_DIR = path.join(process.cwd(), "data");
+// Each project has its own campaigns.json; GreatFlowers still uses data/campaigns.json.
+const dataFile = (project: ProjectConfig) => projectDataPath(project, "campaigns.json");
 
-const DATA_FILE = path.join(
-  DATA_DIR,
-  "campaigns.json"
-);
-
-async function ensureDatabase() {
-  await mkdir(DATA_DIR, {
+async function ensureDatabase(project: ProjectConfig) {
+  const file = dataFile(project);
+  await mkdir(path.dirname(file), {
     recursive: true,
   });
 
   try {
-    await readFile(DATA_FILE, "utf8");
+    await readFile(file, "utf8");
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     await writeFile(
-      DATA_FILE,
+      file,
       JSON.stringify([], null, 2), { flag: "wx" }
     ).catch(error => { if (error.code !== "EEXIST") throw error; });
   }
 }
 
-async function readCampaigns(): Promise<SavedCampaign[]> {
-  await ensureDatabase();
+async function readCampaigns(project: ProjectConfig): Promise<SavedCampaign[]> {
+  await ensureDatabase(project);
 
   const content = await readFile(
-    DATA_FILE,
+    dataFile(project),
     "utf8"
   );
 
   return JSON.parse(content);
 }
 
-// Serialize read-modify-write operations, including deletion and scheduler claims.
-let pendingWrite: Promise<unknown> = Promise.resolve();
-function withCampaignLock<T>(operation: () => Promise<T>): Promise<T> {
-  const result = pendingWrite.then(operation);
-  pendingWrite = result.catch(() => undefined);
-  return result;
+// Serialize read-modify-write operations, including deletion and scheduler claims (per project file).
+function withCampaignLock<T>(project: ProjectConfig, operation: () => Promise<T>): Promise<T> {
+  return withFileLock(dataFile(project), operation);
 }
 
-async function writeCampaigns(campaigns: SavedCampaign[]) {
-  const temporary = `${DATA_FILE}.${randomUUID()}.tmp`;
+async function writeCampaigns(project: ProjectConfig, campaigns: SavedCampaign[]) {
+  const file = dataFile(project);
+  const temporary = `${file}.${randomUUID()}.tmp`;
   await writeFile(temporary, JSON.stringify(campaigns, null, 2));
-  await rename(temporary, DATA_FILE);
+  await rename(temporary, file);
 }
 
 export async function saveCampaign(
+  project: ProjectConfig,
   input: CampaignInput,
   strategy: MarketingStrategy,
   selectedProduct?: {
@@ -239,8 +237,8 @@ export async function saveCampaign(
     selectedStoryCarousel?: boolean;
   }
 ) {
-  return withCampaignLock(async () => {
-    const campaigns = await readCampaigns();
+  return withCampaignLock(project, async () => {
+    const campaigns = await readCampaigns(project);
 
     const now = new Date().toISOString();
 
@@ -291,20 +289,21 @@ export async function saveCampaign(
 
     campaigns.unshift(campaign);
 
-    await writeCampaigns(campaigns);
+    await writeCampaigns(project, campaigns);
 
     return campaign;
   });
 }
 
-export async function getCampaigns() {
-  return readCampaigns();
+export async function getCampaigns(project: ProjectConfig) {
+  return readCampaigns(project);
 }
 
 export async function getCampaignById(
+  project: ProjectConfig,
   id: string
 ) {
-  const campaigns = await readCampaigns();
+  const campaigns = await readCampaigns(project);
 
   return (
     campaigns.find(
@@ -314,11 +313,12 @@ export async function getCampaignById(
 }
 
 export async function updateCampaignStatus(
+  project: ProjectConfig,
   id: string,
   status: CampaignStatus
 ) {
-  return withCampaignLock(async () => {
-    const campaigns = await readCampaigns();
+  return withCampaignLock(project, async () => {
+    const campaigns = await readCampaigns(project);
 
     const campaign = campaigns.find(
       (item) => item.id === id
@@ -331,19 +331,20 @@ export async function updateCampaignStatus(
     campaign.status = status;
     campaign.updatedAt = new Date().toISOString();
 
-    await writeCampaigns(campaigns);
+    await writeCampaigns(project, campaigns);
 
     return campaign;
   });
 }
 
 export async function updateCampaign(
+  project: ProjectConfig,
   id: string,
   updates: Partial<SavedCampaign>
 ) {
-  return withCampaignLock(async () => {
+  return withCampaignLock(project, async () => {
     const campaigns =
-      await readCampaigns();
+      await readCampaigns(project);
 
     const index =
       campaigns.findIndex(
@@ -376,15 +377,15 @@ export async function updateCampaign(
     campaigns[index] =
       updatedCampaign;
 
-    await writeCampaigns(campaigns);
+    await writeCampaigns(project, campaigns);
 
     return updatedCampaign;
   });
 }
 
-export async function deleteCampaign(id: string) {
-  return withCampaignLock(async () => {
-    const campaigns = await readCampaigns();
+export async function deleteCampaign(project: ProjectConfig, id: string) {
+  return withCampaignLock(project, async () => {
+    const campaigns = await readCampaigns(project);
     const campaign = campaigns.find(c => c.id === id);
     if (!campaign) return false;
     if (campaign.publishStatus === "publishing") throw new Error("Campaign is publishing. Try deleting it after publishing finishes.");
@@ -392,20 +393,21 @@ export async function deleteCampaign(id: string) {
     campaign.publishStatus = "cancelled";
     delete campaign.scheduledAt;
     campaign.scheduleRecurrence = "none";
-    await writeCampaigns(campaigns);
-    await deleteCampaignAssets(campaign, campaigns.filter(c => c.id !== id));
-    await writeCampaigns(campaigns.filter(c => c.id !== id));
+    await writeCampaigns(project, campaigns);
+    await deleteCampaignAssets(project, campaign, campaigns.filter(c => c.id !== id));
+    await writeCampaigns(project, campaigns.filter(c => c.id !== id));
     return true;
   });
 }
 
 export async function withCampaignPublishing<T>(
+  project: ProjectConfig,
   id: string,
   publish: (campaign: SavedCampaign) => Promise<T>,
   platform: "facebook" | "instagram",
 ) {
-  return withCampaignLock(async () => {
-    const campaigns = await readCampaigns();
+  return withCampaignLock(project, async () => {
+    const campaigns = await readCampaigns(project);
     const campaign = campaigns.find(c => c.id === id);
     if (!campaign) throw new Error("Campaign not found");
     const result = await publish(campaign);
@@ -415,7 +417,7 @@ export async function withCampaignPublishing<T>(
     campaign.updatedAt = campaign.publishedAt;
     campaign.publishedPlatforms = [...new Set([...(campaign.publishedPlatforms ?? []), platform])];
     campaign.publishCyclePlatforms = [...new Set([...(campaign.publishCyclePlatforms ?? []), platform])];
-    await writeCampaigns(campaigns);
+    await writeCampaigns(project, campaigns);
     return result;
   });
 }

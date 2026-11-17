@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { greatflowers } from "./projects/index.js";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -19,9 +20,6 @@ import {
   CREATIVE_LOGO_ASPECT,
   CREATIVE_LOGO_WIDTH_RATIO,
   CREATIVE_MARGIN_RATIO,
-  GF_PRIMARY,
-  GF_SECONDARY,
-  CREATIVE_TEXT_PURPLE,
   detectCreativeTextTone,
   headlineWords,
   shortCtaLabel,
@@ -34,6 +32,12 @@ import {
   textPaletteForCreative,
   typographyForCreative,
 } from "./creative.text.js";
+
+// GreatFlowers' brand colours, now read from its project config.
+const gf = greatflowers.visual;
+const CREATIVE_TEXT_PURPLE = gf.textPrimary;
+const GF_PRIMARY = gf.ctaFill;
+const GF_SECONDARY = gf.darkTextPalettes[1]!.accent;
 
 const variant = (overrides: Partial<CreativeVariant> = {}): CreativeVariant => ({
   order: 1,
@@ -93,7 +97,7 @@ test("headline typography applies controlled brand emphasis to a meaningful phra
     ["Chosen", "on", "Purpose"]
   );
 
-  const svg = buildCreativeTextOverlay(variant({ artDirection: "magazine-product-feature" }), "left").toString();
+  const svg = buildCreativeTextOverlay(gf, variant({ artDirection: "magazine-product-feature" }), "left").toString();
   assert.match(svg, new RegExp(CREATIVE_TEXT_PURPLE));
   assert.match(svg, new RegExp(`${GF_PRIMARY}|${GF_SECONDARY}`));
   assert.match(svg, /Bodoni 72, Didot, Georgia/);
@@ -109,9 +113,9 @@ test("independent creative styling rotates layout while the palette and logo sta
   // The brand primary is locked on every creative, and the accent may only ever be one of the two
   // colours the website itself uses.
   for (const order of [1, 2, 3, 4]) {
-    assert.equal(textPaletteForCreative(variant({ order })).primary, CREATIVE_TEXT_PURPLE);
+    assert.equal(textPaletteForCreative(gf, variant({ order })).primary, CREATIVE_TEXT_PURPLE);
     assert.ok(
-      [GF_PRIMARY, GF_SECONDARY].includes(textPaletteForCreative(variant({ order })).accent),
+      [GF_PRIMARY, GF_SECONDARY].includes(textPaletteForCreative(gf, variant({ order })).accent),
       `order ${order} uses an accent that is not on the site's palette`
     );
   }
@@ -150,7 +154,7 @@ test("rotated accents are visibly different colours, not four shades of one hue"
 
   const orders = [1, 2, 3, 4];
   for (const tone of ["dark", "light"] as const) {
-    const accents = [...new Set(orders.map(order => textPaletteForCreative(variant({ order }), tone).accent))];
+    const accents = [...new Set(orders.map(order => textPaletteForCreative(gf, variant({ order }), tone).accent))];
     assert.ok(accents.length >= 2, `${tone} offers no choice of accent at all`);
     for (let i = 0; i < accents.length; i += 1) {
       for (let j = i + 1; j < accents.length; j += 1) {
@@ -168,13 +172,13 @@ test("rotated accents are visibly different colours, not four shades of one hue"
   // (bold display headlines), and check the CTA fill against the white label it carries.
   const WARM_SCRIMMED_PHOTO = "#e8d5bf";
   for (const order of orders) {
-    const accent = textPaletteForCreative(variant({ order }), "dark").accent;
+    const accent = textPaletteForCreative(gf, variant({ order }), "dark").accent;
     assert.ok(
       contrast(accent, WARM_SCRIMMED_PHOTO) >= 3,
       `${accent} only reaches ${contrast(accent, WARM_SCRIMMED_PHOTO).toFixed(2)}:1 on a warm photograph`
     );
   }
-  assert.ok(contrast(ctaAccentForCreative(), "#ffffff") >= 4.5, `CTA pill ${ctaAccentForCreative()} cannot carry white text`);
+  assert.ok(contrast(ctaAccentForCreative(gf), "#ffffff") >= 4.5, `CTA pill ${ctaAccentForCreative(gf)} cannot carry white text`);
 });
 
 test("the dominant hue comes from the saturated subject, not walls or shadows", () => {
@@ -201,22 +205,22 @@ test("the accent echoes a colour the photograph actually contains", () => {
   const ACCENTS = { purple: 0, magenta: 1 };
 
   // Violet and lilac flowers pull the accent to the brand purple; everything else takes magenta.
-  assert.equal(accentIndexForImage(285, 1), ACCENTS.purple);
-  assert.equal(accentIndexForImage(23, 1), ACCENTS.magenta);
-  assert.equal(accentIndexForImage(110, 1), ACCENTS.magenta);
+  assert.equal(accentIndexForImage(gf, 285, 1), ACCENTS.purple);
+  assert.equal(accentIndexForImage(gf, 23, 1), ACCENTS.magenta);
+  assert.equal(accentIndexForImage(gf, 110, 1), ACCENTS.magenta);
 
   // With nothing to echo, position still decides.
-  assert.deepEqual([1, 2, 3, 4].map(order => accentIndexForImage(null, order)), [0, 1, 0, 1]);
+  assert.deepEqual([1, 2, 3, 4].map(order => accentIndexForImage(gf, null, order)), [0, 1, 0, 1]);
 });
 
 test("the CTA pill is the site's own button colour on every creative", () => {
   // Buttons on greatflowers.net are all --gf-primary. The headline accent may follow the
   // photograph; the call to action may not, because it is the element a reader recognises.
-  assert.equal(ctaAccentForCreative(), GF_PRIMARY);
+  assert.equal(ctaAccentForCreative(gf), GF_PRIMARY);
 
   for (const hue of [23, 110, 320, null]) {
     for (const order of [1, 2, 3]) {
-      const svg = buildCreativeTextOverlay(variant({ order, cta: "Shop Now" }), "left", 1024, 1024, "top", "dark", hue).toString();
+      const svg = buildCreativeTextOverlay(gf, variant({ order, cta: "Shop Now" }), "left", 1024, 1024, "top", "dark", hue).toString();
       assert.match(svg, new RegExp(`rx="\\d+" fill="${GF_PRIMARY}"`), `pill drifted off brand at hue ${hue}, order ${order}`);
     }
   }
@@ -230,7 +234,7 @@ test("the copy scrim fades out instead of ending in a visible panel edge", () =>
   ];
 
   for (const current of cases) {
-    const svg = buildCreativeTextOverlay(
+    const svg = buildCreativeTextOverlay(gf,
       variant(current.overrides as Partial<CreativeVariant>), "left", 1024, 1024, current.vertical
     ).toString();
 
@@ -307,9 +311,9 @@ test("a photograph that already carries the copy gets no scrim at all", () => {
   assert.equal(copyBackingFromCells([lifted], GF_SECONDARY, "dark").scrim, 0);
 
   // An unmeasured frame keeps the old unconditional wash rather than leaving copy bare.
-  const unmeasured = buildCreativeTextOverlay(variant(), "left", 1024, 1024, "top").toString();
+  const unmeasured = buildCreativeTextOverlay(gf, variant(), "left", 1024, 1024, "top").toString();
   assert.match(unmeasured, /fill="url\(#copy-gradient\)"/);
-  const measured = buildCreativeTextOverlay(
+  const measured = buildCreativeTextOverlay(gf,
     variant(), "left", 1024, 1024, "top", "dark", null, { luminance: 0.46, scrim: 0 }
   ).toString();
   assert.doesNotMatch(measured, /fill="url\(#copy-gradient\)"/);
@@ -322,7 +326,7 @@ test("headline and subheadline keep compact spacing and preserve color-boundary 
   ];
 
   for (const current of cases) {
-    const svg = buildCreativeTextOverlay(variant({
+    const svg = buildCreativeTextOverlay(gf, variant({
       creativeType: current.creativeType as CreativeVariant["creativeType"],
       sceneStrategy: current.sceneStrategy as CreativeVariant["sceneStrategy"],
       headline: "The spare key that started it all",
@@ -342,7 +346,7 @@ test("headline and subheadline keep compact spacing and preserve color-boundary 
 });
 
 test("promised care steps are rendered as visible numbered actions", () => {
-  const svg = buildCreativeTextOverlay(variant({
+  const svg = buildCreativeTextOverlay(gf, variant({
     creativeType: "informational",
     sceneStrategy: "INFORMATIONAL_GRAPHIC",
     headline: "Three Simple Care Steps",
@@ -373,8 +377,8 @@ test("maximum-length content remains renderable on either text side", () => {
     ],
   });
 
-  assert.doesNotThrow(() => buildCreativeTextOverlay(creative, "left"));
-  assert.doesNotThrow(() => buildCreativeTextOverlay(creative, "right"));
+  assert.doesNotThrow(() => buildCreativeTextOverlay(gf, creative, "left"));
+  assert.doesNotThrow(() => buildCreativeTextOverlay(gf, creative, "right"));
 });
 
 test("image generation reserves clear zones and never renders its own text", () => {
@@ -382,7 +386,7 @@ test("image generation reserves clear zones and never renders its own text", () 
     headline: "Three exact care steps",
     contentPoints: ["Trim the stems", "Use a clean vase", "Refresh the water"],
   });
-  const prompt = buildCodexPrompt(creative, brief(creative));
+  const prompt = buildCodexPrompt(greatflowers, creative, brief(creative));
 
   assert.match(prompt, /TEXT-FREE 1:1 premium social media campaign base image/);
   assert.match(prompt, /outer left 46% of the upper 82%/);
@@ -406,7 +410,7 @@ test("image generation reserves clear zones and never renders its own text", () 
 
 test("only the fourth independent creative reserves space for the website pill", () => {
   const creative = variant({ order: 4, copyLayout: "top-right-editorial" });
-  const prompt = buildCodexPrompt(creative, brief(creative));
+  const prompt = buildCodexPrompt(greatflowers, creative, brief(creative));
 
   assert.match(prompt, /lower-center 12%/);
   assert.doesNotMatch(prompt, /NO WEBSITE PILL/);
@@ -415,8 +419,8 @@ test("only the fourth independent creative reserves space for the website pill",
 
 test("middle variants reserve and render a genuinely different lower text structure", () => {
   const creative = variant({ order: 2, copyLayout: "lower-right-caption" });
-  const prompt = buildCodexPrompt(creative, brief(creative));
-  const svg = buildCreativeTextOverlay(creative, "right", 1024, 1024, "lower").toString();
+  const prompt = buildCodexPrompt(greatflowers, creative, brief(creative));
+  const svg = buildCreativeTextOverlay(gf, creative, "right", 1024, 1024, "lower").toString();
 
   assert.match(prompt, /outer right 42% of the lower-middle band/);
   assert.match(svg, /y="563"/);
@@ -433,7 +437,7 @@ test("creative typography automatically switches contrast for dark and light pho
     assert.equal(await detectCreativeTextTone(darkImage, "left", "top"), "light");
     assert.equal(await detectCreativeTextTone(lightImage, "left", "top"), "dark");
 
-    const lightTextSvg = buildCreativeTextOverlay(variant(), "left", 1024, 1024, "top", "light").toString();
+    const lightTextSvg = buildCreativeTextOverlay(gf, variant(), "left", 1024, 1024, "top", "light").toString();
     assert.match(lightTextSvg, /fill="#ffffff"/);
     assert.match(lightTextSvg, /flood-color="#000000"/);
     assert.match(lightTextSvg, /copy-gradient/);
@@ -449,14 +453,14 @@ test("hero and supporting creatives use the real product reference", () => {
   assert.equal(shouldUseProductReference(variant({ productRole: "none" })), false);
 
   const supporting = variant({ productRole: "supporting" });
-  const prompt = buildCodexPrompt(supporting, brief(supporting));
+  const prompt = buildCodexPrompt(greatflowers, supporting, brief(supporting));
   assert.match(prompt, /Use the supplied product image as the actual bouquet/);
   assert.match(prompt, /Preserve its recognizable flower mix, colors, arrangement and container/);
   assert.match(prompt, /ART DIRECTION \(MANDATORY\): documentary-gifting/);
   assert.match(prompt, /COPY LAYOUT \(CRITICAL\): top-left-editorial/);
 
   const optional = variant({ productRole: "optional" });
-  const optionalPrompt = buildCodexPrompt(optional, brief(optional));
+  const optionalPrompt = buildCodexPrompt(greatflowers, optional, brief(optional));
   assert.match(optionalPrompt, /MUST be the exact supplied product/);
   assert.match(optionalPrompt, /Never invent a different bouquet/);
   assert.match(optionalPrompt, /props may establish context, but must never become the primary/);
@@ -464,17 +468,17 @@ test("hero and supporting creatives use the real product reference", () => {
 
 test("existing creatives without content points retain the original safe area", () => {
   const creative = variant({ headline: "A Beautiful Way to Show You Care" });
-  const prompt = buildCodexPrompt(creative, brief(creative));
+  const prompt = buildCodexPrompt(greatflowers, creative, brief(creative));
 
   assert.match(prompt, /outer left 42% of the upper half/);
   assert.doesNotMatch(prompt, /numbered content points/);
   assert.doesNotMatch(prompt, /empty circles, unlabeled icons/);
-  assert.doesNotThrow(() => buildCreativeTextOverlay(creative, "left"));
+  assert.doesNotThrow(() => buildCreativeTextOverlay(gf, creative, "left"));
 });
 
 test("headline always starts below the logo with a clear gap", () => {
   for (const headline of ["Autumn, Already Styled", "One Arrangement Changed the Room", "A Beautiful Way to Show You Care Every Day"]) {
-    const svg = buildCreativeTextOverlay(variant({ headline }), "left", 1024, 1024, "top").toString();
+    const svg = buildCreativeTextOverlay(gf, variant({ headline }), "left", 1024, 1024, "top").toString();
     const firstBaseline = Number(svg.match(/<tspan x="56" y="(\d+)" text-anchor="start">/)?.[1]);
     const size = Number(svg.match(/font-size="(\d+)" font-weight="700" letter-spacing/)?.[1]);
     const logoBottom = Math.round(1024 * CREATIVE_MARGIN_RATIO) + Math.round(1024 * CREATIVE_LOGO_WIDTH_RATIO * CREATIVE_LOGO_ASPECT);
@@ -484,9 +488,9 @@ test("headline always starts below the logo with a clear gap", () => {
 
 test("headline and supporting typography keep the same proportions at generated image resolutions", async () => {
   const creative = variant({ headline: "Flowers Say Thanks", copyLayout: "top-left-editorial" });
-  const reference = await sharp(buildCreativeTextOverlay(creative, "left", 1024, 1024)).resize(360, 360).raw().toBuffer();
+  const reference = await sharp(buildCreativeTextOverlay(gf, creative, "left", 1024, 1024)).resize(360, 360).raw().toBuffer();
   for (const size of [1536, 2048]) {
-    const svg = buildCreativeTextOverlay(creative, "left", size, size);
+    const svg = buildCreativeTextOverlay(gf, creative, "left", size, size);
     assert.match(svg.toString(), /viewBox="0 0 1024 1024"/);
     const preview = await sharp(svg).resize(360, 360).raw().toBuffer();
     const meanDifference = preview.reduce((sum, value, index) => sum + Math.abs(value - reference[index]!), 0) / preview.length;
@@ -501,7 +505,7 @@ test("image CTA pills are one or two words and the column never prints the URL",
   assert.equal(shortCtaLabel("Explore the Halloween collection at https://greatflowers.net"), "Explore Now");
   assert.equal(shortCtaLabel("Save this fall table idea"), "Save This");
   assert.equal(shortCtaLabel(""), "");
-  const svg = buildCreativeTextOverlay(variant({ cta: "Shop Spiced Pumpkin Petals" }), "left").toString();
+  const svg = buildCreativeTextOverlay(gf, variant({ cta: "Shop Spiced Pumpkin Petals" }), "left").toString();
   assert.match(svg, />Shop Now →</);
   assert.doesNotMatch(svg, /greatflowers\.net/);
 });
@@ -509,7 +513,7 @@ test("image CTA pills are one or two words and the column never prints the URL",
 test("prices are never baked into creative copy", () => {
   assert.equal(stripPrices("Orange spray mums in an autumn-print bucket — $40.97."), "Orange spray mums in an autumn-print bucket.");
   assert.equal(stripPrices("Only $57.97 today"), "today");
-  const svg = buildCreativeTextOverlay(variant({ subheadline: "Orange mums in a bucket — $40.97." }), "left").toString();
+  const svg = buildCreativeTextOverlay(gf, variant({ subheadline: "Orange mums in a bucket — $40.97." }), "left").toString();
   assert.doesNotMatch(svg, /\$40/);
 });
 
@@ -528,26 +532,26 @@ test("step markers carry a numeral that can actually be read inside them", () =>
   // Every accent a marker can be filled with, in either tone.
   for (const order of [1, 2, 3, 4]) {
     for (const tone of ["dark", "light"] as const) {
-      const fill = textPaletteForCreative(variant({ order }), tone).accent;
+      const fill = textPaletteForCreative(gf, variant({ order }), tone).accent;
       assert.ok(
-        contrast(contrastingLabel(fill), fill) >= 4.5,
-        `numeral on ${fill} only reaches ${contrast(contrastingLabel(fill), fill).toFixed(2)}:1`
+        contrast(contrastingLabel(gf, fill), fill) >= 4.5,
+        `numeral on ${fill} only reaches ${contrast(contrastingLabel(gf, fill), fill).toFixed(2)}:1`
       );
     }
   }
 
   // White used to be hardcoded, and on the light tints it sits at 2.3:1.
-  assert.equal(contrastingLabel("#ff7fbd"), CREATIVE_TEXT_PURPLE);
-  assert.equal(contrastingLabel(GF_PRIMARY), "#ffffff");
+  assert.equal(contrastingLabel(gf, "#ff7fbd"), CREATIVE_TEXT_PURPLE);
+  assert.equal(contrastingLabel(gf, GF_PRIMARY), "#ffffff");
 
-  const svg = buildCreativeTextOverlay(variant({
+  const svg = buildCreativeTextOverlay(gf, variant({
     creativeType: "informational",
     sceneStrategy: "INFORMATIONAL_GRAPHIC",
     contentPoints: ["Trim the stems", "Use a clean vase", "Refresh the water"],
   }), "left", 1024, 1024, "top", "light").toString();
   const fill = svg.match(/<circle[^>]*fill="(#[0-9a-f]{6})"/)?.[1];
   assert.ok(fill, "step marker not found");
-  assert.match(svg, new RegExp(`fill="${contrastingLabel(fill)}">1</text>`));
+  assert.match(svg, new RegExp(`fill="${contrastingLabel(gf, fill)}">1</text>`));
 });
 
 test("a frame that fails its copy zone is told what to fix, not just asked again", () => {

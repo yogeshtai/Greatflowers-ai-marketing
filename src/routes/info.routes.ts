@@ -1,16 +1,19 @@
 import { getProductAnalytics } from "../ga4.analytics.js";
-import { getGreatFlowersWebsiteContext } from "../website.context.js";
+import { getWebsiteContext } from "../website.context.js";
 import { getMetaConnectionStatus } from "../meta.service.js";
+import { projectOf } from "../projects/http.js";
 import express from "express";
 
 const router = express.Router();
 
+// /api/greatflowers/website-context is the original path, kept so existing clients keep working.
 router.get(
-  "/api/greatflowers/website-context",
+  ["/api/website-context", "/api/greatflowers/website-context"],
   async (_req, res) => {
     try {
+      const project = projectOf(res);
       const pages =
-        await getGreatFlowersWebsiteContext();
+        await getWebsiteContext(project);
 
       return res.json({
         success: true,
@@ -23,7 +26,7 @@ router.get(
       return res.status(500).json({
         success: false,
         error:
-          "Failed to fetch GreatFlowers website context",
+          `Failed to fetch ${projectOf(res).brand.name} website context`,
       });
     }
   }
@@ -34,7 +37,7 @@ router.get(
   async (_req, res) => {
     try {
       const products =
-        await getProductAnalytics();
+        await getProductAnalytics(projectOf(res));
 
       return res.json({
         success: true,
@@ -66,7 +69,7 @@ router.get(
   async (_req, res) => {
     try {
       const accounts =
-        await getMetaConnectionStatus();
+        await getMetaConnectionStatus(projectOf(res));
 
       return res.json({
         success: true,

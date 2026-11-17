@@ -1,0 +1,22 @@
+{
+  "urls": [],
+  "products": [
+    {
+      "id": 5,
+      "name": "Golden Bouquet",
+      "description": "Sunflowers",
+      "price": 45.5,
+      "salePrice": null,
+      "stockStatus": "in_stock",
+      "slug": "golden-bouquet",
+      "url": "https://greatflowers.net/product/golden-bouquet",
+      "image": "https://example.test/golden.webp",
+      "categories": [
+        "Birthday"
+      ],
+      "ordersCount": 2,
+      "featured": true,
+      "trending": false
+    }
+  ]
+}

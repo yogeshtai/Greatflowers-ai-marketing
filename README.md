@@ -60,11 +60,15 @@ cp .env.example .env
 ```
 
 Fill in your credentials:
-- `GA4_PROPERTY_ID`: Your Google Analytics 4 property ID
-- `META_ACCESS_TOKEN`: Your Meta (Facebook) access token
-- `META_AD_ACCOUNT_ID`: Your Meta ad account ID
+- `GA4_PROPERTY_ID` and `GOOGLE_APPLICATION_CREDENTIALS`: Your Google Analytics 4 property ID and service-account file
+- `META_PAGE_ID`, `META_INSTAGRAM_ACCOUNT_ID`, `META_PAGE_ACCESS_TOKEN`: Your Facebook page, its Instagram business account and a Page access token
+- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_S3_BUCKET`: S3 storage for campaign images
+- `GF_ADMIN_API_URL`, `GF_ADMIN_EMAIL`, `GF_ADMIN_PASSWORD`: The storefront admin API used to publish blogs, wiki entries and articles
 - `HERMES_API_KEY`: Your Hermes AI API key
 - `PORT`: Backend server port (default: 3000)
+
+`.env.example` lists every setting with its default, including the optional ones and the
+settings for additional brands.
 
 ### 4. Google Analytics Setup
 
@@ -237,3 +241,36 @@ instruction. Older saved records work without the new creative metadata.
 Run `npm test` for rotation and mocked recommendation regressions,
 `npx tsc --noEmit` for backend type checks, and `cd client && npm run build`
 for the frontend production build. The tests do not contact GA4, Hermes or Meta.
+
+
+## Projects (multiple brands)
+
+The agent can run marketing for several storefront brands from one server and one dashboard.
+Each brand is a *project* defined in `src/projects/` (`greatflowers.ts`, `onepriceflowers.ts`):
+brand names and voice, storefront URLs and paths, catalog API, logo and colours, Hermes skills,
+bylines, cron times and data folder.
+
+- **GreatFlowers is the default project.** It keeps its original environment variables, `data/`
+  folder, S3 prefix and cron times. `src/golden.test.ts` proves its prompts, overlays, URLs and
+  payloads are byte-identical to the pre-multi-project code.
+- **Other projects** read the same settings with their own prefix (`OPF_ADMIN_API_URL`,
+  `OPF_META_PAGE_ID`, ...; see `.env.example`), store data in `data/projects/<id>/`, and are off
+  until enabled (`OPF_ENABLED=true`).
+- **API requests** name their project with the `X-Project-Id` header (or `?project=` for images).
+  Without one, the request is for GreatFlowers. `GET /api/projects` lists the enabled projects.
+- **Dashboard:** a project dropdown appears in the header when more than one project is enabled.
+  Switching reloads the workspace for that brand; it is disabled while a generation is running.
+- **Codex image generation is shared** by all projects (one global lock), so each project's
+  content crons run in a separate time window.
+
+### Adding a project
+
+1. Copy `src/projects/onepriceflowers.ts`, fill in the brand, and add it to `PROJECTS` in
+   `src/projects/index.ts`.
+2. Add its prefixed settings to `.env` (admin API user, Meta page/Instagram/token, GA4 property,
+   S3 bucket and keys). New brands start in safe mode: no timed drafts until `<PREFIX>_*_AUTOGENERATE=true`,
+   and posts stay hidden until `<PREFIX>_*_PUBLISH_LIVE=true`. Check it with
+   `npm run check:project -- <id> --s3-write-test` (see DEPLOYMENT.md for the full runbook).
+3. Create its Hermes skills (`<id>-marketing-strategist`, `<id>-content-entries`) on the Hermes host.
+4. Give its cron jobs a window that does not overlap any other project.
+5. Run `npm test`: `src/projects.test.ts` checks that no other brand's name or colours leak in.

@@ -2,10 +2,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import sharp from "sharp";
 import { buildWikiPrompt, resolveWikiLinks, selectWikiSubject, validateWiki, WIKI_SUBJECTS } from "./wiki.generator.js";
-import { WIKI_DRAFT_CRON, WIKI_RECOVERY_CRONS } from "./wiki.scheduler.js";
 import { buildWikiImagePrompt, optimizeWikiImage, WIKI_IMAGE_HEIGHT, WIKI_IMAGE_MIME_TYPE, WIKI_IMAGE_WIDTH } from "./wiki.image.js";
 import { beginWikiImageRegeneration, endWikiImageRegeneration, isWikiDraftImagePending } from "./wiki.jobs.js";
 import { buildWikiPublishPayload, wikiPublishAfterFor } from "./wiki.publisher.js";
+import { greatflowers } from "./projects/index.js";
+
+const { wikiDraftCron: WIKI_DRAFT_CRON, wikiRecoveryCrons: WIKI_RECOVERY_CRONS } = greatflowers.schedule;
 
 const products = [
   { id: 7, name: "Rose Garden Bouquet", slug: "rose-garden", price: 50, imageUrl: "rose.webp", description: "Red roses arranged with greenery." },
@@ -41,13 +43,13 @@ test("wiki subject selection prefers catalog relevance and treats singular alias
 });
 
 test("valid wiki output resolves verified product and home links", () => {
-  const wiki = validateWiki(JSON.stringify(base), { subject, existingTitles: [], existingSlugs: [], products, base: "https://greatflowers.net" });
+  const wiki = validateWiki(JSON.stringify(base), { project: greatflowers, subject, existingTitles: [], existingSlugs: [], products, base: "https://greatflowers.net" });
   assert.match(wiki.html, /greatflowers\.net\/product\/rose-garden\//);
   assert.match(wiki.html, /href="https:\/\/greatflowers\.net\/"/);
 });
 
 test("wrapped wiki JSON is recovered and wrong roots produce a concise repair error", () => {
-  const context = { subject, existingTitles: [], existingSlugs: [], products, base: "https://greatflowers.net" };
+  const context = { project: greatflowers, subject, existingTitles: [], existingSlugs: [], products, base: "https://greatflowers.net" };
   const wiki = validateWiki(JSON.stringify({ result: { wiki: base } }), context);
   assert.equal(wiki.title, "Roses");
   assert.throws(
@@ -59,18 +61,18 @@ test("wrapped wiki JSON is recovered and wrong roots produce a concise repair er
 test("existing one-product wiki drafts remain valid", () => {
   const oneProductHtml = html.replace(/<p>Compare it with the <a href="PRODUCT:9">Pink Rose Bouquet<\/a>\.<\/p>/, "");
   const wiki = validateWiki(JSON.stringify({ ...base, productIds: [7], html: oneProductHtml }), {
-    subject, existingTitles: [], existingSlugs: [], products, base: "https://greatflowers.net",
+    project: greatflowers, subject, existingTitles: [], existingSlugs: [], products, base: "https://greatflowers.net",
   });
   assert.deepEqual(wiki.productIds, [7]);
 });
 
 test("wiki validation rejects changed subject identity and unknown links", () => {
-  assert.throws(() => validateWiki(JSON.stringify({ ...base, title: "Rose Guide" }), { subject, existingTitles: [], existingSlugs: [], products, base: "https://greatflowers.net" }), /title must be exactly/);
-  assert.throws(() => resolveWikiLinks('<p><a href="https://example.com">source</a></p>', products, "https://greatflowers.net"), /not allowed/);
+  assert.throws(() => validateWiki(JSON.stringify({ ...base, title: "Rose Guide" }), { project: greatflowers, subject, existingTitles: [], existingSlugs: [], products, base: "https://greatflowers.net" }), /title must be exactly/);
+  assert.throws(() => resolveWikiLinks(greatflowers, '<p><a href="https://example.com">source</a></p>', products, "https://greatflowers.net"), /not allowed/);
 });
 
 test("wiki validation rejects brand duplication, unsupported markup and unselected product links", () => {
-  const context = { subject, existingTitles: [], existingSlugs: [], products, base: "https://greatflowers.net" };
+  const context = { project: greatflowers, subject, existingTitles: [], existingSlugs: [], products, base: "https://greatflowers.net" };
   assert.throws(() => validateWiki(JSON.stringify({ ...base, metaTitle: "Roses and Their Meanings | Great Flowers" }), context), /brand name/);
   assert.throws(() => validateWiki(JSON.stringify({ ...base, html: html.replace("<p>", '<p style="color:red">') }), context), /unsupported tags or attributes/);
   assert.throws(() => validateWiki(JSON.stringify({ ...base, html: html.replace('href="HOME"', 'href="PRODUCT:8"') }), context), /not listed in productIds/);
@@ -78,7 +80,7 @@ test("wiki validation rejects brand duplication, unsupported markup and unselect
 });
 
 test("wiki prompt fixes the subject and requires conservative factual writing", () => {
-  const prompt = buildWikiPrompt(subject, products, []);
+  const prompt = buildWikiPrompt(greatflowers, subject, products, []);
   assert.match(prompt, /ASSIGNED SUBJECT/);
   assert.match(prompt, /title must be exactly "Roses"/);
   assert.match(prompt, /Do not give medical, edible-use or pet-safety advice/);
@@ -88,11 +90,11 @@ test("wiki prompt fixes the subject and requires conservative factual writing", 
 
 test("wiki slugs remove apostrophes instead of splitting the word", () => {
   const babysBreath = WIKI_SUBJECTS.find((entry) => entry.title === "Baby's Breath")!;
-  assert.match(buildWikiPrompt(babysBreath, products, []), /Slug: babys-breath/);
+  assert.match(buildWikiPrompt(greatflowers, babysBreath, products, []), /Slug: babys-breath/);
 });
 
 test("wiki image prompt uses the storefront's 4:3 slot and forbids text", () => {
-  const prompt = buildWikiImagePrompt(base);
+  const prompt = buildWikiImagePrompt(greatflowers, base);
   assert.match(prompt, /4:3/);
   assert.match(prompt, /botanically recognizable/);
   assert.match(prompt, /no text/);
@@ -112,18 +114,18 @@ test("manual image regeneration is exposed as pending to approval and publishing
   const draft = { id: "1f769b3f-21f6-4aa0-95b6-0c818b09c585", createdAt: new Date(0).toISOString() };
   assert.equal(beginWikiImageRegeneration(draft.id), true);
   assert.equal(beginWikiImageRegeneration(draft.id), false);
-  assert.equal(isWikiDraftImagePending(draft), true);
+  assert.equal(isWikiDraftImagePending(greatflowers, draft), true);
   endWikiImageRegeneration(draft.id);
-  assert.equal(isWikiDraftImagePending(draft), false);
+  assert.equal(isWikiDraftImagePending(greatflowers, draft), false);
 });
 
 test("wiki publish mode defaults to immediate and supports scheduled mode", () => {
   const now = new Date("2026-10-12T12:00:00Z");
   try {
     delete process.env.WIKI_PUBLISH_MODE;
-    assert.equal(wikiPublishAfterFor(now).toISOString(), now.toISOString());
+    assert.equal(wikiPublishAfterFor(greatflowers, now).toISOString(), now.toISOString());
     process.env.WIKI_PUBLISH_MODE = "scheduled";
-    assert.equal(wikiPublishAfterFor(now).toISOString(), "2026-10-12T14:00:00.000Z");
+    assert.equal(wikiPublishAfterFor(greatflowers, now).toISOString(), "2026-10-12T14:00:00.000Z");
   } finally {
     delete process.env.WIKI_PUBLISH_MODE;
   }
@@ -145,7 +147,7 @@ test("wiki publish payload attaches products and removes legacy inline embeds", 
     environment: "example.test",
     html: `${base.html}<div class="blog-product-embed" data-product-id="7"></div>`,
   };
-  const payload = buildWikiPublishPayload(draft, 42, 1, [products[0]!, products[2]!], "https://greatflowers.net");
+  const payload = buildWikiPublishPayload(greatflowers, draft, 42, 1, [products[0]!, products[2]!], "https://greatflowers.net");
   assert.deepEqual(payload.products, [7, 9]);
   assert.equal(payload.wiki_thumbnail_id, 42);
   assert.equal(payload.status, 1);

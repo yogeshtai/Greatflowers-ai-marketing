@@ -1,0 +1,20 @@
+<svg width="1024" height="1024" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <filter id="text-shadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="1" stdDeviation="1.8" flood-color="#ffffff" flood-opacity="0.82"/>
+      </filter>
+      <linearGradient id="copy-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.600"/>
+        <stop offset="50.5%" stop-color="#ffffff" stop-opacity="0.600"/>
+        <stop offset="74.5%" stop-color="#ffffff" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="copy-fade" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#ffffff" stop-opacity="0"/><stop offset="16.29%" stop-color="#ffffff" stop-opacity="1"/><stop offset="83.71%" stop-color="#ffffff" stop-opacity="1"/><stop offset="100%" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
+      <mask id="copy-mask"><rect x="0" y="397" width="1024" height="626" fill="url(#copy-fade)"/></mask>
+    </defs>
+    <rect x="0" y="397" width="1024" height="626" fill="url(#copy-gradient)" mask="url(#copy-mask)"/>
+    <text font-family="Helvetica Neue, Helvetica, Inter, Arial, Liberation Sans, sans-serif" font-size="58" font-weight="700" letter-spacing="-1.2" filter="url(#text-shadow)"><tspan x="56" y="563" text-anchor="start"><tspan fill="#261943">Bring the</tspan></tspan><tspan x="56" y="622" text-anchor="start"><tspan fill="#261943">Blooms</tspan><tspan fill="#db2173" dx="0.22em">to</tspan></tspan><tspan x="56" y="681" text-anchor="start"><tspan fill="#db2173">Their Birthday</tspan></tspan></text>
+    <text x="56" text-anchor="start" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="30" font-weight="500" fill="#3f3a44" filter="url(#text-shadow)"><tspan x="56" y="732">A thoughtful surprise for</tspan><tspan x="56" y="770">their day.</tspan></text>
+    <rect x="56" y="834" width="284" height="67" rx="34" fill="#701888"/>
+       <text x="198" y="878" text-anchor="middle" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="29" font-weight="700" fill="#ffffff">Shop flowers →</text>
+    
+  </svg>

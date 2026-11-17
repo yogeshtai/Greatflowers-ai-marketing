@@ -1,4 +1,5 @@
-import type { MarketingProduct } from "./greatflowers.products.js";
+import type { MarketingProduct } from "./catalog.products.js";
+import type { ProjectConfig } from "./projects/index.js";
 import type { SavedCampaign } from "./campaign.store.js";
 import type { RecommendationHistoryItem } from "./recommendation.store.js";
 import { getActiveOccasions } from "./occasion.calendar.js";
@@ -28,13 +29,13 @@ const themes: Record<ContentTheme, { goal: string; priority: string; guidance: s
   "home-styling": {
     goal: "Build brand awareness",
     priority: "Awareness",
-    guidance: "Practical inspiration for a home or workspace using a real GreatFlowers arrangement. No forced gift story.",
+    guidance: "Practical inspiration for a home or workspace using a real {brand} arrangement. No forced gift story.",
     visuals: ["architectural-interior", "color-block-editorial", "magazine-product-feature"],
   },
   "flower-care": {
     goal: "Encourage saves and shares",
     priority: "Engagement",
-    guidance: "Useful general flower-care education connected naturally to GreatFlowers. Do not invent species, longevity guarantees or product-specific care facts; omit uncertain advice. Invite saves or shares.",
+    guidance: "Useful general flower-care education connected naturally to {brand}. Do not invent species, longevity guarantees or product-specific care facts; omit uncertain advice. Invite saves or shares.",
     visuals: ["flower-care-demonstration", "florist-workbench", "botanical-macro"],
   },
   "product-spotlight": {
@@ -52,7 +53,7 @@ const themes: Record<ContentTheme, { goal: string; priority: string; guidance: s
   "conversation-starter": {
     goal: "Encourage comments and shares",
     priority: "Engagement",
-    guidance: "An inviting flower preference question or everyday conversation tied to GreatFlowers. No fake polls, testimonials, giveaways or unsupported product comparisons.",
+    guidance: "An inviting flower preference question or everyday conversation tied to {brand}. No fake polls, testimonials, giveaways or unsupported product comparisons.",
     visuals: ["color-block-editorial", "botanical-macro", "bouquet-in-motion"],
   },
   "recipient-spotlight": {
@@ -145,6 +146,7 @@ function weightedPick<T>(items: T[], weight: (item: T) => number, random: () => 
 }
 
 export function createRotationPlan(
+  project: ProjectConfig,
   products: MarketingProduct[],
   recent: RotationEntry[],
   published: RotationEntry[],
@@ -178,7 +180,8 @@ export function createRotationPlan(
   const candidates = !importantSeason && freshProducts.length ? freshProducts : eligible;
   return {
     contentTheme, visualTreatment, campaignGoal: theme.goal, priority: theme.priority,
-    guidance: theme.guidance, candidates,
+    // Theme guidance names the brand through a {brand} placeholder.
+    guidance: theme.guidance.replaceAll("{brand}", project.brand.name), candidates,
     productCooldownRelaxed: candidates === eligible && eligible.some(p => coolingProducts.has(p.id)),
     recent, published,
   };

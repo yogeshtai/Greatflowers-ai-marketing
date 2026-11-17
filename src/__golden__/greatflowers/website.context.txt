@@ -1,0 +1,15 @@
+{
+  "requests": [],
+  "pages": [
+    {
+      "url": "https://greatflowers.net/",
+      "title": "Great Flowers Home",
+      "text": "Great Flowers Home Fresh flowers"
+    },
+    {
+      "url": "https://greatflowers.net/build-your-bouquet/",
+      "title": "Great Flowers Home",
+      "text": "Great Flowers Home Fresh flowers"
+    }
+  ]
+}

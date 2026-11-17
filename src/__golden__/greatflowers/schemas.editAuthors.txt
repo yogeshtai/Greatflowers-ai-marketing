@@ -1,0 +1,14 @@
+{
+  "blog": [
+    true,
+    true,
+    false,
+    false
+  ],
+  "article": [
+    true,
+    true,
+    false,
+    false
+  ]
+}

@@ -273,3 +273,64 @@ For issues or questions:
 ---
 
 **Last Updated:** August 27, 2026
+
+## 🏷️ Multiple Projects (Brands)
+
+One server and one dashboard run marketing for several storefronts. GreatFlowers is the default
+project; One Price Flowers (`onepriceflowers`) is the second. See `src/projects/` and the
+"Projects" section of `README.md`.
+
+> Pushing to `main` deploys to production automatically (`.github/workflows/deploy.yml`:
+> `git reset --hard origin/main`, `npm ci`, client build, `pm2 restart`). Merge only reviewed code.
+
+### Readiness check
+
+```bash
+npm run check:project -- greatflowers
+npm run check:project -- onepriceflowers
+npm run check:project -- onepriceflowers --s3-write-test   # uploads, reads and deletes one tiny test image
+```
+
+Read-only apart from `--s3-write-test`. Setting values are never printed. Exit code 1 means a check failed.
+
+### Rollout runbook
+
+**Step 1 — Deploy with only GreatFlowers enabled** (no `.env` change)
+1. Merge `feat/multi-project` into `main` (auto-deploys).
+2. `npm run check:project -- greatflowers` must show 0 failing.
+3. Watch one blog/wiki/article cron run and one scheduled Meta post: `pm2 logs greatflowers-marketing-api`.
+   Log lines now name the project, e.g. `📝 [greatflowers] Blog scheduler started`.
+
+**Step 2 — Add One Price Flowers in safe mode**
+1. Add the `OPF_*` block from `.env.example` to `.env` (admin API user, storefront URL, Meta page,
+   Instagram account and token, GA4 property, S3 bucket `oneflowers-prod` + dedicated IAM keys).
+   - The IAM user only needs `s3:PutObject`, `s3:GetObject`, `s3:DeleteObject` on `oneflowers-prod/marketing/*`.
+   - Meta downloads images from the public S3 URL: `marketing/*` must be publicly readable.
+   - Add the GA4 service-account email as Viewer on the OPF GA4 property.
+2. Set `OPF_ENABLED=true`. New brands start with timed drafts off and posts hidden, so nothing runs on its own.
+3. `pm2 restart greatflowers-marketing-api`
+4. `npm run check:project -- onepriceflowers --s3-write-test` must show 0 failing.
+5. In the dashboard, choose **One Price Flowers** in the header dropdown and generate one blog, one
+   wiki entry and one article manually, plus one campaign recommendation with creatives. Review them
+   for brand, pricing wording ("One price. No additional charges for delivery or tax."), links
+   (`/guides/`, `/articles/`, `/product/`) and the green logo/colours. Publish one hidden post and
+   check it in the OPF admin.
+
+**Step 3 — Turn on One Price Flowers automation**
+```bash
+OPF_BLOG_AUTOGENERATE=true
+OPF_WIKI_AUTOGENERATE=true
+OPF_ARTICLE_AUTOGENERATE=true
+OPF_BLOG_PUBLISH_LIVE=true
+OPF_WIKI_PUBLISH_LIVE=true
+OPF_ARTICLE_PUBLISH_LIVE=true
+```
+Restart, then watch the first cycle. OPF drafts run 14:00–17:30 IST (blog Mon/Wed/Fri, wiki
+Tue/Thu/Sat, article Sun), before GreatFlowers' 18:00–23:30 IST jobs, because both brands share one
+Codex image generator. Campaigns are only published when someone schedules them.
+
+### Turning a brand off / rolling back
+- **Disable One Price Flowers:** set `OPF_ENABLED=false` (or remove it) and restart. Its data stays in
+  `data/projects/onepriceflowers/`; GreatFlowers is unaffected.
+- **Roll back the code:** revert the merge commit on `main` and push (auto-deploys). GreatFlowers'
+  data, settings and S3 prefix were never moved, so the previous version reads them unchanged.

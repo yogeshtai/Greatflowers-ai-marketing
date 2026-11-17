@@ -1,7 +1,7 @@
 import axios from "axios";
 import { API_BASE } from "../constants";
 import { withProjectQuery } from "../project";
-import type { GenerationState } from "./blogs";
+import type { DraftSchedule, GenerationState } from "./blogs";
 
 export interface ArticleGenerationState extends GenerationState { phase?: "article" | "image" }
 export type ArticleStatus = "draft" | "approved" | "published" | "rejected" | "failed";
@@ -18,7 +18,7 @@ const url = (path = "") => `${API_BASE}/api/articles${path}`;
 const unwrap = (error: unknown): never => { throw new Error(axios.isAxiosError(error) && error.response?.data?.error ? error.response.data.error : error instanceof Error ? error.message : "Request failed"); };
 const call = async <T,>(request: Promise<{ data: T }>) => request.then((response) => response.data).catch(unwrap);
 
-export const getArticles = () => call<{ articles: ArticleDraft[]; topics: string[]; liveMode: boolean; publishMode: "immediate" | "scheduled"; generation: ArticleGenerationState }>(axios.get(url()));
+export const getArticles = () => call<{ articles: ArticleDraft[]; topics: string[]; liveMode: boolean; publishMode: "immediate" | "scheduled"; generation: ArticleGenerationState; schedule?: DraftSchedule }>(axios.get(url()));
 export const getArticleStatus = () => call<{ generation: ArticleGenerationState }>(axios.get(url("/status")));
 export const generateArticle = () => call<{ started: boolean }>(axios.post(url("/generate"), {}));
 export const editArticle = (id: string, edit: ArticleEdit) => call<{ article: ArticleDraft }>(axios.patch(url(`/${id}`), edit));

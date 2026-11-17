@@ -12,6 +12,7 @@ import { unlink } from "node:fs/promises";
 import { contentAuthors, defaultContentAuthor } from "../content.authors.js";
 import { projectLockKey } from "../projects/index.js";
 import { projectOf } from "../projects/http.js";
+import { draftSchedule } from "../projects/schedule.js";
 
 const router = express.Router();
 const fail = (res: express.Response, error: unknown, status = 500) => {
@@ -32,7 +33,7 @@ router.get("/api/blogs", async (_req, res) => {
   try {
     const project = projectOf(res);
     const blogs = (await getBlogDrafts(project)).map((blog) => ({ ...blog, authorName: blog.authorName ?? defaultContentAuthor(project) }));
-    res.json({ success: true, blogs, authors: contentAuthors(project), liveMode: liveMode(project), publishMode: publishImmediate(project) ? "immediate" : "scheduled", generation: getGenerationState(project) });
+    res.json({ success: true, blogs, authors: contentAuthors(project), liveMode: liveMode(project), publishMode: publishImmediate(project) ? "immediate" : "scheduled", generation: getGenerationState(project), schedule: draftSchedule(project, "BLOG") });
   } catch (error) {
     fail(res, error);
   }

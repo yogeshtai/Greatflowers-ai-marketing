@@ -12,6 +12,7 @@ import { WikiEditSchema } from "../wiki.schema.js";
 import { deleteUnpublishedWikiDraft, getWikiDraft, getWikiDrafts, updateWikiDraft } from "../wiki.store.js";
 import { projectLockKey } from "../projects/index.js";
 import { projectOf } from "../projects/http.js";
+import { draftSchedule } from "../projects/schedule.js";
 
 const router = express.Router();
 const idOf = (req: express.Request) => z.string().uuid().parse(String(req.params.id));
@@ -36,6 +37,7 @@ router.get("/api/wikis", async (_req, res) => {
       liveMode: wikiLiveMode(project),
       publishMode: publishWikiImmediate(project) ? "immediate" : "scheduled",
       generation: getWikiGenerationState(project),
+      schedule: draftSchedule(project, "WIKI"),
     });
   } catch (error) {
     fail(res, error);

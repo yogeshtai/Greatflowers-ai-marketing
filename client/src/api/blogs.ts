@@ -48,7 +48,10 @@ const unwrap = (error: unknown): never => {
 };
 const call = async <T,>(request: Promise<{ data: T }>) => request.then((r) => r.data).catch(unwrap);
 
-export const getBlogs = () => call<{ blogs: BlogDraft[]; authors: string[]; liveMode: boolean; publishMode: "immediate" | "scheduled"; generation: GenerationState }>(axios.get(url()));
+// The brand's timed draft schedule, as the server runs it (shown on each queue page).
+export interface DraftSchedule { autogenerate: boolean; days: string; time: string; retryPeriod?: "afternoon" | "evening" }
+
+export const getBlogs = () => call<{ blogs: BlogDraft[]; authors: string[]; liveMode: boolean; publishMode: "immediate" | "scheduled"; generation: GenerationState; schedule?: DraftSchedule }>(axios.get(url()));
 export const getBlogStatus = () => call<{ generation: GenerationState }>(axios.get(url("/status")));
 export const generateBlog = (occasion?: string) => call<{ started: boolean }>(axios.post(url("/generate"), { occasion: occasion?.trim() || undefined }));
 export const editBlog = (id: string, edit: BlogEdit) => call<{ blog: BlogDraft }>(axios.patch(url(`/${id}`), edit));

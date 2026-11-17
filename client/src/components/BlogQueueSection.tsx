@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { approveBlog, blogHeroUrl, deleteBlog, editBlog, generateBlog, getBlogStatus, getBlogs, publishBlogNow, regenerateBlogHero, rejectBlog, type BlogDraft, type GenerationState } from "../api/blogs";
+import { approveBlog, blogHeroUrl, deleteBlog, editBlog, generateBlog, getBlogStatus, getBlogs, publishBlogNow, regenerateBlogHero, rejectBlog, type BlogDraft, type DraftSchedule, type GenerationState } from "../api/blogs";
 
 const when = (iso?: string) => (iso ? new Date(iso).toLocaleString() : "");
 
@@ -8,6 +8,7 @@ export function BlogQueueSection({ brandName }: { brandName: string }) {
   const [authors, setAuthors] = useState<string[]>([]);
   const [liveMode, setLiveMode] = useState(false);
   const [publishMode, setPublishMode] = useState<"immediate" | "scheduled">("immediate");
+  const [schedule, setSchedule] = useState<DraftSchedule | null>(null);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [generation, setGeneration] = useState<GenerationState>({ running: false });
@@ -25,6 +26,7 @@ export function BlogQueueSection({ brandName }: { brandName: string }) {
       setAuthors(data.authors);
       setLiveMode(data.liveMode);
       setPublishMode(data.publishMode ?? "immediate");
+      setSchedule(data.schedule ?? null);
       setGeneration(data.generation);
       setError("");
     } catch (e) {
@@ -81,7 +83,7 @@ export function BlogQueueSection({ brandName }: { brandName: string }) {
           <span className="step">Daily Blog</span>
           <h2>Blog Queue{awaiting > 0 ? ` (${awaiting} waiting for approval)` : ""}</h2>
           <p style={{ margin: "6px 0 0", color: "#70706a", fontSize: 13 }}>
-            A draft is written Monday, Wednesday and Friday at 6:00 PM IST.{" "}
+            {schedule && (schedule.autogenerate ? `A draft is written ${schedule.days} at ${schedule.time}. ` : "Timed drafts are switched off for this brand. ")}
             {publishMode === "immediate" ? "Approving a post publishes it right away." : "Approved posts go live at 10:00 AM ET."}{" "}
             {liveMode ? "Live mode: posts are published." : "Safe mode: posts are created hidden (not visible to readers)."}
           </p>
@@ -109,7 +111,7 @@ export function BlogQueueSection({ brandName }: { brandName: string }) {
         <div role="status" style={{ margin: "0 0 16px", padding: "14px 18px", borderRadius: 12, background: "#eef3ff", border: "1px solid #c9d6ff", color: "#1f3a8a" }}>
           <strong>Writing a new blog draft{generation.occasion ? ` for ${generation.occasion}` : ""}... {elapsedLabel}</strong>
           <div style={{ fontSize: 13, marginTop: 4 }}>
-            {generation.trigger === "schedule" ? "Started by the daily 6:00 PM IST run. " : "Started from this page. "}
+            {generation.trigger === "schedule" ? (schedule ? `Started by the daily ${schedule.time} run. ` : "Started by a scheduled run. ") : "Started from this page. "}
             This usually takes 5 to 10 minutes (the writing, then the hero image); an automatic retry can take longer. You can leave this page and the draft will appear here when ready.
             {elapsedSeconds > 15 * 60 && " It is taking unusually long. Check the server logs if it does not finish soon."}
           </div>
@@ -119,7 +121,7 @@ export function BlogQueueSection({ brandName }: { brandName: string }) {
       {!generation.running && generation.error && <p role="alert" className="creative-error-note">The last draft attempt failed: {generation.error}</p>}
 
       {blogs.length === 0 ? (
-        <div className="empty-state"><h3>No blog drafts yet</h3><p>The first draft appears after the next 6:00 PM IST run, or generate one now.</p></div>
+        <div className="empty-state"><h3>No blog drafts yet</h3><p>{schedule && !schedule.autogenerate ? "Timed drafts are switched off for this brand. Generate one now." : `The first draft appears after the next ${schedule?.time ?? "scheduled"} run, or generate one now.`}</p></div>
       ) : (
         <div className="campaign-list">
           {blogs.map((blog) => {

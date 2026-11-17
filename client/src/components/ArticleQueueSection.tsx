@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { approveArticle, articleImageUrl, deleteArticle, editArticle, generateArticle, getArticles, getArticleStatus, publishArticleNow, regenerateArticleImage, rejectArticle, type ArticleDraft, type ArticleEdit, type ArticleGenerationState } from "../api/articles";
+import type { DraftSchedule } from "../api/blogs";
 
 const when = (iso?: string) => iso ? new Date(iso).toLocaleString() : "";
 
@@ -8,6 +9,7 @@ export function ArticleQueueSection() {
   const [liveMode, setLiveMode] = useState(false);
   const [topics, setTopics] = useState<string[]>([]);
   const [publishMode, setPublishMode] = useState<"immediate" | "scheduled">("immediate");
+  const [schedule, setSchedule] = useState<DraftSchedule | null>(null);
   const [generation, setGeneration] = useState<ArticleGenerationState>({ running: false });
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -20,7 +22,7 @@ export function ArticleQueueSection() {
     setLoading(true);
     try {
       const data = await getArticles();
-      setArticles(data.articles); setTopics(data.topics); setLiveMode(data.liveMode); setPublishMode(data.publishMode); setGeneration(data.generation); setError("");
+      setArticles(data.articles); setTopics(data.topics); setLiveMode(data.liveMode); setPublishMode(data.publishMode); setSchedule(data.schedule ?? null); setGeneration(data.generation); setError("");
     } catch (failure) { setError(failure instanceof Error ? failure.message : "Could not load article drafts"); }
     finally { setLoading(false); }
   }, []);
@@ -47,14 +49,14 @@ export function ArticleQueueSection() {
   return <section className="history-section">
     <div className="history-header">
       <div><span className="step">Daily Editorial Article</span><h2>Article Queue{awaiting ? ` (${awaiting} waiting for approval)` : ""}</h2>
-        <p style={{ margin: "6px 0 0", color: "#70706a", fontSize: 13 }}>A distinct long-form article is written every Sunday at 6:30 PM IST. Timed-out runs retry later that evening. {publishMode === "immediate" ? "Approving publishes it right away." : "Approved articles publish at 10:00 AM ET."} {liveMode ? "Live mode: articles are public." : "Safe mode: articles are created hidden."}</p>
+        <p style={{ margin: "6px 0 0", color: "#70706a", fontSize: 13 }}>{schedule && (schedule.autogenerate ? `A distinct long-form article is written every ${schedule.days} at ${schedule.time}. Timed-out runs retry later that ${schedule.retryPeriod ?? "day"}. ` : "Timed drafts are switched off for this brand. ")}{publishMode === "immediate" ? "Approving publishes it right away." : "Approved articles publish at 10:00 AM ET."} {liveMode ? "Live mode: articles are public." : "Safe mode: articles are created hidden."}</p>
       </div>
       <div style={{ display: "flex", gap: 10 }}><button className="secondary-button" onClick={load} disabled={loading}>{loading ? "Loading..." : "Refresh"}</button><button className="primary-action-button" disabled={generation.running} onClick={() => run(null, generateArticle)}>{generation.running ? (generation.phase === "image" ? "Creating article image..." : "Writing article...") : "Generate article draft now"}</button></div>
     </div>
-    {generation.running && <div role="status" style={{ margin: "0 0 16px", padding: "14px 18px", borderRadius: 12, background: "#eef7ed", border: "1px solid #c9dfc5", color: "#275b2a" }}><strong>{generation.phase === "image" ? "Article ready — creating its image" : "Writing a new article"}... {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")}</strong><div style={{ fontSize: 13, marginTop: 4 }}>{generation.trigger === "schedule" ? "Started by the scheduled Sunday run. " : "Started from this page. "}You may leave this page while it runs.</div></div>}
+    {generation.running && <div role="status" style={{ margin: "0 0 16px", padding: "14px 18px", borderRadius: 12, background: "#eef7ed", border: "1px solid #c9dfc5", color: "#275b2a" }}><strong>{generation.phase === "image" ? "Article ready — creating its image" : "Writing a new article"}... {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")}</strong><div style={{ fontSize: 13, marginTop: 4 }}>{generation.trigger === "schedule" ? (schedule ? `Started by the scheduled ${schedule.days} run. ` : "Started by the scheduled run. ") : "Started from this page. "}You may leave this page while it runs.</div></div>}
     {error && <p role="alert" className="creative-error-note">{error}</p>}
     {!generation.running && generation.error && <p role="alert" className="creative-error-note">The last article draft attempt failed: {generation.error}</p>}
-    {!articles.length ? <div className="empty-state"><h3>No article drafts yet</h3><p>The first draft appears after the next 6:30 PM IST run, or generate one now.</p></div> : <div className="campaign-list">{articles.map((article) => {
+    {!articles.length ? <div className="empty-state"><h3>No article drafts yet</h3><p>{schedule && !schedule.autogenerate ? "Timed drafts are switched off for this brand. Generate one now." : `The first draft appears after the next ${schedule?.time ?? "scheduled"} run, or generate one now.`}</p></div> : <div className="campaign-list">{articles.map((article) => {
       const editable = article.status === "draft" || article.status === "failed";
       const open = openId === article.id;
       const makingImage = editable && imageBusy(article);

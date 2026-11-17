@@ -12,6 +12,7 @@ import { withGfClient } from "../gf.admin.client.js";
 import { abortOnDisconnect, errorDetail, singleFlight } from "../http.helpers.js";
 import { projectLockKey } from "../projects/index.js";
 import { projectOf } from "../projects/http.js";
+import { draftSchedule } from "../projects/schedule.js";
 
 const router = express.Router();
 const idOf = (req: express.Request) => z.string().uuid().parse(String(req.params.id));
@@ -35,7 +36,7 @@ router.get("/api/articles", async (_req, res) => {
       withGfClient(project, (client) => client.listArticleTopics()),
     ]);
     const topics = topicRows.map((topic: any) => String(topic.name ?? topic.id ?? topic));
-    res.json({ success: true, articles, topics, liveMode: articleLiveMode(project), publishMode: publishArticleImmediate(project) ? "immediate" : "scheduled", generation: getArticleGenerationState(project) });
+    res.json({ success: true, articles, topics, liveMode: articleLiveMode(project), publishMode: publishArticleImmediate(project) ? "immediate" : "scheduled", generation: getArticleGenerationState(project), schedule: draftSchedule(project, "ARTICLE") });
   } catch (error) { fail(res, error); }
 });
 

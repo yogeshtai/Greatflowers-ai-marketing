@@ -13,6 +13,7 @@ import { projectContext, projectOf, PROJECT_HEADER } from "./projects/http.js";
 import { s3Settings } from "./projects/storage.js";
 import { autogenerateEnabled, isSafeMode } from "./projects/automation.js";
 import { missingSettings } from "./projects/readiness.js";
+import { draftSchedule } from "./projects/schedule.js";
 import { ownedCampaignAsset } from "./campaign.assets.js";
 import { buildPrompt, generateMarketingStrategy, generateStoryCreativePlan, type CampaignInput } from "./hermes.js";
 import { generateCampaignRecommendation } from "./campaign.recommender.js";
@@ -357,4 +358,22 @@ test("admin API: GreatFlowers requests are unchanged; One Price Flowers pages at
     "opf.test/api/admin/category?type=post&paginate=100&page=2",
   ]);
   assert.equal(opfCategories.length, 200, "same number of rows as one large request would return");
+});
+
+test("queue pages describe each brand's own draft schedule, read from its crons", (t) => {
+  for (const name of ["BLOG_AUTOGENERATE", "WIKI_AUTOGENERATE", "ARTICLE_AUTOGENERATE", "OPF_BLOG_AUTOGENERATE", "OPF_WIKI_AUTOGENERATE", "OPF_ARTICLE_AUTOGENERATE"]) {
+    const previous = process.env[name];
+    delete process.env[name];
+    t.after(() => { if (previous === undefined) delete process.env[name]; else process.env[name] = previous; });
+  }
+  // GreatFlowers: exactly the times its queue pages always showed.
+  assert.deepEqual(draftSchedule(greatflowers, "BLOG"), { autogenerate: true, days: "Monday, Wednesday and Friday", time: "6:00 PM IST" });
+  assert.deepEqual(draftSchedule(greatflowers, "WIKI"), { autogenerate: true, days: "Tuesday, Thursday and Saturday", time: "7:00 PM IST", retryPeriod: "evening" });
+  assert.deepEqual(draftSchedule(greatflowers, "ARTICLE"), { autogenerate: true, days: "Sunday", time: "6:30 PM IST", retryPeriod: "evening" });
+  // One Price Flowers runs earlier in the day (it shares the image generator) and starts with timed drafts off.
+  assert.deepEqual(draftSchedule(onepriceflowers, "BLOG"), { autogenerate: false, days: "Monday, Wednesday and Friday", time: "2:00 PM IST" });
+  assert.deepEqual(draftSchedule(onepriceflowers, "WIKI"), { autogenerate: false, days: "Tuesday, Thursday and Saturday", time: "2:30 PM IST", retryPeriod: "afternoon" });
+  assert.deepEqual(draftSchedule(onepriceflowers, "ARTICLE"), { autogenerate: false, days: "Sunday", time: "2:00 PM IST", retryPeriod: "afternoon" });
+  process.env.OPF_WIKI_AUTOGENERATE = "true";
+  assert.equal(draftSchedule(onepriceflowers, "WIKI").autogenerate, true);
 });

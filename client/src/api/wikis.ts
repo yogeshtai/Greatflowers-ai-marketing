@@ -1,7 +1,7 @@
 import axios from "axios";
 import { API_BASE } from "../constants";
 import { withProjectQuery } from "../project";
-import type { GenerationState } from "./blogs";
+import type { DraftSchedule, GenerationState } from "./blogs";
 
 export interface WikiGenerationState extends GenerationState {
   phase?: "article" | "image";
@@ -45,7 +45,7 @@ const unwrap = (error: unknown): never => {
 };
 const call = async <T,>(request: Promise<{ data: T }>) => request.then((response) => response.data).catch(unwrap);
 
-export const getWikis = () => call<{ wikis: WikiDraft[]; liveMode: boolean; publishMode: "immediate" | "scheduled"; generation: WikiGenerationState }>(axios.get(url()));
+export const getWikis = () => call<{ wikis: WikiDraft[]; liveMode: boolean; publishMode: "immediate" | "scheduled"; generation: WikiGenerationState; schedule?: DraftSchedule }>(axios.get(url()));
 export const getWikiStatus = () => call<{ generation: WikiGenerationState }>(axios.get(url("/status")));
 export const generateWiki = () => call<{ started: boolean }>(axios.post(url("/generate"), {}));
 export const editWiki = (id: string, edit: WikiEdit) => call<{ wiki: WikiDraft }>(axios.patch(url(`/${id}`), edit));

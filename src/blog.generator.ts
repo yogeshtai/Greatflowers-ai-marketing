@@ -1,12 +1,17 @@
 import { formatOccasionGuidance, getUpcomingOccasions } from "./occasion.calendar.js";
 import { requestHermesJSON } from "./hermes.json.js";
 import { parseModelJSONCandidates } from "./model.json.js";
-import { BLOG_FORMATS, GeneratedPostJsonSchema, GeneratedPostSchema, type BlogFormat, type GeneratedPost } from "./blog.schema.js";
+import { BLOG_FORMATS, GeneratedPostJsonSchema, GeneratedPostSchema, inferredFormat, type BlogFormat, type GeneratedPost } from "./blog.schema.js";
 import { addBlogDraft, getBlogDrafts, updateBlogDraft } from "./blog.store.js";
 import { generateHeroImage, type HeroInput } from "./blog.image.js";
 import { gfApiHost, withGfClient } from "./gf.admin.client.js";
 import { selectContentAuthor } from "./content.authors.js";
 import { assertNoTitleCollision, type ContentTitle } from "./content.overlap.js";
+import { assertAssignedTitle, completeBlogTitle, releaseBlogTitle, TITLE_MAX } from "./blog.titles.js";
+import { resolveTitleAssignment, type BlogTitleAssignment, type BlogTitleSource, type SelectionContext } from "./blog.title-selector.js";
+import type { BlogDraft } from "./blog.schema.js";
+import type { WikiDraft } from "./wiki.schema.js";
+import type { ArticleDraft } from "./article.schema.js";
 import { getArticleDrafts } from "./article.store.js";
 import { getWikiDrafts } from "./wiki.store.js";
 import { contentSkillPrefix, productPageUrl, promptAddendum, storefrontBase, type ProjectConfig } from "./projects/index.js";
@@ -50,13 +55,6 @@ export function sanitizeBlogLinks(html: string, allowedSlugs: Set<string>): stri
 }
 
 
-function inferredFormat(title: string): BlogFormat {
-  if (/^(best|top|\d+)\b/i.test(title)) return "CURATED_LIST";
-  if (/^(how|a guide|the guide)|\bguide\b/i.test(title)) return "PRACTICAL_GUIDE";
-  if (/^(what|which|when|why|can|should)\b|\?$/.test(title.toLowerCase())) return "QUESTION_EXPLAINER";
-  return "OCCASION_PLAYBOOK";
-}
-
 export function selectBlogFormat(recent: Array<{ title: string; contentFormat?: BlogFormat }>): BlogFormat {
   // Evergreen how-to and question-led resources belong in Articles. Blogs are
   // reserved for product-led lists and timely occasion coverage.
@@ -85,6 +83,19 @@ export function resolveLinks(html: string, ctx: { project: ProjectConfig; produc
   });
 }
 
+// Instructions for a draft written to a title from the brand's title list.
+function assignedTitleSection(title: string): string {
+  const titleRule = title.length <= TITLE_MAX
+    ? "- The marketing team chose this title. Use it exactly as the title field (same words in the same order; only capitalization or punctuation may change)."
+    : `- The marketing team chose this title, but it is longer than ${TITLE_MAX} characters. Shorten it to 35-${TITLE_MAX} characters for the title field, keeping its main keyword and using its own words. Do not change the topic.`;
+  return `
+ASSIGNED TITLE (MANDATORY FOR THIS DRAFT): "${title}"
+${titleRule}
+- Write the entire post for this title's search intent; do not switch to another occasion or topic.
+- If the title promises a number of picks (for example "7 Flowers for..."), deliver exactly that many numbered <h2> picks; this overrides the 5-pick and product counts below.
+`;
+}
+
 export function buildBlogPrompt(args: {
   project: ProjectConfig;
   today: string;
@@ -96,6 +107,8 @@ export function buildBlogPrompt(args: {
   recentHeroConcepts: string[];
   requiredFormat: BlogFormat;
   requestedOccasion?: string;
+  /** A title from the brand's title list that this draft must use. */
+  assignedTitle?: string;
 }): string {
   const upcoming = getUpcomingOccasions(50).slice(0, 5).map((o) => `${o.name} (${o.daysUntil} days away)`);
   const structureSample = args.requiredFormat === "CURATED_LIST"
@@ -105,15 +118,16 @@ export function buildBlogPrompt(args: {
   const requestedOccasion = args.requestedOccasion
     ? `\nUSER-REQUESTED OCCASION (MANDATORY FOR THIS MANUAL DRAFT): ${args.requestedOccasion}\n- Write the entire post specifically for this occasion, even if it is outside the 50-day calendar window.\n- The title must contain the exact phrase "${args.requestedOccasion}" (case differences are allowed).\n- Keep the search intent distinct from existing posts; do not replace the requested occasion with another topic.\n`
     : "";
+  const assignedTitle = args.assignedTitle ? assignedTitleSection(args.assignedTitle) : "";
   const brand = args.project.brand;
   return `You are the SEO content writer for ${brand.name} (${brand.domain}), ${brand.businessDescription}.
 Write ONE new blog post for today (${args.today}).
 
 ${formatOccasionGuidance()}
-${requestedOccasion}
+${requestedOccasion}${assignedTitle}
 
 TOPIC RULES
-- Occasions coming up in the next 50 days (blog posts need lead time to rank): ${upcoming.length ? upcoming.join("; ") : "none"}. ${args.requestedOccasion ? "The user-requested occasion above overrides this calendar guidance." : "Prefer one of these that has NO existing post yet (check the existing titles). Choose an evergreen topic only if every upcoming occasion is already well covered."}
+- Occasions coming up in the next 50 days (blog posts need lead time to rank): ${upcoming.length ? upcoming.join("; ") : "none"}. ${args.requestedOccasion ? "The user-requested occasion above overrides this calendar guidance." : args.assignedTitle ? "The assigned title above overrides this calendar guidance." : "Prefer one of these that has NO existing post yet (check the existing titles). Choose an evergreen topic only if every upcoming occasion is already well covered."}
 - It must be clearly different from every existing post listed below (different search intent, not a rewording).
 - Existing post titles (do NOT repeat or closely paraphrase):
 ${args.existingTitles.slice(0, 120).map((t) => `  - ${t}`).join("\n")}
@@ -166,7 +180,7 @@ Return the JSON object only.`;
 
 export function validatePost(
   output: string,
-  ctx: { project: ProjectConfig; existingTitles: string[]; existingSlugs: string[]; contentInventory?: ContentTitle[]; categories: Set<string>; products: CatalogProduct[]; relatedSlugs: Set<string>; base: string; requiredFormat: BlogFormat; requestedOccasion?: string },
+  ctx: { project: ProjectConfig; existingTitles: string[]; existingSlugs: string[]; contentInventory?: ContentTitle[]; categories: Set<string>; products: CatalogProduct[]; relatedSlugs: Set<string>; base: string; requiredFormat: BlogFormat; requestedOccasion?: string; assignedTitle?: string },
 ): GeneratedPost {
   const productIds = new Set(ctx.products.map((p) => p.id));
   const roots = parseModelJSONCandidates(output);
@@ -195,6 +209,7 @@ export function validatePost(
   if (ctx.requestedOccasion && !lower.includes(ctx.requestedOccasion.toLowerCase())) {
     throw new Error(`title must contain the requested occasion "${ctx.requestedOccasion}"`);
   }
+  if (ctx.assignedTitle) assertAssignedTitle(post.title, ctx.assignedTitle);
   if (ctx.existingTitles.some((t) => t.toLowerCase() === lower)) throw new Error("title duplicates an existing post");
   assertNoTitleCollision(post.title, ctx.contentInventory ?? ctx.existingTitles.map((title) => ({ kind: "blog", title })));
   if (ctx.existingSlugs.includes(post.slug)) throw new Error("slug is already taken");
@@ -213,7 +228,61 @@ export function validatePost(
   return { ...post, html };
 }
 
-export async function generateDailyBlogDraft(project: ProjectConfig, signal?: AbortSignal, requestedOccasion?: string) {
+// Every title already used on the storefront or in the queue (blogs, wiki entries, articles),
+// so a new post or a new list title never overlaps an existing page.
+export function buildContentInventory(
+  remote: { blogs: any[]; wikis: any[]; articles: any[] },
+  local: { blogs: BlogDraft[]; wikis: WikiDraft[]; articles: ArticleDraft[] },
+): ContentTitle[] {
+  return [
+    ...remote.blogs.map((item: any) => ({ kind: "blog" as const, title: String(item.title), slug: String(item.slug ?? "") })),
+    ...remote.wikis.map((item: any) => ({ kind: "wiki" as const, title: String(item.title), slug: String(item.slug ?? "") })),
+    ...remote.articles.map((item: any) => ({ kind: "article" as const, title: String(item.title), slug: String(item.slug ?? "") })),
+    ...local.blogs.map((item) => ({ kind: "blog" as const, title: item.title, slug: item.slug })),
+    ...local.wikis.map((item) => ({ kind: "wiki" as const, title: item.title, slug: item.slug })),
+    ...local.articles.map((item) => ({ kind: "article" as const, title: item.title, slug: item.slug })),
+  ];
+}
+
+// Newest blog titles first: queued drafts, then the storefront's posts.
+const recentBlogTitles = (localDrafts: BlogDraft[], remoteBlogs: any[]) =>
+  [...localDrafts.map((draft) => draft.title), ...remoteBlogs.map((blog: any) => String(blog.title))].slice(0, 10);
+
+// Drafts on this storefront that still count (rejected drafts free their topic again).
+async function localContent(project: ProjectConfig, environment: string) {
+  const [allBlogDrafts, allWikiDrafts, allArticleDrafts] = await Promise.all([getBlogDrafts(project), getWikiDrafts(project), getArticleDrafts(project)]);
+  return {
+    blogs: allBlogDrafts.filter((d) => d.environment === environment && d.status !== "rejected"),
+    wikis: allWikiDrafts.filter((d) => d.environment === environment && d.status !== "rejected"),
+    articles: allArticleDrafts.filter((d) => d.environment === environment && d.status !== "rejected"),
+  };
+}
+
+// The site content a title-list check or AI title pick needs, without writing anything.
+export async function loadTitleSelectionContext(project: ProjectConfig, options: { products?: boolean } = {}): Promise<SelectionContext> {
+  const environment = gfApiHost(project);
+  const remote = await withGfClient(project, async (client) => {
+    const [blogs, wikis, articles, products] = await Promise.all([
+      client.listBlogs(), client.listWikis(), client.listArticles(), options.products ? client.searchProducts("", 40) : Promise.resolve([]),
+    ]);
+    return { blogs, wikis, articles, products };
+  });
+  const local = await localContent(project, environment);
+  return {
+    inventory: buildContentInventory(remote, local),
+    recentTitles: recentBlogTitles(local.blogs, remote.blogs),
+    products: remote.products.map(toCatalogProduct).filter((p: CatalogProduct) => p.imageUrl),
+  };
+}
+
+export interface BlogDraftOptions {
+  /** Take the title from the brand's title list (AI pick or a chosen title). */
+  titleSource?: BlogTitleSource;
+  /** Called once the list title is chosen, before the post is written. */
+  onTitleSelected?: (assignment: BlogTitleAssignment) => void;
+}
+
+export async function generateDailyBlogDraft(project: ProjectConfig, signal?: AbortSignal, requestedOccasion?: string, options: BlogDraftOptions = {}) {
   const environment = gfApiHost(project);
   const context = await withGfClient(project, async (client) => {
     const [blogs, wikis, articles, categories, products] = await Promise.all([
@@ -222,19 +291,10 @@ export async function generateDailyBlogDraft(project: ProjectConfig, signal?: Ab
     return { blogs, wikis, articles, categories, products };
   });
 
-  const [allBlogDrafts, allWikiDrafts, allArticleDrafts] = await Promise.all([getBlogDrafts(project), getWikiDrafts(project), getArticleDrafts(project)]);
-  const localDrafts = allBlogDrafts.filter((d) => d.environment === environment && d.status !== "rejected");
-  const localWikis = allWikiDrafts.filter((d) => d.environment === environment && d.status !== "rejected");
-  const localArticles = allArticleDrafts.filter((d) => d.environment === environment && d.status !== "rejected");
+  const local = await localContent(project, environment);
+  const localDrafts = local.blogs;
   const authorName = selectContentAuthor(project, localDrafts.map((draft) => draft.authorName));
-  const contentInventory: ContentTitle[] = [
-    ...context.blogs.map((item: any) => ({ kind: "blog" as const, title: String(item.title), slug: String(item.slug ?? "") })),
-    ...context.wikis.map((item: any) => ({ kind: "wiki" as const, title: String(item.title), slug: String(item.slug ?? "") })),
-    ...context.articles.map((item: any) => ({ kind: "article" as const, title: String(item.title), slug: String(item.slug ?? "") })),
-    ...localDrafts.map((item) => ({ kind: "blog" as const, title: item.title, slug: item.slug })),
-    ...localWikis.map((item) => ({ kind: "wiki" as const, title: item.title, slug: item.slug })),
-    ...localArticles.map((item) => ({ kind: "article" as const, title: item.title, slug: item.slug })),
-  ];
+  const contentInventory = buildContentInventory(context, local);
   const existingTitles = contentInventory.map((item) => `[${item.kind}] ${item.title}`);
   const existingSlugs = [...context.blogs.map((b: any) => String(b.slug)), ...localDrafts.map((d) => d.slug)];
   const categories = context.categories.map((c: any) => ({ slug: String(c.slug), name: String(c.name) }));
@@ -242,13 +302,20 @@ export async function generateDailyBlogDraft(project: ProjectConfig, signal?: Ab
   if (!categories.length) throw new Error("No blog categories found on the target environment");
   if (products.length < 4) throw new Error("Not enough catalog products with images to write a post");
 
+  // With a title list, the AI picks the title first (or the user chose one); without one, or when a
+  // scheduled run finds no ready title, the post is planned from the occasion calendar as before.
+  const assignment = options.titleSource
+    ? await resolveTitleAssignment(project, options.titleSource, { inventory: contentInventory, recentTitles: recentBlogTitles(localDrafts, context.blogs), products, ...(signal ? { signal } : {}) })
+    : undefined;
+  if (assignment) options.onTitleSelected?.(assignment);
+
   const publishedBlogs = context.blogs.filter((b: any) => Number(b.status) === 1);
   // Keep the prompt compact, but validate links against every verified live
   // blog. Hermes can legitimately reuse an older slug from the taken-slug
   // inventory even when that post falls outside the 80 suggested links.
   const related = publishedBlogs.slice(0, 80).map((b: any) => ({ slug: String(b.slug), title: String(b.title) }));
   const publishedBlogSlugs = new Set(publishedBlogs.map((b: any) => String(b.slug)));
-  const requiredFormat = selectBlogFormat([
+  const requiredFormat = assignment ? inferredFormat(assignment.title) : selectBlogFormat([
     ...localDrafts.map((draft) => ({ title: draft.title, contentFormat: draft.contentFormat })),
     ...context.blogs.map((blog: any) => ({ title: String(blog.title) })),
   ]);
@@ -259,15 +326,27 @@ export async function generateDailyBlogDraft(project: ProjectConfig, signal?: Ab
     recentHeroConcepts: localDrafts.map((draft) => draft.heroConcept).filter((concept): concept is string => !!concept),
     requiredFormat,
     ...(requestedOccasion ? { requestedOccasion } : {}),
+    ...(assignment ? { assignedTitle: assignment.title } : {}),
   });
-  const post = await requestHermesJSON(
-    `${contentSkillPrefix(project)}${prompt}`,
-    (output) => validatePost(output, { project, existingTitles, existingSlugs, contentInventory, categories: new Set(categories.map((c) => c.slug)), products, relatedSlugs: publishedBlogSlugs, base, requiredFormat, ...(requestedOccasion ? { requestedOccasion } : {}) }),
-    signal,
-    GeneratedPostJsonSchema,
-    { freshRetries: 1 },
-  );
-  const draft = await addBlogDraft(project, { ...post, authorName, environment });
+  let post: GeneratedPost;
+  try {
+    post = await requestHermesJSON(
+      `${contentSkillPrefix(project)}${prompt}`,
+      (output) => validatePost(output, { project, existingTitles, existingSlugs, contentInventory, categories: new Set(categories.map((c) => c.slug)), products, relatedSlugs: publishedBlogSlugs, base, requiredFormat, ...(requestedOccasion ? { requestedOccasion } : {}), ...(assignment ? { assignedTitle: assignment.title } : {}) }),
+      signal,
+      GeneratedPostJsonSchema,
+      { freshRetries: 1 },
+    );
+  } catch (error) {
+    // The title goes back to the list (or is marked failed after repeated failures).
+    if (assignment) await releaseBlogTitle(project, assignment.id, error instanceof Error ? error.message : String(error)).catch(() => undefined);
+    throw error;
+  }
+  const draft = await addBlogDraft(project, {
+    ...post, authorName, environment,
+    ...(assignment ? { sourceTitleId: assignment.id, originalTitle: assignment.title, selectionReason: assignment.reason } : {}),
+  });
+  if (assignment) await completeBlogTitle(project, assignment.id, draft);
   return attachHeroImage(project, draft.id, post, products.find((p) => p.id === post.heroProductId)?.imageUrl, signal);
 }
 

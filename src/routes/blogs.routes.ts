@@ -13,6 +13,8 @@ import { contentAuthors, defaultContentAuthor } from "../content.authors.js";
 import { projectLockKey } from "../projects/index.js";
 import { projectOf } from "../projects/http.js";
 import { draftSchedule } from "../projects/schedule.js";
+import { getBlogTitles, titleSeason } from "../blog.titles.js";
+import type { BlogTitleSource } from "../blog.title-selector.js";
 
 const router = express.Router();
 const fail = (res: express.Response, error: unknown, status = 500) => {
@@ -39,10 +41,22 @@ router.get("/api/blogs", async (_req, res) => {
   }
 });
 
-router.post("/api/blogs/generate", (req, res) => {
+router.post("/api/blogs/generate", async (req, res) => {
   try {
-    const { occasion } = BlogGenerateRequestSchema.parse(req.body ?? {});
-    startGeneration(projectOf(res), "manual", occasion)
+    const project = projectOf(res);
+    const { occasion, titleId, source } = BlogGenerateRequestSchema.parse(req.body ?? {});
+    const titleSource: BlogTitleSource | undefined = titleId ? { kind: "title", titleId } : source === "title-list" ? { kind: "pick", fallbackToAuto: false } : undefined;
+    // Fail fast instead of starting a background run that cannot pick anything.
+    if (source === "title-list") {
+      const ready = (await getBlogTitles(project)).filter((title) => title.status === "queued" && (title.pinned || titleSeason(title.title).ready));
+      if (!ready.length) return res.status(400).json({ success: false, error: "There are no ready titles in the list. Add titles, or pin a seasonal title to write it now." });
+    }
+    if (titleId) {
+      const chosen = (await getBlogTitles(project)).find((title) => title.id === titleId);
+      if (!chosen) return res.status(404).json({ success: false, error: "That title is no longer in the list." });
+      if (chosen.status === "used" || chosen.status === "writing") return res.status(409).json({ success: false, error: `That title is already ${chosen.status === "used" ? "written" : "being written"}.` });
+    }
+    startGeneration(project, "manual", occasion, undefined, titleSource)
       ? res.status(202).json({ success: true, started: true })
       : res.status(409).json({ success: false, error: "A draft is already being written. Please wait for it to finish." });
   } catch (error) {

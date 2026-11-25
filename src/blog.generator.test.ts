@@ -153,3 +153,29 @@ test("sensitive topics are forced into a respectful scene without people moments
   assert.ok(prompt.includes("OCCASION_SCENE") && prompt.includes("SENSITIVE TOPIC") && !prompt.includes("HUMAN_GIFTING_MOMENT"));
 });
 test("compositions vary by strategy", () => assert.notEqual(pickComposition("EDITORIAL_CONTENT", () => 0), pickComposition("HUMAN_GIFTING_MOMENT", () => 0)));
+
+test("a title from the title list is mandatory in the prompt and enforced by the validator", () => {
+  const promptFor = (assignedTitle: string) => buildBlogPrompt({ project: greatflowers,
+    today: "2026-11-25", existingTitles: [], existingSlugs: [], categories: [{ slug: "gift", name: "Gift" }],
+    products, related: [], recentHeroConcepts: [], requiredFormat: "CURATED_LIST", assignedTitle,
+  });
+  const prompt = promptFor("Best Thanksgiving Table Flowers for Hosts");
+  assert.match(prompt, /ASSIGNED TITLE \(MANDATORY FOR THIS DRAFT\): "Best Thanksgiving Table Flowers for Hosts"/);
+  assert.match(prompt, /Use it exactly as the title field/);
+  assert.match(prompt, /The assigned title above overrides this calendar guidance\./);
+  assert.doesNotMatch(prompt, /Prefer one of these that has NO existing post yet/);
+  const long = promptFor("Thanksgiving Table Flowers That Make a Small Apartment Dinner Feel Generous and Warm");
+  assert.match(long, /longer than 60 characters\. Shorten it to 35-60 characters/);
+
+  const assignedCtx = { ...ctx, assignedTitle: "Best Thanksgiving Table Flowers for Hosts" };
+  assert.equal(validatePost(JSON.stringify(base), assignedCtx).title, base.title);
+  assert.throws(() => validatePost(JSON.stringify({ ...base, title: "Thanksgiving Flowers Hosts Will Love" }), assignedCtx), /exactly the assigned title/);
+});
+
+test("a list title decides the post's format", async () => {
+  const { inferredFormat } = await import("./blog.schema.js");
+  assert.equal(inferredFormat("5 Best Christmas Bouquets for Coworkers"), "CURATED_LIST");
+  assert.equal(inferredFormat("How to Keep a Christmas Bouquet Fresh All Week"), "PRACTICAL_GUIDE");
+  assert.equal(inferredFormat("Which Flowers Last Longest in a Warm Room?"), "QUESTION_EXPLAINER");
+  assert.equal(inferredFormat("Christmas Centerpieces That Leave Room for Dinner"), "OCCASION_PLAYBOOK");
+});

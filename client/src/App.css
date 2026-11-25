@@ -2174,3 +2174,83 @@ a {
     justify-content: flex-start;
   }
 }
+
+/* BLOG QUEUE HEADER: intro on the left, the manual-draft controls in one row on the right. */
+
+.blog-queue-intro {
+  min-width: 0;
+  max-width: 620px;
+}
+
+.blog-queue-intro p {
+  margin: 6px 0 0;
+  color: #70706a;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.blog-queue-intro strong {
+  color: #3d3d39;
+}
+
+.blog-queue-controls {
+  display: grid;
+  gap: 6px;
+  flex: none;
+}
+
+.blog-queue-controls label {
+  display: block;
+  color: #70706a;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.blog-queue-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.blog-queue-controls-row input {
+  width: 240px;
+  height: 42px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.blog-queue-controls-row button {
+  height: 42px;
+  padding-top: 0;
+  padding-bottom: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 1200px) {
+  .blog-queue-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .blog-queue-intro {
+    max-width: none;
+  }
+
+  .blog-queue-controls-row input {
+    width: 280px;
+  }
+}
+
+@media (max-width: 560px) {
+  .blog-queue-controls-row {
+    flex-wrap: wrap;
+  }
+
+  .blog-queue-controls-row input {
+    flex: 1 1 100%;
+    width: auto;
+    min-width: 0;
+  }
+}

@@ -83,35 +83,35 @@ export function BlogQueueSection({ brandName }: { brandName: string }) {
 
   return (
     <section className="history-section">
-      <div className="history-header">
-        <div>
+      <div className="history-header blog-queue-header">
+        <div className="blog-queue-intro">
           <span className="step">Daily Blog</span>
           <h2>Blog Queue{awaiting > 0 ? ` (${awaiting} waiting for approval)` : ""}</h2>
-          <p style={{ margin: "6px 0 0", color: "#70706a", fontSize: 13 }}>
+          <p>
             {schedule && (schedule.autogenerate ? `A draft is written ${schedule.days} at ${schedule.time}. ` : "Timed drafts are switched off for this brand. ")}
             {schedule?.autogenerate && titleList?.usedBySchedule && titleList.ready > 0 && (
-              <strong style={{ color: "#3d3d39" }}>{`The next scheduled drafts come from your title list (${titleList.ready} ready title${titleList.ready === 1 ? "" : "s"}). `}</strong>
+              <strong>{`The next scheduled drafts come from your title list (${titleList.ready} ready title${titleList.ready === 1 ? "" : "s"}). `}</strong>
             )}
             {publishMode === "immediate" ? "Approving a post publishes it right away." : "Approved posts go live at 10:00 AM ET."}{" "}
             {liveMode ? "Live mode: posts are published." : "Safe mode: posts are created hidden (not visible to readers)."}
           </p>
         </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
-          <button className="secondary-button" onClick={load} disabled={loading}>{loading ? "Loading..." : "Refresh"}</button>
-          <label style={{ display: "grid", gap: 5, minWidth: 280, fontSize: 12, color: "#70706a" }}>
-            Optional occasion for manual draft
+        <div className="blog-queue-controls">
+          <label htmlFor="blog-occasion-input">Optional occasion for manual draft</label>
+          <div className="blog-queue-controls-row">
             <input
+              id="blog-occasion-input"
               value={occasion}
               maxLength={50}
               disabled={generation.running}
               placeholder="Example: Mother's Day"
               onChange={(event) => setOccasion(event.target.value)}
-              style={{ padding: "10px 12px" }}
             />
-          </label>
-          <button className="primary-action-button" disabled={generation.running} onClick={() => run(null, () => generateBlog(occasion))}>
-            {generation.running ? "Writing draft..." : occasion.trim() ? "Generate occasion draft" : "Generate draft now"}
-          </button>
+            <button className="primary-action-button" disabled={generation.running} onClick={() => run(null, () => generateBlog(occasion))}>
+              {generation.running ? "Writing draft..." : occasion.trim() ? "Generate occasion draft" : "Generate draft now"}
+            </button>
+            <button className="secondary-button" onClick={load} disabled={loading}>{loading ? "Loading..." : "Refresh"}</button>
+          </div>
         </div>
       </div>
 

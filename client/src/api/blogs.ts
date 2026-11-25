@@ -29,12 +29,19 @@ export interface BlogDraft {
   attempts: number;
   error?: string;
   environment: string;
+  /** Set when the post was written for a title from the title list. */
+  sourceTitleId?: string;
+  originalTitle?: string;
+  selectionReason?: string;
 }
 
 export interface GenerationState {
   running: boolean;
   trigger?: "manual" | "schedule";
   occasion?: string;
+  /** The title-list title being written, once it has been chosen. */
+  title?: string;
+  titleReason?: string;
   startedAt?: string;
   finishedAt?: string;
   error?: string;
@@ -54,6 +61,9 @@ export interface DraftSchedule { autogenerate: boolean; days: string; time: stri
 export const getBlogs = () => call<{ blogs: BlogDraft[]; authors: string[]; liveMode: boolean; publishMode: "immediate" | "scheduled"; generation: GenerationState; schedule?: DraftSchedule }>(axios.get(url()));
 export const getBlogStatus = () => call<{ generation: GenerationState }>(axios.get(url("/status")));
 export const generateBlog = (occasion?: string) => call<{ started: boolean }>(axios.post(url("/generate"), { occasion: occasion?.trim() || undefined }));
+// Writes a draft for one title from the title list, or lets the AI pick the best ready title.
+export const generateBlogFromTitle = (titleId: string) => call<{ started: boolean }>(axios.post(url("/generate"), { titleId }));
+export const generateBlogFromList = () => call<{ started: boolean }>(axios.post(url("/generate"), { source: "title-list" }));
 export const editBlog = (id: string, edit: BlogEdit) => call<{ blog: BlogDraft }>(axios.patch(url(`/${id}`), edit));
 export const deleteBlog = (id: string) => call<{ success: true }>(axios.delete(url(`/${id}`)));
 export const approveBlog = (id: string) => call<{ blog: BlogDraft }>(axios.post(url(`/${id}/approve`)));

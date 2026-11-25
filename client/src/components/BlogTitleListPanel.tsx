@@ -43,8 +43,10 @@ const pickLabel: Record<TitlePickPreview["method"], string> = {
   fallback: "Next up (the AI was unavailable, so the soonest seasonal or oldest title)",
 };
 
-export function BlogTitleListPanel({ generationRunning, refreshKey, onStarted }: {
+export function BlogTitleListPanel({ generationRunning, refreshKey, onStarted, onListChange }: {
   generationRunning: boolean;
+  /** Called with the list each time it loads, so the queue header can mention it. */
+  onListChange?: (list: BlogTitleList) => void;
   /** Changes when a generation starts or ends, so the list reloads its statuses. */
   refreshKey: string;
   onStarted: () => void | Promise<void>;
@@ -59,12 +61,14 @@ export function BlogTitleListPanel({ generationRunning, refreshKey, onStarted }:
 
   const load = useCallback(async () => {
     try {
-      setList(await getBlogTitles());
+      const next = await getBlogTitles();
+      setList(next);
+      onListChange?.(next);
       setError("");
     } catch (e) {
       setError(message(e));
     }
-  }, []);
+  }, [onListChange]);
   useEffect(() => { void load(); }, [load, refreshKey]);
 
   const lines = useMemo(() => text.split("\n").map((line) => line.trim()).filter(Boolean), [text]);

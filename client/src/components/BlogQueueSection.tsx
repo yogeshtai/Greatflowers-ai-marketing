@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { BlogTitleListPanel } from "./BlogTitleListPanel";
+import type { BlogTitleList } from "../api/blogTitles";
 import { approveBlog, blogHeroUrl, deleteBlog, editBlog, generateBlog, getBlogStatus, getBlogs, publishBlogNow, regenerateBlogHero, rejectBlog, type BlogDraft, type DraftSchedule, type GenerationState } from "../api/blogs";
 
 const when = (iso?: string) => (iso ? new Date(iso).toLocaleString() : "");
@@ -17,6 +18,9 @@ export function BlogQueueSection({ brandName }: { brandName: string }) {
   const [editing, setEditing] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [occasion, setOccasion] = useState("");
+  // Ready titles the timed drafts will use (from the title list panel below).
+  const [titleList, setTitleList] = useState<{ ready: number; usedBySchedule: boolean } | null>(null);
+  const handleTitleList = useCallback((list: BlogTitleList) => setTitleList({ ready: list.stats.ready, usedBySchedule: list.usedBySchedule }), []);
   const [now, setNow] = useState(() => Date.now());
 
   const load = useCallback(async () => {
@@ -85,6 +89,9 @@ export function BlogQueueSection({ brandName }: { brandName: string }) {
           <h2>Blog Queue{awaiting > 0 ? ` (${awaiting} waiting for approval)` : ""}</h2>
           <p style={{ margin: "6px 0 0", color: "#70706a", fontSize: 13 }}>
             {schedule && (schedule.autogenerate ? `A draft is written ${schedule.days} at ${schedule.time}. ` : "Timed drafts are switched off for this brand. ")}
+            {schedule?.autogenerate && titleList?.usedBySchedule && titleList.ready > 0 && (
+              <strong style={{ color: "#3d3d39" }}>{`The next scheduled drafts come from your title list (${titleList.ready} ready title${titleList.ready === 1 ? "" : "s"}). `}</strong>
+            )}
             {publishMode === "immediate" ? "Approving a post publishes it right away." : "Approved posts go live at 10:00 AM ET."}{" "}
             {liveMode ? "Live mode: posts are published." : "Safe mode: posts are created hidden (not visible to readers)."}
           </p>
@@ -126,6 +133,7 @@ export function BlogQueueSection({ brandName }: { brandName: string }) {
         generationRunning={generation.running}
         refreshKey={`${generation.running}:${generation.startedAt ?? ""}:${generation.finishedAt ?? ""}`}
         onStarted={load}
+        onListChange={handleTitleList}
       />
 
       {blogs.length === 0 ? (

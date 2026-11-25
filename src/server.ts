@@ -4,6 +4,7 @@ import express from "express";
 import { startCampaignScheduler } from "./campaign.scheduler.js";
 import { startBlogScheduler } from "./blog.scheduler.js";
 import blogsRoutes from "./routes/blogs.routes.js";
+import blogTitlesRoutes from "./routes/blog-titles.routes.js";
 import wikisRoutes from "./routes/wikis.routes.js";
 import { startWikiScheduler } from "./wiki.scheduler.js";
 import { startArticleScheduler } from "./article.scheduler.js";
@@ -75,6 +76,7 @@ app.use(creativesRoutes);
 app.use(infoRoutes);
 app.use(publishingRoutes);
 app.use(blogsRoutes);
+app.use(blogTitlesRoutes);
 app.use(wikisRoutes);
 app.use(articlesRoutes);
 

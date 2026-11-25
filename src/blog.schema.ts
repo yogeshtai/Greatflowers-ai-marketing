@@ -32,11 +32,25 @@ export type GeneratedPost = z.infer<typeof GeneratedPostSchema>;
 
 export const GeneratedPostJsonSchema = z.toJSONSchema(GeneratedPostSchema, { io: "input", unrepresentable: "any" });
 
+// The format a title implies: "5 Best..." is a curated list, "How to..." a guide, a question an explainer.
+export function inferredFormat(title: string): BlogFormat {
+  if (/^(best|top|\d+)\b/i.test(title)) return "CURATED_LIST";
+  if (/^(how|a guide|the guide)|\bguide\b/i.test(title)) return "PRACTICAL_GUIDE";
+  if (/^(what|which|when|why|can|should)\b|\?$/.test(title.toLowerCase())) return "QUESTION_EXPLAINER";
+  return "OCCASION_PLAYBOOK";
+}
+
 const OccasionSchema = z.string().trim().min(2).max(50)
   .regex(/^[\p{L}\p{N}][\p{L}\p{N} &'’().\/-]*$/u, "occasion contains unsupported characters");
 
+// A manual draft takes at most one steer: an occasion, a title from the brand's title list, or
+// "title-list" to let the AI pick the most suitable ready title.
 export const BlogGenerateRequestSchema = z.object({
   occasion: z.preprocess((value) => typeof value === "string" && !value.trim() ? undefined : value, OccasionSchema.optional()),
+  titleId: z.string().uuid().optional(),
+  source: z.literal("title-list").optional(),
+}).refine((request) => [request.occasion, request.titleId, request.source].filter(Boolean).length <= 1, {
+  message: "Choose an occasion, one title from the list, or an AI pick from the list, not more than one",
 });
 
 // Edits may only use one of the project's approved bylines.
@@ -68,4 +82,10 @@ export interface BlogDraft extends GeneratedPost {
   attempts: number;
   error?: string;
   environment: string;
+  /** Set when the post was written for a title from the brand's title list. */
+  sourceTitleId?: string;
+  /** The title as it was added to the list (the writer shortens titles over 60 characters). */
+  originalTitle?: string;
+  /** Why this title was picked (the AI's reason, "Pinned", or "Chosen by you"). */
+  selectionReason?: string;
 }

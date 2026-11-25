@@ -243,6 +243,30 @@ Run `npm test` for rotation and mocked recommendation regressions,
 for the frontend production build. The tests do not contact GA4, Hermes or Meta.
 
 
+## Blog title list
+
+Each brand's Blog Queue has a **title list**: paste blog titles (one per line) and the AI picks
+which one to write next.
+
+- **Checks when a title is added:** overlap with the brand's existing blogs, wiki entries and
+  articles (and queued drafts), duplicates in the list, claims posts may not make ("free delivery",
+  discounts, guaranteed delivery), and length. Titles over 60 characters are accepted and shortened
+  by the writer; how-to and question titles get a note that they usually suit Articles.
+- **Seasons:** a title about a dated occasion (Christmas, Mother's Day, ...) waits until the
+  occasion is within 60 days. **Pin next** writes a title next, whatever its season.
+- **Picking:** pinned titles first; otherwise Hermes compares the ready titles (timing, product
+  fit, variety against recent posts, search intent) and gives a reason. If that call fails, the
+  soonest seasonal (or oldest) title is used.
+- **Writing:** the post must use the chosen title (only titles over 60 characters may be
+  shortened), and its format follows the title ("5 Best..." is a curated list). The draft records
+  which list title it came from and why it was picked; the title is marked written. A failed run
+  puts the title back; after two failures it is marked for attention.
+- **Schedule:** timed blog drafts use the list first and plan a calendar-led post as before when
+  nothing is ready. `BLOG_TITLE_LIST=false` (or `OPF_BLOG_TITLE_LIST=false`) makes them ignore it.
+- **Files and API:** `blog-titles.json` in the brand's data folder; `GET/POST /api/blog-titles`,
+  `PATCH/DELETE /api/blog-titles/:id`, `POST /api/blog-titles/preview-pick`, and
+  `POST /api/blogs/generate` with `{ "titleId": "..." }` or `{ "source": "title-list" }`.
+
 ## Projects (multiple brands)
 
 The agent can run marketing for several storefront brands from one server and one dashboard.

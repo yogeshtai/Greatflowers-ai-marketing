@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
+import { BlogTitleListPanel } from "./BlogTitleListPanel";
+import type { BlogTitleList } from "../api/blogTitles";
 import { approveBlog, blogHeroUrl, deleteBlog, editBlog, generateBlog, getBlogStatus, getBlogs, publishBlogNow, regenerateBlogHero, rejectBlog, type BlogDraft, type DraftSchedule, type GenerationState } from "../api/blogs";
 
 const when = (iso?: string) => (iso ? new Date(iso).toLocaleString() : "");
@@ -16,6 +18,9 @@ export function BlogQueueSection({ brandName }: { brandName: string }) {
   const [editing, setEditing] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [occasion, setOccasion] = useState("");
+  // Ready titles the timed drafts will use (from the title list panel below).
+  const [titleList, setTitleList] = useState<{ ready: number; usedBySchedule: boolean } | null>(null);
+  const handleTitleList = useCallback((list: BlogTitleList) => setTitleList({ ready: list.stats.ready, usedBySchedule: list.usedBySchedule }), []);
   const [now, setNow] = useState(() => Date.now());
 
   const load = useCallback(async () => {
@@ -78,38 +83,42 @@ export function BlogQueueSection({ brandName }: { brandName: string }) {
 
   return (
     <section className="history-section">
-      <div className="history-header">
-        <div>
+      <div className="history-header blog-queue-header">
+        <div className="blog-queue-intro">
           <span className="step">Daily Blog</span>
           <h2>Blog Queue{awaiting > 0 ? ` (${awaiting} waiting for approval)` : ""}</h2>
-          <p style={{ margin: "6px 0 0", color: "#70706a", fontSize: 13 }}>
+          <p>
             {schedule && (schedule.autogenerate ? `A draft is written ${schedule.days} at ${schedule.time}. ` : "Timed drafts are switched off for this brand. ")}
+            {schedule?.autogenerate && titleList?.usedBySchedule && titleList.ready > 0 && (
+              <strong>{`The next scheduled drafts come from your title list (${titleList.ready} ready title${titleList.ready === 1 ? "" : "s"}). `}</strong>
+            )}
             {publishMode === "immediate" ? "Approving a post publishes it right away." : "Approved posts go live at 10:00 AM ET."}{" "}
             {liveMode ? "Live mode: posts are published." : "Safe mode: posts are created hidden (not visible to readers)."}
           </p>
         </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
-          <button className="secondary-button" onClick={load} disabled={loading}>{loading ? "Loading..." : "Refresh"}</button>
-          <label style={{ display: "grid", gap: 5, minWidth: 280, fontSize: 12, color: "#70706a" }}>
-            Optional occasion for manual draft
+        <div className="blog-queue-controls">
+          <label htmlFor="blog-occasion-input">Optional occasion for manual draft</label>
+          <div className="blog-queue-controls-row">
             <input
+              id="blog-occasion-input"
               value={occasion}
               maxLength={50}
               disabled={generation.running}
               placeholder="Example: Mother's Day"
               onChange={(event) => setOccasion(event.target.value)}
-              style={{ padding: "10px 12px" }}
             />
-          </label>
-          <button className="primary-action-button" disabled={generation.running} onClick={() => run(null, () => generateBlog(occasion))}>
-            {generation.running ? "Writing draft..." : occasion.trim() ? "Generate occasion draft" : "Generate draft now"}
-          </button>
+            <button className="primary-action-button" disabled={generation.running} onClick={() => run(null, () => generateBlog(occasion))}>
+              {generation.running ? "Writing draft..." : occasion.trim() ? "Generate occasion draft" : "Generate draft now"}
+            </button>
+            <button className="secondary-button" onClick={load} disabled={loading}>{loading ? "Loading..." : "Refresh"}</button>
+          </div>
         </div>
       </div>
 
       {generation.running && (
         <div role="status" style={{ margin: "0 0 16px", padding: "14px 18px", borderRadius: 12, background: "#eef3ff", border: "1px solid #c9d6ff", color: "#1f3a8a" }}>
-          <strong>Writing a new blog draft{generation.occasion ? ` for ${generation.occasion}` : ""}... {elapsedLabel}</strong>
+          <strong>Writing a new blog draft{generation.title ? `: “${generation.title}”` : generation.occasion ? ` for ${generation.occasion}` : ""}... {elapsedLabel}</strong>
+          {generation.title && <div style={{ fontSize: 13, marginTop: 4 }}>From your title list. {generation.titleReason}</div>}
           <div style={{ fontSize: 13, marginTop: 4 }}>
             {generation.trigger === "schedule" ? (schedule ? `Started by the daily ${schedule.time} run. ` : "Started by a scheduled run. ") : "Started from this page. "}
             This usually takes 5 to 10 minutes (the writing, then the hero image); an automatic retry can take longer. You can leave this page and the draft will appear here when ready.
@@ -119,6 +128,13 @@ export function BlogQueueSection({ brandName }: { brandName: string }) {
       )}
       {error && <p role="alert" className="creative-error-note">{error}</p>}
       {!generation.running && generation.error && <p role="alert" className="creative-error-note">The last draft attempt failed: {generation.error}</p>}
+
+      <BlogTitleListPanel
+        generationRunning={generation.running}
+        refreshKey={`${generation.running}:${generation.startedAt ?? ""}:${generation.finishedAt ?? ""}`}
+        onStarted={load}
+        onListChange={handleTitleList}
+      />
 
       {blogs.length === 0 ? (
         <div className="empty-state"><h3>No blog drafts yet</h3><p>{schedule && !schedule.autogenerate ? "Timed drafts are switched off for this brand. Generate one now." : `The first draft appears after the next ${schedule?.time ?? "scheduled"} run, or generate one now.`}</p></div>
@@ -142,6 +158,11 @@ export function BlogQueueSection({ brandName }: { brandName: string }) {
                   <span>{blog.environment}</span>
                 </div>
                 <h3 style={{ marginBottom: 6 }}>{blog.title}</h3>
+                {blog.sourceTitleId && (
+                  <div className="title-source-note">
+                    From your title list{blog.originalTitle && blog.originalTitle !== blog.title ? ` (added as “${blog.originalTitle}”)` : ""}{blog.selectionReason ? `. ${blog.selectionReason}` : ""}
+                  </div>
+                )}
                 <p style={{ margin: "0 0 8px" }}>{blog.summary}</p>
                 {blog.status === "approved" && <div className="schedule-info">{publishMode === "immediate" ? `Publishing${blog.error ? ` failed, retrying: ${blog.error}` : " now or retrying after a failure..."}` : `Goes live: ${when(blog.publishAfter)}${blog.error ? ` (last error: ${blog.error})` : ""}`}</div>}
                 {blog.status === "published" && <div className="schedule-info">Published {when(blog.publishedAt)} ({blog.remoteStatus === 1 ? "visible" : "hidden"}){blog.url && <> - <a href={blog.url} target="_blank" rel="noreferrer">view</a></>}</div>}

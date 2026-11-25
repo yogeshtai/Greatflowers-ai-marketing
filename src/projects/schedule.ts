@@ -47,3 +47,9 @@ export function draftSchedule(project: ProjectConfig, kind: ContentKind): DraftS
     ...(retryHour === undefined ? {} : { retryPeriod: retryHour >= 17 ? "evening" as const : "afternoon" as const }),
   };
 }
+
+// How many timed blog drafts a week the brand's cron runs (Mon/Wed/Fri = 3), for the title-list estimate.
+export function blogRunsPerWeek(project: ProjectConfig): number {
+  const days = fields(project.schedule.blogDraftCron)[4] ?? "*";
+  return days === "*" ? 7 : new Set(days.split(",").map((day) => Number(day) % 7)).size;
+}

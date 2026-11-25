@@ -5,6 +5,12 @@ import { getBlogDrafts } from "./blog.store.js";
 import { dateKeyIn } from "./blog.time.js";
 import { enabledProjects, type ProjectConfig } from "./projects/index.js";
 import { autogenerateEnabled } from "./projects/automation.js";
+import type { BlogTitleSource } from "./blog.title-selector.js";
+
+// Scheduled drafts take their title from the brand's title list when it has a ready title, and
+// otherwise plan a post from the occasion calendar as before. BLOG_TITLE_LIST=false ignores the list.
+export const scheduledTitleSource = (project: ProjectConfig): BlogTitleSource | undefined =>
+  project.env("BLOG_TITLE_LIST") === "false" ? undefined : { kind: "pick", fallbackToAuto: true };
 
 export async function generateDraftIfNeeded(project: ProjectConfig) {
   if (!autogenerateEnabled(project, "BLOG")) return false;
@@ -16,7 +22,7 @@ export async function generateDraftIfNeeded(project: ProjectConfig) {
     const result = await approveFlow(project, draft.id);
     if (result.outcome === "publish-failed") throw new Error(`automatic blog publishing failed for ${draft.slug}`);
     if (result.outcome !== "approved" && result.outcome !== "published") throw new Error(`automatic blog approval was not actionable: ${result.outcome}`);
-  });
+  }, scheduledTitleSource(project));
 }
 
 const publishing = new Set<string>();

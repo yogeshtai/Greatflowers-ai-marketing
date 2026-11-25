@@ -7,33 +7,31 @@ import { optimizeWikiImage, readWikiImage, WIKI_IMAGE_FILE_EXTENSION, WIKI_IMAGE
 import type { WikiDraft } from "./wiki.schema.js";
 import { assertNoTitleCollision } from "./content.overlap.js";
 import { getWikiDraft, updateWikiDraft } from "./wiki.store.js";
+import { liveContentUrl, storefrontBase, type ProjectConfig } from "./projects/index.js";
 
-export const WIKI_PUBLISH_HOUR_ET = Number(process.env.WIKI_PUBLISH_HOUR_ET ?? 10);
+export const wikiPublishHourEt = (project: ProjectConfig) => Number(project.env("WIKI_PUBLISH_HOUR_ET") ?? 10);
 const MAX_ATTEMPTS = 3;
-const liveMode = () => process.env.WIKI_PUBLISH_LIVE === "true";
+export const wikiLiveMode = (project: ProjectConfig) => project.env("WIKI_PUBLISH_LIVE") === "true";
 
-export const publishWikiImmediate = () => (process.env.WIKI_PUBLISH_MODE ?? "immediate") === "immediate";
-export const wikiPublishAfterFor = (now: Date = new Date()) =>
-  publishWikiImmediate() ? now : nextNewYorkHour(WIKI_PUBLISH_HOUR_ET, now);
+export const publishWikiImmediate = (project: ProjectConfig) => (project.env("WIKI_PUBLISH_MODE") ?? "immediate") === "immediate";
+export const wikiPublishAfterFor = (project: ProjectConfig, now: Date = new Date()) =>
+  publishWikiImmediate(project) ? now : nextNewYorkHour(wikiPublishHourEt(project), now);
 
-export const wikiStorefrontUrl = (slug: string) =>
-  process.env.GF_STOREFRONT_URL
-    ? `${process.env.GF_STOREFRONT_URL.replace(/\/+$/, "")}/greatflowers-wiki/${slug}/`
-    : undefined;
+export const wikiStorefrontUrl = (project: ProjectConfig, slug: string) => liveContentUrl(project, "wiki", slug);
 
 const publishingDraftIds = new Set<string>();
 export const isWikiDraftPublishing = (id: string) => publishingDraftIds.has(id);
 
-export function approveWikiDraft(id: string, now: Date = new Date()) {
-  return updateWikiDraft(id, (draft) =>
+export function approveWikiDraft(project: ProjectConfig, id: string, now: Date = new Date()) {
+  return updateWikiDraft(project, id, (draft) =>
     draft.status === "draft" || draft.status === "failed"
-      ? { ...draft, status: "approved", approvedAt: now.toISOString(), publishAfter: wikiPublishAfterFor(now).toISOString(), attempts: 0 }
+      ? { ...draft, status: "approved", approvedAt: now.toISOString(), publishAfter: wikiPublishAfterFor(project, now).toISOString(), attempts: 0 }
       : null,
   );
 }
 
-export const rejectWikiDraft = (id: string) =>
-  updateWikiDraft(id, (draft) => (draft.status === "published" ? null : { ...draft, status: "rejected" }));
+export const rejectWikiDraft = (project: ProjectConfig, id: string) =>
+  updateWikiDraft(project, id, (draft) => (draft.status === "published" ? null : { ...draft, status: "rejected" }));
 
 export type WikiApproveResult =
   | { outcome: "approved" | "published" | "publish-failed"; wiki: WikiDraft }
@@ -41,14 +39,14 @@ export type WikiApproveResult =
   | { outcome: "image-pending" }
   | { outcome: "missing" };
 
-export async function approveWikiFlow(id: string): Promise<WikiApproveResult> {
-  const draft = await getWikiDraft(id);
+export async function approveWikiFlow(project: ProjectConfig, id: string): Promise<WikiApproveResult> {
+  const draft = await getWikiDraft(project, id);
   if (!draft) return { outcome: "missing" };
-  if (isWikiDraftImagePending(draft)) return { outcome: "image-pending" };
-  const approved = await approveWikiDraft(id);
+  if (isWikiDraftImagePending(project, draft)) return { outcome: "image-pending" };
+  const approved = await approveWikiDraft(project, id);
   if (!approved) return { outcome: "not-actionable", status: draft.status };
-  if (!publishWikiImmediate()) return { outcome: "approved", wiki: approved };
-  const published = await publishWikiDraft(id);
+  if (!publishWikiImmediate(project)) return { outcome: "approved", wiki: approved };
+  const published = await publishWikiDraft(project, id);
   if (!published || published.status !== "published") return { outcome: "publish-failed", wiki: published ?? approved };
   return { outcome: "published", wiki: published };
 }
@@ -66,28 +64,29 @@ const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => (
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
 })[character]!);
 
-export function buildWikiInlineProductCard(product: CatalogProduct, base: string): string {
+export function buildWikiInlineProductCard(project: ProjectConfig, product: CatalogProduct, base: string): string {
   if (!product.imageUrl) throw new Error(`wiki inline product ${product.id} has no image`);
   const price = product.price == null ? "" : `<p><strong>From $${product.price.toFixed(2)}</strong></p>`;
-  return `<p><strong>Same Day Delivery</strong>&nbsp;</p>`
+  return `<p><strong>${escapeHtml(project.brand.productCardBadge)}</strong>&nbsp;</p>`
     + `<figure class="image"><img src="${escapeHtml(product.imageUrl)}" alt="${escapeHtml(product.name)}"></figure>`
-    + `<p><a href="${base}/product/${encodeURIComponent(product.slug)}"><strong>${escapeHtml(product.name)}</strong></a></p>${price}`;
+    + `<p><a href="${base}/${project.storefront.paths.product}/${encodeURIComponent(product.slug)}"><strong>${escapeHtml(product.name)}</strong></a></p>${price}`;
 }
 
-export function injectWikiInlineProductCards(html: string, products: CatalogProduct[], base: string): string {
+export function injectWikiInlineProductCards(project: ProjectConfig, html: string, products: CatalogProduct[], base: string): string {
   const selected = products.filter((product) => product.imageUrl).slice(0, 2);
   if (!selected.length) return html;
-  const first = buildWikiInlineProductCard(selected[0]!, base);
-  const second = selected[1] ? buildWikiInlineProductCard(selected[1], base) : "";
+  const first = buildWikiInlineProductCard(project, selected[0]!, base);
+  const second = selected[1] ? buildWikiInlineProductCard(project, selected[1], base) : "";
   return `${first}${html}${second}`;
 }
 
 export function buildWikiPublishPayload(
+  project: ProjectConfig,
   draft: WikiDraft,
   imageId: number,
   status: 0 | 1,
   products: CatalogProduct[] = [],
-  base: string = (process.env.GF_STOREFRONT_URL || "https://greatflowers.net").replace(/\/+$/, ""),
+  base: string = storefrontBase(project),
 ) {
   const cleanContent = withoutLegacyProductEmbeds(draft.html);
   return {
@@ -96,7 +95,7 @@ export function buildWikiPublishPayload(
     botanical_name: draft.botanicalName,
     author_name: draft.authorName,
     description: draft.description,
-    content: injectWikiInlineProductCards(cleanContent, products, base),
+    content: injectWikiInlineProductCards(project, cleanContent, products, base),
     meta_title: draft.metaTitle,
     meta_description: draft.metaDescription,
     wiki_thumbnail_id: imageId,
@@ -107,8 +106,8 @@ export function buildWikiPublishPayload(
   };
 }
 
-async function publish(draft: WikiDraft) {
-  return withGfClient(async (client) => {
+async function publish(project: ProjectConfig, draft: WikiDraft) {
+  return withGfClient(project, async (client) => {
     const rawProducts = await client.searchProducts("", 100);
     const products = rawProducts.map(toCatalogProduct);
     const selectedProducts = draft.productIds
@@ -122,8 +121,8 @@ async function publish(draft: WikiDraft) {
       const existingImageId = Number(existing.wiki_thumbnail_id ?? existing.wiki_meta_image_id);
       if (!existingImageId) throw new Error(`existing wiki "${draft.slug}" has no reusable image id`);
       const existingStatus = Number(existing.status) === 1 ? 1 : 0;
-      const targetStatus: 0 | 1 = (existingStatus === 1 || liveMode()) ? 1 : 0;
-      await client.updateWiki(Number(existing.id), buildWikiPublishPayload(draft, existingImageId, targetStatus, selectedProducts));
+      const targetStatus: 0 | 1 = (existingStatus === 1 || wikiLiveMode(project)) ? 1 : 0;
+      await client.updateWiki(Number(existing.id), buildWikiPublishPayload(project, draft, existingImageId, targetStatus, selectedProducts));
       return { id: Number(existing.id), status: targetStatus, reused: true };
     }
     if (remoteWikis.some((wiki: any) => wiki.title === draft.title)) {
@@ -134,12 +133,12 @@ async function publish(draft: WikiDraft) {
       ...remoteArticles.map((item: any) => ({ kind: "article" as const, title: String(item.title), slug: String(item.slug ?? "") })),
     ]);
 
-    const aiImage = await readWikiImage(draft.id);
+    const aiImage = await readWikiImage(project, draft.id);
     const hero = products.find((product) => product.id === draft.heroProductId);
     if (!aiImage && !hero?.imageUrl) throw new Error(`wiki hero product ${draft.heroProductId} has no image on the target environment`);
     const imageId = await client.uploadAttachment(aiImage ?? await productImage(hero!.imageUrl!), `${draft.slug}.${WIKI_IMAGE_FILE_EXTENSION}`, WIKI_IMAGE_MIME_TYPE);
-    const targetStatus: 0 | 1 = liveMode() ? 1 : 0;
-    const payload = buildWikiPublishPayload(draft, imageId, targetStatus, selectedProducts);
+    const targetStatus: 0 | 1 = wikiLiveMode(project) ? 1 : 0;
+    const payload = buildWikiPublishPayload(project, draft, imageId, targetStatus, selectedProducts);
     // Keep the page hidden until the follow-up update has attached products.
     const created = await client.createWiki({ ...payload, status: 0 });
     const id = Number(created?.id ?? created?.data?.id);
@@ -151,19 +150,19 @@ async function publish(draft: WikiDraft) {
   });
 }
 
-export async function publishWikiDraft(id: string) {
-  if (publishingDraftIds.has(id)) return getWikiDraft(id);
+export async function publishWikiDraft(project: ProjectConfig, id: string) {
+  if (publishingDraftIds.has(id)) return getWikiDraft(project, id);
   publishingDraftIds.add(id);
   try {
-    const draft = await getWikiDraft(id);
+    const draft = await getWikiDraft(project, id);
     if (!draft || draft.status !== "approved") return draft ?? null;
-    if (isWikiDraftImagePending(draft)) return draft;
+    if (isWikiDraftImagePending(project, draft)) return draft;
     const attempts = draft.attempts + 1;
-    await updateWikiDraft(id, (current) => ({ ...current, attempts }));
+    await updateWikiDraft(project, id, (current) => ({ ...current, attempts }));
     try {
-      const result = await publish(draft);
-      const url = wikiStorefrontUrl(draft.slug);
-      return updateWikiDraft(id, (current) => ({
+      const result = await publish(project, draft);
+      const url = wikiStorefrontUrl(project, draft.slug);
+      return updateWikiDraft(project, id, (current) => ({
         ...current,
         status: "published",
         publishedAt: new Date().toISOString(),
@@ -174,7 +173,7 @@ export async function publishWikiDraft(id: string) {
     } catch (error) {
       const message = errorDetail(error);
       console.error(`Wiki publish failed (${attempts}/${MAX_ATTEMPTS}) for ${draft.slug}:`, message);
-      return updateWikiDraft(id, (current) => ({
+      return updateWikiDraft(project, id, (current) => ({
         ...current,
         error: message,
         status: attempts >= MAX_ATTEMPTS ? "failed" : "approved",

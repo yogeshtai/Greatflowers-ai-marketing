@@ -6,21 +6,26 @@ import {
   prepareFacebookImage,
   prepareFacebookCarouselImage,
 } from "./meta.image.js";
+import type { ProjectConfig } from "./projects/index.js";
 
-const GRAPH_VERSION =
-  process.env.META_GRAPH_VERSION || "v25.0";
+// Each project publishes to its own Facebook page and Instagram account.
+interface MetaContext {
+  project: ProjectConfig;
+  graphUrl: string;
+  pageId: string | undefined;
+  instagramId: string | undefined;
+  accessToken: string | undefined;
+}
 
-const GRAPH_URL =
-  `https://graph.facebook.com/${GRAPH_VERSION}`;
-
-const instagramId =
-  process.env.META_INSTAGRAM_ACCOUNT_ID;
-
-const pageId =
-  process.env.META_PAGE_ID;
-
-const accessToken =
-  process.env.META_PAGE_ACCESS_TOKEN;
+function metaContext(project: ProjectConfig): MetaContext {
+  return {
+    project,
+    graphUrl: `https://graph.facebook.com/${project.env("META_GRAPH_VERSION") || "v25.0"}`,
+    pageId: project.env("META_PAGE_ID"),
+    instagramId: project.env("META_INSTAGRAM_ACCOUNT_ID"),
+    accessToken: project.env("META_PAGE_ACCESS_TOKEN"),
+  };
+}
 
 function resolveSelectedCreatives(
   campaign: SavedCampaign
@@ -155,8 +160,8 @@ export function buildInstagramCaption(caption: string, hashtags: string[] | unde
     .join("\n\n");
 }
 
-function ensureMetaConfig() {
-  if (!pageId || !accessToken) {
+function ensureMetaConfig(ctx: MetaContext) {
+  if (!ctx.pageId || !ctx.accessToken) {
     throw new Error(
       "Meta environment variables are missing"
     );
@@ -191,18 +196,19 @@ function formatMetaError(data: any) {
 }
 
 async function graphPost(
+  ctx: MetaContext,
   path: string,
   body: Record<string, string>
 ) {
-  ensureMetaConfig();
+  ensureMetaConfig(ctx);
 
   const form = new URLSearchParams({
     ...body,
-    access_token: accessToken!,
+    access_token: ctx.accessToken!,
   });
 
   const response = await fetch(
-    `${GRAPH_URL}/${path}`,
+    `${ctx.graphUrl}/${path}`,
     {
       method: "POST",
 
@@ -224,23 +230,24 @@ async function graphPost(
   return data;
 }
 
-async function graphGet(path: string, params: Record<string, string> = {}) {
-  ensureMetaConfig();
-  const url = new URL(`${GRAPH_URL}/${path}`);
+async function graphGet(ctx: MetaContext, path: string, params: Record<string, string> = {}) {
+  ensureMetaConfig(ctx);
+  const url = new URL(`${ctx.graphUrl}/${path}`);
   Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
-  url.searchParams.set("access_token", accessToken!);
+  url.searchParams.set("access_token", ctx.accessToken!);
   const response = await fetch(url);
   const data = await response.json();
   if (!response.ok || data.error) throw new Error(formatMetaError(data));
   return data;
 }
 
-const configuredInstagramGap = Number(process.env.INSTAGRAM_MIN_POST_GAP_HOURS ?? 12);
-export const INSTAGRAM_MIN_POST_GAP_HOURS = Number.isFinite(configuredInstagramGap)
-  ? Math.max(0, configuredInstagramGap)
-  : 12;
+// Minimum spacing between any two posts on this project's Instagram account (12 hours by default).
+export function instagramMinPostGapHours(project: ProjectConfig): number {
+  const configured = Number(project.env("INSTAGRAM_MIN_POST_GAP_HOURS") ?? 12);
+  return Number.isFinite(configured) ? Math.max(0, configured) : 12;
+}
 
-export function instagramNextAvailableAt(latestTimestamp: string | undefined, now: Date = new Date(), gapHours = INSTAGRAM_MIN_POST_GAP_HOURS): Date | null {
+export function instagramNextAvailableAt(latestTimestamp: string | undefined, now: Date, gapHours: number): Date | null {
   if (!latestTimestamp || gapHours <= 0) return null;
   const latest = Date.parse(latestTimestamp);
   if (!Number.isFinite(latest)) return null;
@@ -255,20 +262,23 @@ export class InstagramCooldownError extends Error {
   }
 }
 
-export async function ensureInstagramPostingGap(now: Date = new Date()): Promise<void> {
-  if (!instagramId || INSTAGRAM_MIN_POST_GAP_HOURS <= 0) return;
-  const body = await graphGet(`${instagramId}/media`, { fields: "timestamp", limit: "1" });
-  const retryAt = instagramNextAvailableAt(body?.data?.[0]?.timestamp, now);
+export async function ensureInstagramPostingGap(project: ProjectConfig, now: Date = new Date()): Promise<void> {
+  const ctx = metaContext(project);
+  const gapHours = instagramMinPostGapHours(project);
+  if (!ctx.instagramId || gapHours <= 0) return;
+  const body = await graphGet(ctx, `${ctx.instagramId}/media`, { fields: "timestamp", limit: "1" });
+  const retryAt = instagramNextAvailableAt(body?.data?.[0]?.timestamp, now, gapHours);
   if (retryAt) throw new InstagramCooldownError(retryAt);
 }
 
 async function getInstagramContainerStatus(
+  ctx: MetaContext,
   containerId: string
 ) {
-  ensureMetaConfig();
+  ensureMetaConfig(ctx);
 
   const url = new URL(
-    `${GRAPH_URL}/${containerId}`
+    `${ctx.graphUrl}/${containerId}`
   );
 
   url.searchParams.set(
@@ -278,7 +288,7 @@ async function getInstagramContainerStatus(
 
   url.searchParams.set(
     "access_token",
-    accessToken!
+    ctx.accessToken!
   );
 
   const response = await fetch(url);
@@ -293,6 +303,7 @@ async function getInstagramContainerStatus(
 }
 
 async function waitForInstagramContainer(
+  ctx: MetaContext,
   containerId: string
 ) {
   const maxAttempts = 10;
@@ -305,6 +316,7 @@ async function waitForInstagramContainer(
   ) {
     const status =
       await getInstagramContainerStatus(
+        ctx,
         containerId
       );
 
@@ -339,12 +351,14 @@ async function waitForInstagramContainer(
 }
 
 async function createInstagramCarouselChildContainer(
+  ctx: MetaContext,
   instagramId: string,
   imageUrl: string
 ): Promise<string> {
   console.log(`[Instagram Carousel] Creating child container for: ${imageUrl}`);
 
   const result = await graphPost(
+    ctx,
     `${instagramId}/media`,
     {
       image_url: imageUrl,
@@ -361,6 +375,7 @@ async function createInstagramCarouselChildContainer(
 }
 
 async function createInstagramCarouselParentContainer(
+  ctx: MetaContext,
   instagramId: string,
   childContainerIds: string[],
   caption: string
@@ -370,6 +385,7 @@ async function createInstagramCarouselParentContainer(
   );
 
   const result = await graphPost(
+    ctx,
     `${instagramId}/media`,
     {
       media_type: "CAROUSEL",
@@ -387,6 +403,7 @@ async function createInstagramCarouselParentContainer(
 }
 
 async function publishInstagramContainer(
+  ctx: MetaContext,
   instagramId: string,
   containerId: string
 ) {
@@ -405,6 +422,7 @@ async function publishInstagramContainer(
       );
 
       return await graphPost(
+        ctx,
         `${instagramId}/media_publish`,
         {
           creation_id: containerId,
@@ -428,6 +446,7 @@ async function publishInstagramContainer(
 }
 
 async function publishInstagramCarousel(
+  ctx: MetaContext,
   campaign: SavedCampaign,
   selectedCreatives: Array<{ imageUrl: string; type: string }>
 ): Promise<{
@@ -436,8 +455,9 @@ async function publishInstagramCarousel(
   mediaId: string;
   imageUrls: string[];
 }> {
+  const instagramId = ctx.instagramId;
   if (!instagramId) {
-    throw new Error("META_INSTAGRAM_ACCOUNT_ID is missing.");
+    throw new Error(`${ctx.project.envName("META_INSTAGRAM_ACCOUNT_ID")} is missing.`);
   }
 
   const instagram = campaign.strategy.platformContent.instagram;
@@ -455,7 +475,7 @@ async function publishInstagramCarousel(
 
   for (const creative of selectedCreatives) {
     try {
-      const preparedUrl = await prepareInstagramImage(creative.imageUrl);
+      const preparedUrl = await prepareInstagramImage(ctx.project, creative.imageUrl);
       preparedImages.push({ url: preparedUrl, type: creative.type });
       console.log(
         `[Instagram Carousel] Prepared ${creative.type}: ${preparedUrl}`
@@ -477,6 +497,7 @@ async function publishInstagramCarousel(
   for (const image of preparedImages) {
     try {
       const childId = await createInstagramCarouselChildContainer(
+        ctx,
         instagramId,
         image.url
       );
@@ -505,7 +526,7 @@ async function publishInstagramCarousel(
       if (!childId) {
         throw new Error(`Child container ID ${i + 1} is missing`);
       }
-      await waitForInstagramContainer(childId);
+      await waitForInstagramContainer(ctx, childId);
       console.log(
         `[Instagram Carousel] Child container ${i + 1}/${childContainerIds.length} (${imageType}) is ready`
       );
@@ -524,6 +545,7 @@ async function publishInstagramCarousel(
   const caption = buildInstagramCaption(instagram.caption, instagram.hashtags);
 
   const carouselContainerId = await createInstagramCarouselParentContainer(
+    ctx,
     instagramId,
     childContainerIds,
     caption
@@ -535,7 +557,7 @@ async function publishInstagramCarousel(
   );
 
   try {
-    await waitForInstagramContainer(carouselContainerId);
+    await waitForInstagramContainer(ctx, carouselContainerId);
   } catch (error) {
     console.error(
       `[Instagram Carousel] Parent carousel container failed:`,
@@ -548,6 +570,7 @@ async function publishInstagramCarousel(
   console.log(`[Instagram Carousel] Publishing carousel`);
 
   const result = await publishInstagramContainer(
+    ctx,
     instagramId,
     carouselContainerId
   );
@@ -565,12 +588,14 @@ async function publishInstagramCarousel(
 }
 
 async function uploadFacebookUnpublishedPhoto(
+  ctx: MetaContext,
   pageId: string,
   imageUrl: string
 ): Promise<string> {
   console.log(`[Facebook Multi-Image] Uploading unpublished photo: ${imageUrl}`);
 
   const result = await graphPost(
+    ctx,
     `${pageId}/photos`,
     {
       url: imageUrl,
@@ -587,6 +612,7 @@ async function uploadFacebookUnpublishedPhoto(
 }
 
 async function publishFacebookMultiImage(
+  ctx: MetaContext,
   campaign: SavedCampaign,
   selectedCreatives: Array<{ imageUrl: string; type: string }>
 ): Promise<{
@@ -595,8 +621,9 @@ async function publishFacebookMultiImage(
   postId: string;
   imageUrls: string[];
 }> {
+  const pageId = ctx.pageId;
   if (!pageId) {
-    throw new Error("META_PAGE_ID is missing.");
+    throw new Error(`${ctx.project.envName("META_PAGE_ID")} is missing.`);
   }
 
   const facebook = campaign.strategy.platformContent.facebook;
@@ -614,7 +641,7 @@ async function publishFacebookMultiImage(
 
   for (const creative of selectedCreatives) {
     try {
-      const preparedUrl = await prepareFacebookCarouselImage(creative.imageUrl);
+      const preparedUrl = await prepareFacebookCarouselImage(ctx.project, creative.imageUrl);
       preparedImages.push({ url: preparedUrl, type: creative.type });
       console.log(
         `[Facebook Multi-Image] Prepared ${creative.type}: ${preparedUrl}`
@@ -636,6 +663,7 @@ async function publishFacebookMultiImage(
   for (const image of preparedImages) {
     try {
       const photoId = await uploadFacebookUnpublishedPhoto(
+        ctx,
         pageId,
         image.url
       );
@@ -671,6 +699,7 @@ async function publishFacebookMultiImage(
   );
 
   const result = await graphPost(
+    ctx,
     `${pageId}/feed`,
     {
       message,
@@ -691,8 +720,11 @@ async function publishFacebookMultiImage(
 }
 
 export async function publishFacebook(
+  project: ProjectConfig,
   campaign: SavedCampaign
 ) {
+  const ctx = metaContext(project);
+  const pageId = ctx.pageId;
   if (campaign.status !== "approved") {
     throw new Error(
       "Campaign must be approved before publishing."
@@ -725,7 +757,7 @@ export async function publishFacebook(
     console.log(
       `[Facebook] Publishing multi-image post with ${selectedCreatives.length} images`
     );
-    return await publishFacebookMultiImage(campaign, selectedCreatives);
+    return await publishFacebookMultiImage(ctx, campaign, selectedCreatives);
   }
 
   // Single image or fallback: Use existing single-image flow
@@ -743,12 +775,13 @@ export async function publishFacebook(
 
   // Use selected creative image if available, fall back to product image
   const imageUrl = await resolveImageUrl(
-    prepareFacebookImage,
+    (url) => prepareFacebookImage(project, url),
     selectedCreatives[0]?.imageUrl,
     productImage
   );
 
   const result = await graphPost(
+    ctx,
     `${pageId}/photos`,
     {
       message,
@@ -764,8 +797,11 @@ export async function publishFacebook(
 }
 
 export async function publishInstagram(
+  project: ProjectConfig,
   campaign: SavedCampaign
 ) {
+  const ctx = metaContext(project);
+  const instagramId = ctx.instagramId;
   if (campaign.status !== "approved") {
     throw new Error(
       "Campaign must be approved before publishing."
@@ -791,11 +827,11 @@ export async function publishInstagram(
 
   if (!instagramId) {
     throw new Error(
-      "META_INSTAGRAM_ACCOUNT_ID is missing."
+      `${project.envName("META_INSTAGRAM_ACCOUNT_ID")} is missing.`
     );
   }
 
-  await ensureInstagramPostingGap();
+  await ensureInstagramPostingGap(project);
 
   // Resolve selected creatives with priority logic
   const selectedCreatives = resolveSelectedCreatives(campaign);
@@ -806,7 +842,7 @@ export async function publishInstagram(
     console.log(
       `[Instagram] Publishing carousel with ${selectedCreatives.length} images`
     );
-    return await publishInstagramCarousel(campaign, selectedCreatives);
+    return await publishInstagramCarousel(ctx, campaign, selectedCreatives);
   }
 
   // Single image or fallback: Use existing single-image flow
@@ -814,7 +850,7 @@ export async function publishInstagram(
 
   // Use selected creative image if available, fall back to product image
   const imageUrl = await resolveImageUrl(
-    prepareInstagramImage,
+    (url) => prepareInstagramImage(project, url),
     selectedCreatives[0]?.imageUrl,
     productImage
   );
@@ -823,6 +859,7 @@ export async function publishInstagram(
 
   // Create Instagram media container
   const container = await graphPost(
+    ctx,
     `${instagramId}/media`,
     {
       image_url: imageUrl,
@@ -838,12 +875,14 @@ export async function publishInstagram(
 
   // Wait until Meta confirms the media is ready.
   await waitForInstagramContainer(
+    ctx,
     container.id
   );
 
   // Publish with retry protection for transient Meta failures.
   const result =
     await publishInstagramContainer(
+      ctx,
       instagramId,
       container.id
     );

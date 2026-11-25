@@ -1,15 +1,18 @@
-import { getGreatFlowersProducts } from "../greatflowers.products.js";
+import { getCatalogProducts } from "../catalog.products.js";
 import { getCampaigns, deleteCampaign, getCampaignById, saveCampaign, updateCampaignStatus, updateCampaign } from "../campaign.store.js";
 import { z } from "zod";
 import { generateMarketingStrategy } from "../hermes.js";
 import { singleFlight } from "../http.helpers.js";
 import { campaignSchema } from "./campaign.schema.js";
+import { projectLockKey } from "../projects/index.js";
+import { projectOf } from "../projects/http.js";
 import express from "express";
 
 const router = express.Router();
 
-router.post("/api/strategies/generate", singleFlight("strategy", async (req, res) => {
+router.post("/api/strategies/generate", singleFlight((res) => projectLockKey(projectOf(res), "strategy"), async (req, res) => {
   try {
+    const project = projectOf(res);
     const parsed = campaignSchema.safeParse(req.body);
 
     if (!parsed.success) {
@@ -26,7 +29,7 @@ router.post("/api/strategies/generate", singleFlight("strategy", async (req, res
     let selectedProduct: any = null;
 
     if (productId !== undefined) {
-      const products = await getGreatFlowersProducts();
+      const products = await getCatalogProducts(project);
       selectedProduct = products.find((product) => product.id === productId) ?? null;
       if (!selectedProduct || selectedProduct.stockStatus !== "in_stock" || !selectedProduct.image) {
         return res.status(400).json({
@@ -64,7 +67,7 @@ Product Description:
 ${selectedProduct.description}
 
 IMPORTANT:
-The information above came directly from the live GreatFlowers product API.
+The information above came directly from the live ${project.brand.name} product API.
 Treat it as verified product information.
 
 Do not put these supplied facts inside needsVerification.
@@ -73,7 +76,7 @@ ${input.additionalContext ?? ""}
 `.trim();
     }
 
-    const strategy = await generateMarketingStrategy(input);
+    const strategy = await generateMarketingStrategy(project, input);
 
     return res.json({
       success: true,
@@ -114,6 +117,7 @@ router.post("/api/campaigns", async (req, res) => {
     }
 
     const campaign = await saveCampaign(
+      projectOf(res),
       input,
       strategy,
       selectedProduct,
@@ -148,7 +152,7 @@ router.post("/api/campaigns", async (req, res) => {
 
 router.delete("/api/campaigns/:id", async (req, res) => {
   try {
-    const deleted = await deleteCampaign(req.params.id);
+    const deleted = await deleteCampaign(projectOf(res), req.params.id);
     if (!deleted) return res.status(404).json({ success: false, error: "Campaign not found" });
     return res.json({ success: true });
   } catch (error) {
@@ -161,7 +165,7 @@ router.delete("/api/campaigns/:id", async (req, res) => {
 
 router.get("/api/campaigns", async (_req, res) => {
   try {
-    const campaigns = await getCampaigns();
+    const campaigns = await getCampaigns(projectOf(res));
 
     return res.json({
       success: true,
@@ -181,6 +185,7 @@ router.get(
   "/api/campaigns/:id",
   async (req, res) => {
     const campaign = await getCampaignById(
+      projectOf(res),
       req.params.id
     );
 
@@ -217,7 +222,7 @@ router.put(
         selectedStoryCarousel,
       } = req.body;
 
-      const campaign = await updateCampaign(id, {
+      const campaign = await updateCampaign(projectOf(res), id, {
         ...(input ? { input } : {}),
         ...(strategy ? { strategy } : {}),
         ...(selectedProduct
@@ -285,6 +290,7 @@ router.patch(
 
     const campaign =
       await updateCampaignStatus(
+        projectOf(res),
         req.params.id,
         status
       );
@@ -303,12 +309,13 @@ router.patch(
   }
 );
 
+// /api/greatflowers/products is the original path, kept so existing clients keep working.
 router.get(
-  "/api/greatflowers/products",
+  ["/api/catalog/products", "/api/greatflowers/products"],
   async (_req, res) => {
     try {
       const products =
-        await getGreatFlowersProducts();
+        await getCatalogProducts(projectOf(res));
 
       return res.json({
         success: true,
@@ -317,14 +324,14 @@ router.get(
       });
     } catch (error) {
       console.error(
-        "GreatFlowers products failed:",
+        `${projectOf(res).brand.name} products failed:`,
         error
       );
 
       return res.status(500).json({
         success: false,
         error:
-          "Failed to fetch GreatFlowers products",
+          `Failed to fetch ${projectOf(res).brand.name} products`,
       });
     }
   }

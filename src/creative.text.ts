@@ -1,4 +1,5 @@
 import sharp from "sharp";
+import type { ProjectVisual } from "./projects/index.js";
 
 export type CreativeTextSide = "left" | "right";
 export type CreativeTextVertical = "top" | "lower";
@@ -21,30 +22,10 @@ export const CREATIVE_MARGIN_RATIO = 0.055;
 export const CREATIVE_LOGO_WIDTH_RATIO = 0.20;
 export const CREATIVE_LOGO_ASPECT = 98 / 246;
 
-// The site's own deep brand purple, used for headline copy. The near-miss values this replaced
-// (#32105f, #d61572) were close enough to look right in isolation and wrong beside the real site.
-export const CREATIVE_TEXT_PURPLE = "#261943";
-
-// Taken from the live site's own design tokens, read out of its stylesheet: --gf-primary is the
-// fill on every button on greatflowers.net and --gf-secondary is its accent. Creative chrome that
-// drifts off these reads as someone else's ad, however well it suits the photograph.
-export const GF_PRIMARY = "#701888";
-export const GF_SECONDARY = "#db2173";
-
-// Only brand hues are available as accents. The photograph decides which of them is used, not
-// whether the creative is on brand at all: purple for violet and lilac flowers, magenta otherwise.
-// Variety belongs to the photography - environment, lighting and art direction already carry it.
-const CREATIVE_TEXT_PALETTES = [
-  { primary: CREATIVE_TEXT_PURPLE, accent: GF_PRIMARY, secondary: "#3f3a44" },
-  { primary: CREATIVE_TEXT_PURPLE, accent: GF_SECONDARY, secondary: "#3f3a44" },
-] as const;
-
-// White copy sits on dark photographs, where the brand colours themselves are too dark to read, so
-// these are the same two hues lifted into tints rather than different colours.
-const CREATIVE_LIGHT_TEXT_PALETTES = [
-  { primary: "#ffffff", accent: "#bf97c9", secondary: "#f7f1f5" },
-  { primary: "#ffffff", accent: "#ff7fbd", secondary: "#f7f1f5" },
-] as const;
+// Brand colours come from the project (project.visual): textPrimary is the headline colour, ctaFill
+// is the storefront's button colour, and darkTextPalettes / lightTextPalettes hold the only accents
+// a creative may use. Chrome that drifts off these reads as someone else's ad, however well it suits
+// the photograph. The photograph decides which brand accent is used, not whether it is on brand.
 
 function hueOf(hex: string): number {
   const [r, g, b] = [1, 3, 5].map(index => parseInt(hex.slice(index, index + 2), 16) / 255) as [number, number, number];
@@ -55,9 +36,9 @@ function hueOf(hex: string): number {
   return (raw * 60 + 360) % 360;
 }
 
-// Both palettes run pink, amber, green, coral in the same order, so one index picks the matching
-// accent whichever tone the photograph calls for.
-const ACCENT_HUES = CREATIVE_TEXT_PALETTES.map(palette => hueOf(palette.accent));
+// Both palette lists run in the same accent order, so one index picks the matching accent
+// whichever tone the photograph calls for.
+const accentHues = (visual: ProjectVisual) => visual.darkTextPalettes.map(palette => hueOf(palette.accent));
 // Only accents nearly as close to the photograph as the closest one may be chosen. A wider window
 // let a magenta accent win on a warm amber frame simply because it was that creative's turn.
 const ACCENT_SPREAD = 20;
@@ -96,11 +77,11 @@ export function contrastRatio(a: number, b: number): number {
 // The numerals in the step markers are small, so they need 4.5:1 against the marker they sit in.
 // White was hardcoded, which holds on the deep brand accents and fails on the light tints used
 // over dark photographs - exactly where the markers are most used.
-export function contrastingLabel(fill: string): string {
+export function contrastingLabel(visual: ProjectVisual, fill: string): string {
   const background = luminanceOf(fill);
-  return contrastRatio(background, 1) >= contrastRatio(background, luminanceOf(CREATIVE_TEXT_PURPLE))
+  return contrastRatio(background, 1) >= contrastRatio(background, luminanceOf(visual.textPrimary))
     ? "#ffffff"
-    : CREATIVE_TEXT_PURPLE;
+    : visual.textPrimary;
 }
 
 function luminanceToChannel(luminance: number): number {
@@ -119,17 +100,19 @@ function hueDistance(a: number, b: number): number {
 // Choose the accent that echoes a colour already in the photograph instead, and keep the positional
 // rotation only to spread the choice across the accents that all suit it equally well.
 export function accentIndexForImage(
+  visual: ProjectVisual,
   imageHue: number | null,
   order?: number,
   backgroundLuminance: number | null = null,
   tone: CreativeTextTone = "dark",
 ): number {
-  const rotation = Math.max(0, (order ?? 1) - 1) % ACCENT_HUES.length;
+  const hues = accentHues(visual);
+  const rotation = Math.max(0, (order ?? 1) - 1) % hues.length;
 
   // Both accents are on brand, so legibility decides between them before taste does. On a warm
   // light wall the magenta sits at 2.3:1 and the purple at 4.7:1, and bleaching the photograph to
   // rescue the magenta is a far worse answer than simply using the brand's other colour.
-  const readable = backgroundLuminance === null ? null : (tone === "light" ? CREATIVE_LIGHT_TEXT_PALETTES : CREATIVE_TEXT_PALETTES)
+  const readable = backgroundLuminance === null ? null : (tone === "light" ? visual.lightTextPalettes : visual.darkTextPalettes)
     .map((palette, index) => ({ index, contrast: contrastRatio(backgroundLuminance, luminanceOf(palette.accent)) }))
     .filter(entry => entry.contrast >= COPY_CONTRAST_TARGET)
     .map(entry => entry.index);
@@ -138,7 +121,7 @@ export function accentIndexForImage(
     if (readable?.length) return readable[rotation % readable.length]!;
     return rotation;
   }
-  const distances = ACCENT_HUES.map((accent, index) =>
+  const distances = hues.map((accent, index) =>
     readable && readable.length && !readable.includes(index) ? Number.POSITIVE_INFINITY : hueDistance(accent, imageHue)
   );
   const nearest = Math.min(...distances);
@@ -195,23 +178,24 @@ export async function dominantImageHue(imagePath: string): Promise<number | null
 }
 
 export function textPaletteForCreative(
+  visual: ProjectVisual,
   creative: Pick<TypographyCreative, "order">,
   tone: CreativeTextTone = "dark",
   imageHue: number | null = null,
   backgroundLuminance: number | null = null,
 ) {
-  // The primary stays on the approved brand colour so every creative still reads as GreatFlowers;
+  // The primary stays on the approved brand colour so every creative still reads as the brand;
   // only the accent moves, so four creatives in one campaign stop looking like one template.
-  const palettes = tone === "light" ? CREATIVE_LIGHT_TEXT_PALETTES : CREATIVE_TEXT_PALETTES;
+  const palettes = tone === "light" ? visual.lightTextPalettes : visual.darkTextPalettes;
   const base = palettes[0]!;
-  return { ...base, accent: palettes[accentIndexForImage(imageHue, creative.order, backgroundLuminance, tone)]!.accent };
+  return { ...base, accent: palettes[accentIndexForImage(visual, imageHue, creative.order, backgroundLuminance, tone)]!.accent };
 }
 
-// Every button on greatflowers.net is --gf-primary, so the pill is too - on every creative, over
-// every photograph. A call to action is the one element that has to be instantly recognisable as
-// the brand's, so it does not follow the image the way the headline accent does.
-export function ctaAccentForCreative(): string {
-  return GF_PRIMARY;
+// Every button on the storefront uses its primary colour, so the pill does too - on every creative,
+// over every photograph. A call to action is the one element that has to be instantly recognisable
+// as the brand's, so it does not follow the image the way the headline accent does.
+export function ctaAccentForCreative(visual: ProjectVisual): string {
+  return visual.ctaFill;
 }
 
 export type CreativeTypography = {
@@ -393,6 +377,7 @@ function renderHeadlineLine(
 }
 
 export function buildCreativeTextOverlay(
+  visual: ProjectVisual,
   creative: TypographyCreative,
   side: CreativeTextSide,
   width = 1024,
@@ -407,12 +392,12 @@ export function buildCreativeTextOverlay(
   // relative to the photograph while margins and branding kept scaling.
   if (width !== 1024) {
     const designHeight = height * 1024 / width;
-    const svg = buildCreativeTextOverlay(creative, side, 1024, designHeight, vertical, tone, imageHue, backing).toString();
+    const svg = buildCreativeTextOverlay(visual, creative, side, 1024, designHeight, vertical, tone, imageHue, backing).toString();
     return Buffer.from(svg.replace(/^<svg[^>]*>/,
       `<svg width="${width}" height="${height}" viewBox="0 0 1024 ${designHeight}" xmlns="http://www.w3.org/2000/svg">`));
   }
   const typography = typographyForCreative(creative);
-  const palette = textPaletteForCreative(creative, tone, imageHue, backing?.luminance ?? null);
+  const palette = textPaletteForCreative(visual, creative, tone, imageHue, backing?.luminance ?? null);
   const isCaption = creative.copyLayout?.startsWith("lower-") && !creative.contentPoints?.length;
   const isPoster = creative.copyLayout?.startsWith("full-bleed-") && !creative.contentPoints?.length;
   // Caption compositions use restrained single-color copy; posters keep the
@@ -472,7 +457,7 @@ export function buildCreativeTextOverlay(
   const contentStart = subLines.length ? subFirstY + subLines.length * subLineHeight : lastHeadlineY + Math.round(fitted.size * 0.4);
   const pillY = contentStart + Math.round(height * 0.025);
   const ctaPillSvg = showCtaPill
-    ? `<rect x="${pillX}" y="${pillY}" width="${pillWidth}" height="${pillHeight}" rx="${Math.round(pillHeight / 2)}" fill="${ctaAccentForCreative()}"/>
+    ? `<rect x="${pillX}" y="${pillY}" width="${pillWidth}" height="${pillHeight}" rx="${Math.round(pillHeight / 2)}" fill="${ctaAccentForCreative(visual)}"/>
        <text x="${pillX + Math.round(pillWidth / 2)}" y="${pillY + Math.round(pillHeight * 0.66)}" text-anchor="middle" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${pillFont}" font-weight="700" fill="#ffffff">${escapeXml(ctaLabel)} →</text>`
     : "";
   const pointSize = Math.max(22, Math.round(width * 0.024));
@@ -496,7 +481,7 @@ export function buildCreativeTextOverlay(
     }
     const firstBaseline = pointY + pointSize;
     pointSvg.push(`<circle cx="${numberX}" cy="${firstBaseline - Math.round(pointSize * 0.35)}" r="${numberRadius}" fill="${palette.accent}"/>`);
-    pointSvg.push(`<text x="${numberX}" y="${firstBaseline - Math.round(pointSize * 0.13)}" text-anchor="middle" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${Math.round(pointSize * 0.72)}" font-weight="700" fill="${contrastingLabel(palette.accent)}">${index + 1}</text>`);
+    pointSvg.push(`<text x="${numberX}" y="${firstBaseline - Math.round(pointSize * 0.13)}" text-anchor="middle" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${Math.round(pointSize * 0.72)}" font-weight="700" fill="${contrastingLabel(visual, palette.accent)}">${index + 1}</text>`);
     pointSvg.push(`<text x="${pointTextX}" text-anchor="${pointAnchor}" font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-size="${pointSize}" font-weight="600" fill="${palette.primary}" filter="url(#text-shadow)">${lines.map((line, lineIndex) =>
       `<tspan x="${pointTextX}" y="${firstBaseline + lineIndex * pointLineHeight}">${escapeXml(line)}</tspan>`
     ).join("")}</text>`);
@@ -670,6 +655,7 @@ export async function detectCreativeTextTone(
 // that decides whether the frame is worth keeping. The accent is resolved here because the two
 // brand accents differ enough in luminance to change whether a scrim is needed at all.
 export async function measureCopyZone(
+  visual: ProjectVisual,
   imagePath: string,
   creative: TypographyCreative,
   side: CreativeTextSide,
@@ -684,11 +670,12 @@ export async function measureCopyZone(
   const mean = cells.length
     ? cells.map(cell => relativeLuminance(cell[0], cell[1], cell[2])).reduce((total, value) => total + value, 0) / cells.length
     : 1;
-  const accent = textPaletteForCreative(creative, tone, imageHue, mean).accent;
+  const accent = textPaletteForCreative(visual, creative, tone, imageHue, mean).accent;
   return { tone, imageHue, backing: copyBackingFromCells(cells, accent, tone) };
 }
 
 export async function addCreativeText(
+  visual: ProjectVisual,
   imagePath: string,
   outputPath: string,
   creative: TypographyCreative,
@@ -696,11 +683,11 @@ export async function addCreativeText(
   vertical: CreativeTextVertical = "top",
 ): Promise<void> {
   const metadata = await sharp(imagePath).metadata();
-  const zone = await measureCopyZone(imagePath, creative, side, vertical);
+  const zone = await measureCopyZone(visual, imagePath, creative, side, vertical);
   await sharp(imagePath)
     .composite([{
       input: buildCreativeTextOverlay(
-        creative, side, metadata.width || 1024, metadata.height || 1024,
+        visual, creative, side, metadata.width || 1024, metadata.height || 1024,
         vertical, zone.tone, zone.imageHue, zone.backing
       ),
       left: 0,

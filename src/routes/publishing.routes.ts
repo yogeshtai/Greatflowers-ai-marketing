@@ -1,6 +1,7 @@
 import { publishFacebook, publishInstagram, buildInstagramCaption, InstagramCooldownError } from "../meta.publisher.js";
 import { withCampaignPublishing, getCampaignById, updateCampaign } from "../campaign.store.js";
 import { prepareInstagramImage } from "../meta.image.js";
+import { projectOf } from "../projects/http.js";
 import express from "express";
 
 const router = express.Router();
@@ -10,7 +11,7 @@ router.get(
   async (req, res) => {
     try {
       const campaign =
-        await getCampaignById(req.params.id);
+        await getCampaignById(projectOf(res), req.params.id);
 
       if (!campaign) {
         return res.status(404).json({
@@ -91,7 +92,7 @@ router.post(
   async (req, res) => {
     try {
       const campaign =
-        await getCampaignById(req.params.id);
+        await getCampaignById(projectOf(res), req.params.id);
 
       if (!campaign) {
         return res.status(404).json({
@@ -109,7 +110,7 @@ router.post(
       }
 
       const result =
-        await withCampaignPublishing(campaign.id, publishFacebook, "facebook");
+        await withCampaignPublishing(projectOf(res), campaign.id, (current) => publishFacebook(projectOf(res), current), "facebook");
 
       return res.json({
         success: true,
@@ -139,7 +140,7 @@ router.post(
   async (req, res) => {
     try {
       const campaign =
-        await getCampaignById(req.params.id);
+        await getCampaignById(projectOf(res), req.params.id);
 
       if (!campaign) {
         return res.status(404).json({
@@ -157,7 +158,7 @@ router.post(
       }
 
       const result =
-        await withCampaignPublishing(campaign.id, publishInstagram, "instagram");
+        await withCampaignPublishing(projectOf(res), campaign.id, (current) => publishInstagram(projectOf(res), current), "instagram");
 
       return res.json({
         success: true,
@@ -188,6 +189,7 @@ router.post(
     try {
       const campaign =
         await getCampaignById(
+          projectOf(res),
           req.params.id
         );
 
@@ -310,6 +312,7 @@ router.post(
 
       const updated =
         await updateCampaign(
+          projectOf(res),
           campaign.id,
           {
             scheduledAt:
@@ -363,6 +366,7 @@ router.patch(
     try {
       const campaign =
         await getCampaignById(
+          projectOf(res),
           req.params.id
         );
 
@@ -439,6 +443,7 @@ router.patch(
 
       const updated =
         await updateCampaign(
+          projectOf(res),
           campaign.id,
           updates
         );
@@ -463,6 +468,7 @@ router.post(
     try {
       const campaign =
         await getCampaignById(
+          projectOf(res),
           req.params.id
         );
 
@@ -476,6 +482,7 @@ router.post(
 
       const updated =
         await updateCampaign(
+          projectOf(res),
           campaign.id,
           {
             publishStatus:
@@ -497,13 +504,15 @@ router.post(
   }
 );
 
+// Diagnostic: converts a fixed sample image and uploads it to the selected project's bucket,
+// proving that bucket's write access and public URL work for Meta.
 router.get("/api/meta/test-image", async (req, res) => {
   try {
     const originalImage =
       "https://greatflowers.s3.us-west-2.amazonaws.com/products/img/european-meadow.webp";
 
     const instagramImage =
-      await prepareInstagramImage(originalImage);
+      await prepareInstagramImage(projectOf(res), originalImage);
 
     return res.json({
       success: true,

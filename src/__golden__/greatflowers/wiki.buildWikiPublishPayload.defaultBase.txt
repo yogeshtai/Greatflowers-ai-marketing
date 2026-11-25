@@ -1,0 +1,18 @@
+{
+  "title": "Roses",
+  "slug": "roses",
+  "botanical_name": "Rosa",
+  "author_name": "Mason Thomas",
+  "description": "Roses are layered flowering plants.",
+  "content": "<p><strong>Same Day Delivery</strong>&nbsp;</p><figure class=\"image\"><img src=\"https://example.test/rose.webp\" alt=\"Rose Garden Bouquet\"></figure><p><a href=\"https://greatflowers.net/product/rose-garden\"><strong>Rose Garden Bouquet</strong></a></p><p><strong>From $50.00</strong></p><h2>Overview</h2><p>Roses.</p><p><a href=\"https://greatflowers.net/product/rose-garden/\">Rose Garden Bouquet</a></p><p><strong>Same Day Delivery</strong>&nbsp;</p><figure class=\"image\"><img src=\"https://example.test/pink.webp\" alt=\"Pink Rose Bouquet\"></figure><p><a href=\"https://greatflowers.net/product/pink-rose-bouquet\"><strong>Pink Rose Bouquet</strong></a></p><p><strong>From $59.97</strong></p>",
+  "meta_title": "Roses: Meanings, Varieties and Care",
+  "meta_description": "Learn about roses.",
+  "wiki_thumbnail_id": 42,
+  "wiki_meta_image_id": 42,
+  "products": [
+    7,
+    9
+  ],
+  "is_featured": 0,
+  "status": 1
+}

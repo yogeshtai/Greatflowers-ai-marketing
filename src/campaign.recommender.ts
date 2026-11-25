@@ -10,11 +10,12 @@ import {
 
 import type {
   MarketingProduct,
-} from "./greatflowers.products.js";
+} from "./catalog.products.js";
 
 import { formatOccasionGuidance } from "./occasion.calendar.js";
 import { requestHermesJSON } from "./hermes.json.js";
 import { parseModelJSON } from "./model.json.js";
+import { promptAddendum, type ProjectConfig } from "./projects/index.js";
 
 export type ProductAnalyticsSignal = {
   itemId: string;
@@ -67,6 +68,7 @@ function createCompactCatalog(
 }
 
 export async function generateCampaignRecommendation(
+  project: ProjectConfig,
   products: MarketingProduct[],
   websiteContext: WebsitePageContext[],
   recentHistory: string[] = [],
@@ -74,7 +76,7 @@ export async function generateCampaignRecommendation(
   signal?: AbortSignal,
   rotationPlan?: RotationPlan
 ): Promise<CampaignRecommendation> {
-  const rotation = rotationPlan ?? createRotationPlan(products, [], []);
+  const rotation = rotationPlan ?? createRotationPlan(project, products, [], []);
   const catalog = createCompactCatalog(rotation.candidates);
 
   const today = new Date()
@@ -91,7 +93,7 @@ export async function generateCampaignRecommendation(
   const occasionGuidance = formatOccasionGuidance();
 
   const prompt = `
-You are the GreatFlowers recommendation API, not a conversational report writer.
+You are the ${project.brand.name} recommendation API, not a conversational report writer.
 Choose exactly ONE real product and a fresh campaign idea for a US flower business.
 Use only the evidence supplied below. Do not load skills, tools, old brand knowledge,
 or web research: live catalog, website, calendar, GA4 and history are already supplied.
@@ -116,7 +118,7 @@ Keep it representative rather than artificially biographical: do not invent a pe
 name, exact age, city, job title, relationship history, quote, card message or precise
 timeline unless the user supplied it. Specificity should come from the occasion, useful
 action, setting and flower choice—not fictional personal facts presented as if they happened.
-Naturally promote GreatFlowers. Vary calls to action by goal: shopping for conversions,
+Naturally promote ${project.brand.name}. Vary calls to action by goal: shopping for conversions,
 discovery for awareness, saves/shares/comments for engagement.
 
 ${occasionGuidance}
@@ -170,7 +172,7 @@ FACT AND EVIDENCE RULES:
 
 Return the COMPLETE object using the exact output schema. In particular do not use
 productId, productName or reasoning instead of selectedProductId, selectedProductName
-and reasonForSelection, and do not omit the audience or evidence fields.
+and reasonForSelection, and do not omit the audience or evidence fields.${promptAddendum(project)}
 `.trim();
 
   return requestHermesJSON(prompt, (output) => {

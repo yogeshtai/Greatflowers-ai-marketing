@@ -1,5 +1,6 @@
 import axios from "axios";
 import { API_BASE } from "../constants";
+import { withProjectQuery } from "../project";
 
 export type BlogStatus = "draft" | "approved" | "published" | "rejected" | "failed";
 
@@ -47,7 +48,10 @@ const unwrap = (error: unknown): never => {
 };
 const call = async <T,>(request: Promise<{ data: T }>) => request.then((r) => r.data).catch(unwrap);
 
-export const getBlogs = () => call<{ blogs: BlogDraft[]; authors: string[]; liveMode: boolean; publishMode: "immediate" | "scheduled"; generation: GenerationState }>(axios.get(url()));
+// The brand's timed draft schedule, as the server runs it (shown on each queue page).
+export interface DraftSchedule { autogenerate: boolean; days: string; time: string; retryPeriod?: "afternoon" | "evening" }
+
+export const getBlogs = () => call<{ blogs: BlogDraft[]; authors: string[]; liveMode: boolean; publishMode: "immediate" | "scheduled"; generation: GenerationState; schedule?: DraftSchedule }>(axios.get(url()));
 export const getBlogStatus = () => call<{ generation: GenerationState }>(axios.get(url("/status")));
 export const generateBlog = (occasion?: string) => call<{ started: boolean }>(axios.post(url("/generate"), { occasion: occasion?.trim() || undefined }));
 export const editBlog = (id: string, edit: BlogEdit) => call<{ blog: BlogDraft }>(axios.patch(url(`/${id}`), edit));
@@ -55,5 +59,5 @@ export const deleteBlog = (id: string) => call<{ success: true }>(axios.delete(u
 export const approveBlog = (id: string) => call<{ blog: BlogDraft }>(axios.post(url(`/${id}/approve`)));
 export const rejectBlog = (id: string) => call<{ blog: BlogDraft }>(axios.post(url(`/${id}/reject`)));
 export const publishBlogNow = (id: string) => call<{ blog: BlogDraft }>(axios.post(url(`/${id}/publish-now`), {}, { timeout: 2 * 60_000 }));
-export const blogHeroUrl = (blog: Pick<BlogDraft, "id" | "updatedAt">) => `${url(`/${blog.id}/hero`)}?v=${encodeURIComponent(blog.updatedAt ?? "")}`;
+export const blogHeroUrl = (blog: Pick<BlogDraft, "id" | "updatedAt">) => withProjectQuery(`${url(`/${blog.id}/hero`)}?v=${encodeURIComponent(blog.updatedAt ?? "")}`);
 export const regenerateBlogHero = (id: string) => call<{ blog: BlogDraft }>(axios.post(url(`/${id}/hero/regenerate`), {}, { timeout: 12 * 60_000 }));

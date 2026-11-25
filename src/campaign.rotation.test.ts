@@ -2,8 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { CONTENT_THEMES, createRotationPlan, publishedRotationHistory, type RotationEntry } from "./campaign.rotation.js";
 import { getActiveOccasions } from "./occasion.calendar.js";
-import type { MarketingProduct } from "./greatflowers.products.js";
+import type { MarketingProduct } from "./catalog.products.js";
 import type { SavedCampaign } from "./campaign.store.js";
+import { greatflowers } from "./projects/index.js";
 
 const product = (id: number, overrides = {}): MarketingProduct => ({ id, name: `Bouquet ${id}`, description: "Fresh arrangement", price: 40, salePrice: null, stockStatus: "in_stock", slug: `bouquet-${id}`, url: `https://greatflowers.net/${id}`, image: `https://example.com/${id}.jpg`, categories: [], ordersCount: 0, featured: false, trending: false, ...overrides });
 const quietDay = new Date(2026, 8, 28, 12);
@@ -13,7 +14,7 @@ test("recommendations and published posts both enforce theme, visual and product
   const recent: RotationEntry[] = [{ contentTheme: "gifting-story", visualTreatment: "documentary-gifting", productId: 1 }, { contentTheme: "home-styling", productId: 2 }];
   const published: RotationEntry[] = [{ contentTheme: "flower-care", visualTreatment: "architectural-interior", productId: 3 }, { contentTheme: "product-spotlight", productId: 4 }];
   for (const random of [0, 0.2, 0.5, 0.999]) {
-    const plan = createRotationPlan(catalog, recent, published, quietDay, () => random);
+    const plan = createRotationPlan(greatflowers, catalog, recent, published, quietDay, () => random);
     assert.ok(!["gifting-story", "home-styling", "flower-care", "product-spotlight"].includes(plan.contentTheme));
     assert.ok(!["documentary-gifting", "architectural-interior"].includes(plan.visualTreatment));
     assert.deepEqual(plan.candidates.map(p => p.id), [5, 6, 7]);
@@ -21,10 +22,10 @@ test("recommendations and published posts both enforce theme, visual and product
 });
 
 test("small catalogs relax product cooldown but never admit unavailable products", () => {
-  const plan = createRotationPlan([product(1), product(2, { stockStatus: "out_of_stock" }), product(3, { image: null })], [{ productId: 1 }], [], quietDay, () => 0);
+  const plan = createRotationPlan(greatflowers, [product(1), product(2, { stockStatus: "out_of_stock" }), product(3, { image: null })], [{ productId: 1 }], [], quietDay, () => 0);
   assert.deepEqual(plan.candidates.map(p => p.id), [1]);
   assert.equal(plan.productCooldownRelaxed, true);
-  assert.throws(() => createRotationPlan([product(2, { image: null })], [], []), /No in-stock products/);
+  assert.throws(() => createRotationPlan(greatflowers, [product(2, { image: null })], [], []), /No in-stock products/);
 });
 
 test("legacy history and repeated clicks continue rotating without starving themes", () => {
@@ -33,7 +34,7 @@ test("legacy history and repeated clicks continue rotating without starving them
   let seed = 42;
   const random = () => { seed = (1664525 * seed + 1013904223) >>> 0; return seed / 2 ** 32; };
   for (let i = 0; i < 60; i++) {
-    const plan = createRotationPlan(catalog, history.slice(0, 20), [], quietDay, random);
+    const plan = createRotationPlan(greatflowers, catalog, history.slice(0, 20), [], quietDay, random);
     assert.notEqual(plan.contentTheme, history[0]?.contentTheme);
     assert.notEqual(plan.contentTheme, history[1]?.contentTheme);
     assert.notEqual(plan.visualTreatment, history[0]?.visualTreatment);
@@ -51,7 +52,7 @@ test("every content theme is used before any theme repeats", () => {
   const random = () => { seed = (1664525 * seed + 1013904223) >>> 0; return seed / 2 ** 32; };
 
   for (let index = 0; index < CONTENT_THEMES.length * 2; index++) {
-    const plan = createRotationPlan(catalog, history, [], quietDay, random);
+    const plan = createRotationPlan(greatflowers, catalog, history, [], quietDay, random);
     (index < CONTENT_THEMES.length ? firstCycle : secondCycle).push(plan.contentTheme);
     history.unshift({ contentTheme: plan.contentTheme, visualTreatment: plan.visualTreatment });
   }
@@ -66,13 +67,13 @@ test("important holidays increase seasonal selection while preserving theme cool
   let quietCount = 0, holidayCount = 0;
   for (let i = 0; i < 100; i++) {
     const random = () => i / 100;
-    const quiet = createRotationPlan(catalog, [], [], quietDay, random);
-    const peak = createRotationPlan(catalog, [], [], holiday, random);
+    const quiet = createRotationPlan(greatflowers, catalog, [], [], quietDay, random);
+    const peak = createRotationPlan(greatflowers, catalog, [], [], holiday, random);
     if (["gifting-story", "seasonal-inspiration"].includes(quiet.contentTheme)) quietCount++;
     if (["gifting-story", "seasonal-inspiration"].includes(peak.contentTheme)) holidayCount++;
   }
   assert.ok(holidayCount > quietCount);
-  const plan = createRotationPlan(catalog, [{ contentTheme: "seasonal-inspiration", productId: 1 }], [], holiday, () => 0.9);
+  const plan = createRotationPlan(greatflowers, catalog, [{ contentTheme: "seasonal-inspiration", productId: 1 }], [], holiday, () => 0.9);
   assert.notEqual(plan.contentTheme, "seasonal-inspiration");
   assert.ok(plan.candidates.some(p => p.id === 1), "retain products for seasonal fit");
 });

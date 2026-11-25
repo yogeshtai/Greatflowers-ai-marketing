@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { greatflowers } from "./projects/index.js";
 import {
   buildWebsiteCta,
-  CREATIVE_CTA_PURPLE,
   CREATIVE_LOGO_WIDTH_RATIO,
   logoScrimTone,
   logoScrimToneForCells,
@@ -12,8 +12,12 @@ import {
   LOGO_SCRIM_PAD_Y,
 } from "./codex.creative.js";
 
+// GreatFlowers' logo and CTA colours, now read from its project config.
+const gf = greatflowers.visual;
+const CREATIVE_CTA_PURPLE = gf.websiteCtaFill;
+
 test("creative branding matches the approved logo scale and website CTA", () => {
-  const cta = buildWebsiteCta(1024, 1024);
+  const cta = buildWebsiteCta(greatflowers, 1024, 1024);
   const svg = cta.input.toString();
 
   assert.equal(CREATIVE_LOGO_WIDTH_RATIO, 0.20);
@@ -29,21 +33,21 @@ test("creative branding matches the approved logo scale and website CTA", () => 
 
 test("the logo scrim only engages when the corner cannot carry the wordmark", () => {
   // A clean bright backdrop carries both ends of the gradient; a scrim there is only a smudge.
-  assert.equal(logoScrimTone(255, 255, 255), null);
-  assert.equal(logoScrimTone(240, 232, 236), null);
+  assert.equal(logoScrimTone(gf, 255, 255, 255), null);
+  assert.equal(logoScrimTone(gf, 240, 232, 236), null);
 
   // Dark corners swallow the indigo end, leaving half the name invisible.
-  assert.equal(logoScrimTone(0, 0, 0), "light");
-  assert.equal(logoScrimTone(32, 28, 40), "light");
-  assert.equal(logoScrimTone(96, 84, 92), "light");
+  assert.equal(logoScrimTone(gf, 0, 0, 0), "light");
+  assert.equal(logoScrimTone(gf, 32, 28, 40), "light");
+  assert.equal(logoScrimTone(gf, 96, 84, 92), "light");
 
   // Mid pinks and mauves wash out the magenta end even though they are bright. These used to ask
   // for a dark scrim, which cannot work: see the proof in the unsoundness test below.
-  assert.equal(logoScrimTone(214, 198, 205), "light");
-  assert.equal(logoScrimTone(190, 150, 170), "light");
+  assert.equal(logoScrimTone(gf, 214, 198, 205), "light");
+  assert.equal(logoScrimTone(gf, 190, 150, 170), "light");
 
   // A saturated magenta corner clashes with the wordmark from the other direction.
-  assert.equal(logoScrimTone(198, 42, 120), "light");
+  assert.equal(logoScrimTone(gf, 198, 42, 120), "light");
 });
 
 test("a corner that is bright on one side and dark on the other still gets a scrim", () => {
@@ -52,23 +56,23 @@ test("a corner that is bright on one side and dark on the other still gets a scr
   const dark = [150, 142, 152] as const;
 
   // Each half alone is judged correctly.
-  assert.equal(logoScrimTone(bright[0], bright[1], bright[2]), null);
-  assert.equal(logoScrimTone(dark[0], dark[1], dark[2]), "light");
+  assert.equal(logoScrimTone(gf, bright[0], bright[1], bright[2]), null);
+  assert.equal(logoScrimTone(gf, dark[0], dark[1], dark[2]), "light");
 
   // Averaged into a single sample the split corner reads as a mid-tone, which is how the wordmark
   // on the lamplit dining frame ended up half-swallowed by a dark window.
   const mean = [0, 1, 2].map(channel => Math.round((bright[channel]! + dark[channel]!) / 2)) as [number, number, number];
   assert.ok(
-    logoScrimOpacity(mean[0], mean[1], mean[2]) < logoScrimOpacity(dark[0], dark[1], dark[2]),
+    logoScrimOpacity(gf, mean[0], mean[1], mean[2]) < logoScrimOpacity(gf, dark[0], dark[1], dark[2]),
     "averaging must understate the scrim the worst patch needs"
   );
 
   // Judged cell by cell, the dark half decides.
   const split = [bright, bright, bright, bright, bright, bright, dark, dark, dark, dark, dark, dark];
-  assert.equal(logoScrimToneForCells(split), "light");
+  assert.equal(logoScrimToneForCells(gf, split), "light");
 
   // A corner that is uniformly fine is still left alone.
-  assert.equal(logoScrimToneForCells([bright, bright, bright, bright]), null);
+  assert.equal(logoScrimToneForCells(gf, [bright, bright, bright, bright]), null);
 });
 
 test("darkening the corner can never rescue this wordmark", () => {
@@ -96,18 +100,18 @@ test("darkening the corner can never rescue this wordmark", () => {
 
 test("the logo scrim is strong enough to clear the threshold it just measured", () => {
   for (const corner of [[0, 0, 0], [20, 18, 25], [32, 28, 40], [96, 84, 92], [190, 150, 170], [198, 42, 120]] as const) {
-    assert.ok(logoScrimTone(corner[0], corner[1], corner[2]), `${corner} should need a scrim`);
-    const opacity = logoScrimOpacity(corner[0], corner[1], corner[2]);
+    assert.ok(logoScrimTone(gf, corner[0], corner[1], corner[2]), `${corner} should need a scrim`);
+    const opacity = logoScrimOpacity(gf, corner[0], corner[1], corner[2]);
     const lifted = [0, 1, 2].map(c => Math.round(255 * opacity + corner[c]! * (1 - opacity))) as [number, number, number];
 
     // Either the corner now carries the wordmark, or it was dark enough that the cap bound first -
     // in which case the scrim must still be at full strength rather than quietly giving up.
-    const fixed = logoScrimTone(lifted[0], lifted[1], lifted[2]) === null;
+    const fixed = logoScrimTone(gf, lifted[0], lifted[1], lifted[2]) === null;
     assert.ok(fixed || opacity >= 0.44, `${corner} got only ${opacity.toFixed(2)} and still fails`);
   }
 
   // A corner barely below the line gets a wash too faint to see, not a plate.
-  assert.ok(logoScrimOpacity(200, 196, 200) < logoScrimOpacity(40, 36, 44));
+  assert.ok(logoScrimOpacity(gf, 200, 196, 200) < logoScrimOpacity(gf, 40, 36, 44));
 });
 
 test("the logo scrim reaches zero before the patch ends, so it is never a visible box", () => {

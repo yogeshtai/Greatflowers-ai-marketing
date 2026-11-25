@@ -12,6 +12,7 @@ import {
   ensureInstagramPostingGap,
   InstagramCooldownError,
 } from "./meta.publisher.js";
+import { enabledProjects, type ProjectConfig } from "./projects/index.js";
 
 let schedulerRunning = false;
 
@@ -52,8 +53,23 @@ async function processScheduledCampaigns() {
   schedulerRunning = true;
 
   try {
+    // Projects are processed one after another; each uses its own store and Meta accounts.
+    for (const project of enabledProjects()) {
+      try {
+        await processProjectCampaigns(project);
+      } catch (error) {
+        console.error(`[${project.id}] Campaign scheduler run failed:`, error);
+      }
+    }
+  } finally {
+    schedulerRunning = false;
+  }
+}
+
+async function processProjectCampaigns(project: ProjectConfig) {
+  {
     const campaigns =
-      await getCampaigns();
+      await getCampaigns(project);
 
     const now = Date.now();
 
@@ -79,6 +95,7 @@ async function processScheduledCampaigns() {
         );
 
         const claimed = await updateCampaign(
+          project,
           campaign.id,
           {
             publishStatus:
@@ -104,7 +121,7 @@ async function processScheduledCampaigns() {
           !publishedPlatforms.includes("instagram") &&
           claimed.strategy.platformContent.instagram
         ) {
-          await ensureInstagramPostingGap();
+          await ensureInstagramPostingGap(project);
         }
 
         if (
@@ -115,7 +132,7 @@ async function processScheduledCampaigns() {
           claimed.strategy
             .platformContent.facebook
         ) {
-          await withCampaignPublishing(claimed.id, publishFacebook, "facebook");
+          await withCampaignPublishing(project, claimed.id, (campaign) => publishFacebook(project, campaign), "facebook");
 
           publishedPlatforms.push(
             "facebook"
@@ -130,7 +147,7 @@ async function processScheduledCampaigns() {
           claimed.strategy
             .platformContent.instagram
         ) {
-          await withCampaignPublishing(claimed.id, publishInstagram, "instagram");
+          await withCampaignPublishing(project, claimed.id, (campaign) => publishInstagram(project, campaign), "instagram");
 
           publishedPlatforms.push(
             "instagram"
@@ -151,6 +168,7 @@ async function processScheduledCampaigns() {
 
         if (nextSchedule) {
           await updateCampaign(
+            project,
             campaign.id,
             {
               publishStatus:
@@ -171,6 +189,7 @@ async function processScheduledCampaigns() {
           );
         } else {
           await updateCampaign(
+            project,
             campaign.id,
             {
               publishStatus:
@@ -198,7 +217,7 @@ async function processScheduledCampaigns() {
         );
 
         if (error instanceof InstagramCooldownError) {
-          await updateCampaign(campaign.id, {
+          await updateCampaign(project, campaign.id, {
             publishStatus: "scheduled",
             scheduledAt: error.retryAt.toISOString(),
             publishError: error.message,
@@ -224,6 +243,7 @@ async function processScheduledCampaigns() {
           attempts >= maxAttempts
         ) {
           await updateCampaign(
+            project,
             campaign.id,
             {
               publishStatus:
@@ -241,6 +261,7 @@ async function processScheduledCampaigns() {
         }
 
         await updateCampaign(
+          project,
           campaign.id,
           {
             publishStatus:
@@ -267,8 +288,6 @@ async function processScheduledCampaigns() {
         );
       }
     }
-  } finally {
-    schedulerRunning = false;
   }
 }
 

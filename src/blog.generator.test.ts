@@ -7,6 +7,7 @@ import { publishAfterFor } from "./blog.publisher.js";
 import { buildHeroOverlaySvg, buildHeroPrompt, HERO_HEIGHT, HERO_MIME_TYPE, HERO_WIDTH, optimizeHeroImage, pickComposition } from "./blog.image.js";
 import { getUpcomingOccasions } from "./occasion.calendar.js";
 import { BlogGenerateRequestSchema } from "./blog.schema.js";
+import { greatflowers } from "./projects/index.js";
 
 const para = "<p>" + "Fresh flowers make every gift feel personal and thoughtful. ".repeat(25) + "</p>";
 const html = `<h2>Why flowers</h2>${para}<p><a href="PRODUCT:7">Red Rose Bouquet</a> and <a href="BLOG:other-post">our other guide</a>.</p><div class="blog-product-embed" data-product-id="7"></div><h2>More</h2>${para}${para}${para}<p>Visit <a href="HOME">Great Flowers</a> today.</p>`;
@@ -18,7 +19,7 @@ const base = {
   contentFormat: "CURATED_LIST",
 };
 const products = [{ id: 7, name: "Red Rose Bouquet", slug: "red-rose-bouquet", price: 40, imageUrl: "x", description: "Red roses in a glass vase." }, { id: 8, name: "Other", slug: "other", price: 30, imageUrl: "x", description: "Red roses in a glass vase." }];
-const ctx = { existingTitles: ["Other post title here"], existingSlugs: ["other"], categories: new Set(["gift"]), products, relatedSlugs: new Set(["other-post"]), base: "https://greatflowers.net", requiredFormat: "CURATED_LIST" as const };
+const ctx = { project: greatflowers, existingTitles: ["Other post title here"], existingSlugs: ["other"], categories: new Set(["gift"]), products, relatedSlugs: new Set(["other-post"]), base: "https://greatflowers.net", requiredFormat: "CURATED_LIST" as const };
 
 test("valid post passes and links resolve to real URLs", () => {
   const out = validatePost(JSON.stringify(base), ctx);
@@ -35,7 +36,7 @@ test("manual occasion must appear in the title", () => {
   const occasionCtx = { ...ctx, requestedOccasion: "Mother's Day" };
   assert.throws(() => validatePost(JSON.stringify(base), occasionCtx), /requested occasion/);
   assert.equal(validatePost(JSON.stringify({ ...base, title: "Mother's Day Flowers for a Thoughtful Surprise" }), occasionCtx).slug, base.slug);
-  const prompt = buildBlogPrompt({
+  const prompt = buildBlogPrompt({ project: greatflowers,
     today: "2026-10-17", existingTitles: [], existingSlugs: [], categories: [{ slug: "gift", name: "Gift" }],
     products, related: [], recentHeroConcepts: [], requiredFormat: "PRACTICAL_GUIDE", requestedOccasion: "Mother's Day",
   });
@@ -50,13 +51,13 @@ test("manual occasion input is trimmed and cannot inject prompt instructions", (
 });
 test("invented URLs are rejected", () => assert.throws(() => validatePost(JSON.stringify({ ...base, html: html + '<p><a href="https://example.com/x">x</a></p>' }), ctx), /not allowed/));
 test("single-quoted or unquoted hrefs are rejected", () => {
-  for (const bad of [`<a href='https://example.com'>x</a>`, `<a href=https://example.com>x</a>`]) assert.throws(() => resolveLinks(bad, { productSlugs: new Map(), blogSlugs: new Set(), base: "b" }), /double quotes/);
+  for (const bad of [`<a href='https://example.com'>x</a>`, `<a href=https://example.com>x</a>`]) assert.throws(() => resolveLinks(bad, { project: greatflowers, productSlugs: new Map(), blogSlugs: new Set(), base: "b" }), /double quotes/);
 });
 test("catalog description is cleaned of HTML", () => {
   assert.equal(toCatalogProduct({ id: 1, name: "A", slug: "a", short_description: "<p>Pink &amp; white <b>lilies</b></p>" }).description, "Pink & white lilies");
 });
 test("images are rejected", () => assert.throws(() => validatePost(JSON.stringify({ ...base, html: html + '<img src="https://example.com/a.png">' }), ctx)));
-test("unknown product link is rejected", () => assert.throws(() => resolveLinks('<a href="PRODUCT:99">x</a>', { productSlugs: new Map(), blogSlugs: new Set(), base: "b" }), /unknown product/));
+test("unknown product link is rejected", () => assert.throws(() => resolveLinks('<a href="PRODUCT:99">x</a>', { project: greatflowers, productSlugs: new Map(), blogSlugs: new Set(), base: "b" }), /unknown product/));
 test("unknown blog links are safely unlinked without losing their text", () => {
   const input = '<p>Read <a href="BLOG:missing-post">our flower care guide</a> or <a href="BLOG:other-post">the verified post</a>.</p>';
   const sanitized = sanitizeBlogLinks(input, new Set(["other-post"]));
@@ -89,9 +90,9 @@ test("immediate mode schedules publishing for now; scheduled mode uses the 10 AM
   const now = new Date("2026-10-07T12:00:00Z");
   try {
     delete process.env.BLOG_PUBLISH_MODE;
-    assert.equal(publishAfterFor(now).toISOString(), now.toISOString());
+    assert.equal(publishAfterFor(greatflowers, now).toISOString(), now.toISOString());
     process.env.BLOG_PUBLISH_MODE = "scheduled";
-    assert.equal(publishAfterFor(now).toISOString(), "2026-10-07T14:00:00.000Z");
+    assert.equal(publishAfterFor(greatflowers, now).toISOString(), "2026-10-07T14:00:00.000Z");
   } finally {
     delete process.env.BLOG_PUBLISH_MODE;
   }
@@ -114,22 +115,22 @@ test("occasion heroes require an active event instead of an empty decorated scen
   assert.match(prompt, /not an empty decorated room/);
 });
 test("hero overlay uses real escaped title text", () => {
-  const overlay = buildHeroOverlaySvg("Flowers & Gifts <Today>").toString();
+  const overlay = buildHeroOverlaySvg(greatflowers, "Flowers & Gifts <Today>").toString();
   assert.match(overlay, /GREAT FLOWERS JOURNAL/);
   assert.match(overlay, /Flowers &amp; Gifts &lt;Today&gt;/);
   assert.match(overlay, /x="930"/);
   assert.doesNotMatch(overlay, /linearGradient/);
-  const longOverlay = buildHeroOverlaySvg("How to Choose Thoughtful Flowers for Every Important Celebration and Personal Milestone").toString();
+  const longOverlay = buildHeroOverlaySvg(greatflowers, "How to Choose Thoughtful Flowers for Every Important Celebration and Personal Milestone").toString();
   assert.ok((longOverlay.match(/class="title"/g) ?? []).length <= 4);
   assert.doesNotMatch(longOverlay, /<text[^>]*class="title"[^>]*>[^<]{50}/);
-  const halloweenOverlay = buildHeroOverlaySvg("How to Choose Halloween Flower Colors for Any Room").toString();
+  const halloweenOverlay = buildHeroOverlaySvg(greatflowers, "How to Choose Halloween Flower Colors for Any Room").toString();
   assert.doesNotMatch(halloweenOverlay, />How to Choose Halloween Flower</);
   assert.match(halloweenOverlay, />How to Choose Halloween</);
   assert.match(halloweenOverlay, />Flower Colors for Any Room</);
 });
 test("blog heroes are encoded as correctly sized progressive JPEGs", async () => {
   const source = await sharp({ create: { width: 80, height: 80, channels: 3, background: "#7b174f" } }).png().toBuffer();
-  const output = await optimizeHeroImage(source, "A Flower Guide");
+  const output = await optimizeHeroImage(greatflowers, source, "A Flower Guide");
   const metadata = await sharp(output).metadata();
   assert.equal(HERO_MIME_TYPE, "image/jpeg");
   assert.equal(metadata.format, "jpeg");

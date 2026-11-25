@@ -1,19 +1,10 @@
-const GRAPH_VERSION =
-  process.env.META_GRAPH_VERSION || "v25.0";
+import type { ProjectConfig } from "./projects/index.js";
 
-const GRAPH_URL =
-  `https://graph.facebook.com/${GRAPH_VERSION}`;
-
-const pageId =
-  process.env.META_PAGE_ID;
-
-const instagramId =
-  process.env.META_INSTAGRAM_ACCOUNT_ID;
-
-const accessToken =
-  process.env.META_PAGE_ACCESS_TOKEN;
-
-function ensureConfig() {
+// Reads this project's Meta settings (GreatFlowers: META_*, other projects: their own prefix).
+function metaConfig(project: ProjectConfig) {
+  const pageId = project.env("META_PAGE_ID");
+  const instagramId = project.env("META_INSTAGRAM_ACCOUNT_ID");
+  const accessToken = project.env("META_PAGE_ACCESS_TOKEN");
   if (
     !pageId ||
     !instagramId ||
@@ -23,20 +14,25 @@ function ensureConfig() {
       "Meta environment variables are missing"
     );
   }
+  return {
+    graphUrl: `https://graph.facebook.com/${project.env("META_GRAPH_VERSION") || "v25.0"}`,
+    pageId,
+    instagramId,
+    accessToken,
+  };
 }
 
 async function graphGet(
+  meta: ReturnType<typeof metaConfig>,
   path: string
 ) {
-  ensureConfig();
-
   const url = new URL(
-    `${GRAPH_URL}/${path}`
+    `${meta.graphUrl}/${path}`
   );
 
   url.searchParams.set(
     "access_token",
-    accessToken!
+    meta.accessToken
   );
 
   const response = await fetch(url);
@@ -53,17 +49,19 @@ async function graphGet(
   return data;
 }
 
-export async function getMetaConnectionStatus() {
-  ensureConfig();
+export async function getMetaConnectionStatus(project: ProjectConfig) {
+  const meta = metaConfig(project);
 
   const [facebook, instagram] =
     await Promise.all([
       graphGet(
-        `${pageId}?fields=id,name`
+        meta,
+        `${meta.pageId}?fields=id,name`
       ),
 
       graphGet(
-        `${instagramId}?fields=id,username,name`
+        meta,
+        `${meta.instagramId}?fields=id,username,name`
       ),
     ]);
 

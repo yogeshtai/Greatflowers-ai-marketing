@@ -3,11 +3,12 @@ import { z } from "zod";
 import { tryAcquire } from "./ai.limits.js";
 
 // Reject duplicate expensive AI jobs (double clicks, re-sent requests, parallel tabs).
-// Codex routes share one lock: parallel runs also break the "newest generated image" detection.
+// Codex routes share one global lock: parallel runs also break the "newest generated image" detection.
+// Other jobs pass a function so the lock is per project (see projectLockKey).
 // The lock is held until the handler finishes, not just until the client disconnects.
-export function singleFlight(key: string, handler: express.RequestHandler): express.RequestHandler {
+export function singleFlight(key: string | ((res: express.Response) => string), handler: express.RequestHandler): express.RequestHandler {
   return async (req, res, next) => {
-    const release = tryAcquire(key);
+    const release = tryAcquire(typeof key === "string" ? key : key(res));
     if (!release) {
       return res.status(409).json({
         success: false,

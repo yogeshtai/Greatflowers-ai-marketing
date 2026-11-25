@@ -17,19 +17,20 @@ test("publishing records successful platforms and preserves history after a part
       input: { product: "Bouquet" }, strategy: {}, createdAt: "2026-01-01", updatedAt: "2026-01-01",
     }]));
     const { withCampaignPublishing, getCampaignById } = await import("./campaign.store.js");
-    await withCampaignPublishing("test", async () => ({ published: true }), "facebook");
-    const successful = await getCampaignById("test");
+    const { greatflowers } = await import("./projects/index.js");
+    await withCampaignPublishing(greatflowers, "test", async () => ({ published: true }), "facebook");
+    const successful = await getCampaignById(greatflowers, "test");
     assert.ok(successful?.publishedAt);
     assert.deepEqual(successful.publishedPlatforms, ["facebook"]);
     assert.deepEqual(successful.publishCyclePlatforms, ["facebook"]);
     assert.equal(successful.publishStatus, "scheduled");
     assert.equal(successful.scheduleRecurrence, "weekly");
-    await assert.rejects(() => withCampaignPublishing("test", async () => { throw new Error("Instagram failed"); }, "instagram"), /Instagram failed/);
-    assert.deepEqual(await getCampaignById("test"), successful);
-    await withCampaignPublishing("test", async () => ({ published: true }), "instagram");
-    await withCampaignPublishing("test", async () => ({ published: true }), "facebook");
-    assert.deepEqual((await getCampaignById("test"))?.publishedPlatforms, ["facebook", "instagram"]);
-    assert.deepEqual((await getCampaignById("test"))?.publishCyclePlatforms, ["facebook", "instagram"]);
+    await assert.rejects(() => withCampaignPublishing(greatflowers, "test", async () => { throw new Error("Instagram failed"); }, "instagram"), /Instagram failed/);
+    assert.deepEqual(await getCampaignById(greatflowers, "test"), successful);
+    await withCampaignPublishing(greatflowers, "test", async () => ({ published: true }), "instagram");
+    await withCampaignPublishing(greatflowers, "test", async () => ({ published: true }), "facebook");
+    assert.deepEqual((await getCampaignById(greatflowers, "test"))?.publishedPlatforms, ["facebook", "instagram"]);
+    assert.deepEqual((await getCampaignById(greatflowers, "test"))?.publishCyclePlatforms, ["facebook", "instagram"]);
   } finally {
     process.chdir(originalCwd);
     await rm(directory, { recursive: true, force: true });

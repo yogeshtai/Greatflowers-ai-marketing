@@ -9,6 +9,7 @@ import { selectContentAuthor } from "./content.authors.js";
 import { assertNoTitleCollision, type ContentTitle } from "./content.overlap.js";
 import { getArticleDrafts } from "./article.store.js";
 import { getWikiDrafts } from "./wiki.store.js";
+import { contentSkillPrefix, productPageUrl, promptAddendum, storefrontBase, type ProjectConfig } from "./projects/index.js";
 
 // The model may say no category fits; the post is then published without a category instead of a wrong one.
 export const NO_CATEGORY = "none";
@@ -48,7 +49,6 @@ export function sanitizeBlogLinks(html: string, allowedSlugs: Set<string>): stri
     (match, slug: string, label: string) => allowedSlugs.has(slug) ? match : label);
 }
 
-export const storefrontBase = () => (process.env.GF_STOREFRONT_URL || "https://greatflowers.net").replace(/\/+$/, "");
 
 function inferredFormat(title: string): BlogFormat {
   if (/^(best|top|\d+)\b/i.test(title)) return "CURATED_LIST";
@@ -66,7 +66,7 @@ export function selectBlogFormat(recent: Array<{ title: string; contentFormat?: 
 }
 
 // The model only writes PRODUCT:<id>, BLOG:<slug> or HOME as link targets; real URLs are built here from catalog data.
-export function resolveLinks(html: string, ctx: { productSlugs: Map<number, string>; blogSlugs: Set<string>; base: string }): string {
+export function resolveLinks(html: string, ctx: { project: ProjectConfig; productSlugs: Map<number, string>; blogSlugs: Set<string>; base: string }): string {
   if ((html.match(/href\s*=/gi) ?? []).length !== (html.match(/href="[^"]*"/gi) ?? []).length) throw new Error('every link must use the exact form href="..." with double quotes');
   return html.replace(/href="([^"]*)"/gi, (_match, href: string) => {
     if (href === "HOME") return `href="${ctx.base}/"`;
@@ -74,18 +74,19 @@ export function resolveLinks(html: string, ctx: { productSlugs: Map<number, stri
     if (product) {
       const slug = ctx.productSlugs.get(Number(product[1]));
       if (!slug) throw new Error(`link to unknown product ${product[1]}`);
-      return `href="${ctx.base}/product/${slug}/"`;
+      return `href="${productPageUrl(ctx.project, ctx.base, slug)}"`;
     }
     const blog = /^BLOG:([a-z0-9-]+)$/.exec(href);
     if (blog) {
       if (!ctx.blogSlugs.has(blog[1]!)) throw new Error(`link to unknown blog slug ${blog[1]}`);
-      return `href="${ctx.base}/blogs/${blog[1]}/"`;
+      return `href="${ctx.base}/${ctx.project.storefront.paths.blog}/${blog[1]}/"`;
     }
     throw new Error(`link target "${href.slice(0, 60)}" is not allowed; use only PRODUCT:<id>, BLOG:<slug> or HOME`);
   });
 }
 
 export function buildBlogPrompt(args: {
+  project: ProjectConfig;
   today: string;
   existingTitles: string[];
   existingSlugs: string[];
@@ -104,7 +105,8 @@ export function buildBlogPrompt(args: {
   const requestedOccasion = args.requestedOccasion
     ? `\nUSER-REQUESTED OCCASION (MANDATORY FOR THIS MANUAL DRAFT): ${args.requestedOccasion}\n- Write the entire post specifically for this occasion, even if it is outside the 50-day calendar window.\n- The title must contain the exact phrase "${args.requestedOccasion}" (case differences are allowed).\n- Keep the search intent distinct from existing posts; do not replace the requested occasion with another topic.\n`
     : "";
-  return `You are the SEO content writer for GreatFlowers (greatflowers.net), a US online florist with same-day flower delivery.
+  const brand = args.project.brand;
+  return `You are the SEO content writer for ${brand.name} (${brand.domain}), ${brand.businessDescription}.
 Write ONE new blog post for today (${args.today}).
 
 ${formatOccasionGuidance()}
@@ -137,7 +139,7 @@ Use exactly this format and return the same value in contentFormat:
 - QUESTION_EXPLAINER: 900-1,200 words. A natural customer question as the title, a direct answer in the introduction, 7-10 explanatory <h2> sections, and 3 short FAQs. Do not use a numbered listicle title.
 Across every format, weave 4-6 real products into the relevant sections rather than forcing every section to be a product ranking.
 Style: warm, practical, plain words for US gift buyers. Paragraphs are SHORT: 1-2 sentences, about 15-25 words. No hype, no exclamation marks. Intro starts with the occasion or the reader's situation, never with "Looking for".
-Closing: a short final paragraph in this style, linking HOME: "Explore <a href="HOME">Great Flowers</a> to find a thoughtful bouquet for ... and make ... a little more special." (vary the words, keep it modest).
+Closing: a short final paragraph in this style, linking HOME: "Explore <a href="HOME">${brand.displayName}</a> to find a thoughtful bouquet for ... and make ... a little more special." (vary the words, keep it modest).
 Structure sample for the REQUIRED format (links shown as placeholders):
 ${structureSample}
 
@@ -151,20 +153,20 @@ WRITING RULES
   * heroConcept: 2 or 3 vivid sentences describing a specific VISUAL EVENT: who is present (age and relationship), the exact action caught mid-moment, foreground/middle/background layers, setting, light, camera point of view and mood. For Halloween, show people actively setting the table, welcoming guests or entering the party—not an empty table decorated with pumpkins. Example for a Boss's Day post: "Seen over a coworker's shoulder, a team member steps into a sunlit corner office and extends a sunflower bouquet; her manager turns from the laptop with a surprised smile while two colleagues gather softly out of focus near the doorway." Never use a plain bouquet-on-table setup, empty decorated room, white background or centered catalog composition. No text, signs or cards with words in the scene.
 - heroProductId must be one of the productIds; its photo is the reference the image must match.
 - LINKS: every href must be exactly one of: PRODUCT:<id> (a catalog id), BLOG:<slug> (a slug from the existing posts list) or HOME. Never write a real URL. Link ${relatedLinkRange} relevant existing posts${args.related.length ? "" : " (skip BLOG links if none are listed)"}. End with the closing paragraph that links HOME.
-- Write as GreatFlowers speaking to its own customers. Do not give generic advice about "online florists", "looking for a florist", "subscription services" or how to shop elsewhere; every section must help the reader choose or send flowers from GreatFlowers.
+- Write as ${brand.name} speaking to its own customers. Do not give generic advice about "online florists", "looking for a florist", "subscription services" or how to shop elsewhere; every section must help the reader choose or send flowers from ${brand.name}.
 - Do not state historical, scientific or cultural origin claims (for example "dates back to ancient Rome") unless they are common, well-established knowledge; if unsure, leave them out and describe meanings as "traditionally associated with".
 - PRODUCT FACTS: describe a product's flowers, colors, vase or style ONLY from its catalog description above. Never infer looks from the product name (a name like "Black Velvet" does not mean black flowers). If a product has no description, name and link it but add no claims about how it looks. Prefer products whose description fits the topic.
 - Do not create urgency or scarcity claims such as "before they sell out" or "ensures your flowers arrive on time".
 - Do not invent statistics, awards, delivery guarantees, discounts, promo codes, or competitor names. Do not write "SAVE15" or any code.
 - Do not claim same-day delivery is guaranteed everywhere; say "same-day delivery is available in many areas".
-- title: 35-60 characters, natural, includes the main keyword. metaTitle: 10-55 characters, WITHOUT the brand name (we append " | Great Flowers" ourselves). metaDescription: 140-165 characters, one or two sentences, may end with "Same-day delivery is available in many areas." summary: 1-2 sentences.
-- slug: lowercase-hyphenated, unique vs the taken slugs.
+- title: 35-60 characters, natural, includes the main keyword. metaTitle: 10-55 characters, WITHOUT the brand name (we append " | ${brand.displayName}" ourselves). metaDescription: 140-165 characters, one or two sentences, may end with "Same-day delivery is available in many areas." summary: 1-2 sentences.
+- slug: lowercase-hyphenated, unique vs the taken slugs.${promptAddendum(args.project)}
 Return the JSON object only.`;
 }
 
 export function validatePost(
   output: string,
-  ctx: { existingTitles: string[]; existingSlugs: string[]; contentInventory?: ContentTitle[]; categories: Set<string>; products: CatalogProduct[]; relatedSlugs: Set<string>; base: string; requiredFormat: BlogFormat; requestedOccasion?: string },
+  ctx: { project: ProjectConfig; existingTitles: string[]; existingSlugs: string[]; contentInventory?: ContentTitle[]; categories: Set<string>; products: CatalogProduct[]; relatedSlugs: Set<string>; base: string; requiredFormat: BlogFormat; requestedOccasion?: string },
 ): GeneratedPost {
   const productIds = new Set(ctx.products.map((p) => p.id));
   const roots = parseModelJSONCandidates(output);
@@ -203,28 +205,28 @@ export function validatePost(
   const bad = post.productIds.filter((id) => !productIds.has(id));
   if (bad.length) throw new Error(`productIds not in catalog: ${bad.join(", ")}`);
   if (!post.productIds.includes(post.heroProductId)) throw new Error("heroProductId must be one of productIds");
-  if (!/href="HOME"/.test(post.html)) throw new Error('html must end with a closing paragraph linking <a href="HOME">Great Flowers</a>');
+  if (!/href="HOME"/.test(post.html)) throw new Error(`html must end with a closing paragraph linking <a href="HOME">${ctx.project.brand.displayName}</a>`);
   const embedded = sanitizeEmbeds(post.html, new Set(post.productIds));
   if (!new RegExp(EMBED_RE.source, "i").test(embedded)) throw new Error("html must embed at least one product with the exact blog-product-embed div");
   const safeLinks = sanitizeBlogLinks(embedded, ctx.relatedSlugs);
-  const html = resolveLinks(safeLinks, { productSlugs: new Map(ctx.products.map((p) => [p.id, p.slug])), blogSlugs: ctx.relatedSlugs, base: ctx.base });
+  const html = resolveLinks(safeLinks, { project: ctx.project, productSlugs: new Map(ctx.products.map((p) => [p.id, p.slug])), blogSlugs: ctx.relatedSlugs, base: ctx.base });
   return { ...post, html };
 }
 
-export async function generateDailyBlogDraft(signal?: AbortSignal, requestedOccasion?: string) {
-  const environment = gfApiHost();
-  const context = await withGfClient(async (client) => {
+export async function generateDailyBlogDraft(project: ProjectConfig, signal?: AbortSignal, requestedOccasion?: string) {
+  const environment = gfApiHost(project);
+  const context = await withGfClient(project, async (client) => {
     const [blogs, wikis, articles, categories, products] = await Promise.all([
       client.listBlogs(), client.listWikis(), client.listArticles(), client.listBlogCategories(), client.searchProducts("", 40),
     ]);
     return { blogs, wikis, articles, categories, products };
   });
 
-  const [allBlogDrafts, allWikiDrafts, allArticleDrafts] = await Promise.all([getBlogDrafts(), getWikiDrafts(), getArticleDrafts()]);
+  const [allBlogDrafts, allWikiDrafts, allArticleDrafts] = await Promise.all([getBlogDrafts(project), getWikiDrafts(project), getArticleDrafts(project)]);
   const localDrafts = allBlogDrafts.filter((d) => d.environment === environment && d.status !== "rejected");
   const localWikis = allWikiDrafts.filter((d) => d.environment === environment && d.status !== "rejected");
   const localArticles = allArticleDrafts.filter((d) => d.environment === environment && d.status !== "rejected");
-  const authorName = selectContentAuthor(localDrafts.map((draft) => draft.authorName));
+  const authorName = selectContentAuthor(project, localDrafts.map((draft) => draft.authorName));
   const contentInventory: ContentTitle[] = [
     ...context.blogs.map((item: any) => ({ kind: "blog" as const, title: String(item.title), slug: String(item.slug ?? "") })),
     ...context.wikis.map((item: any) => ({ kind: "wiki" as const, title: String(item.title), slug: String(item.slug ?? "") })),
@@ -250,25 +252,26 @@ export async function generateDailyBlogDraft(signal?: AbortSignal, requestedOcca
     ...localDrafts.map((draft) => ({ title: draft.title, contentFormat: draft.contentFormat })),
     ...context.blogs.map((blog: any) => ({ title: String(blog.title) })),
   ]);
-  const base = storefrontBase();
+  const base = storefrontBase(project);
   const prompt = buildBlogPrompt({
+    project,
     today: new Date().toISOString().slice(0, 10), existingTitles, existingSlugs, categories, products, related,
     recentHeroConcepts: localDrafts.map((draft) => draft.heroConcept).filter((concept): concept is string => !!concept),
     requiredFormat,
     ...(requestedOccasion ? { requestedOccasion } : {}),
   });
   const post = await requestHermesJSON(
-    prompt,
-    (output) => validatePost(output, { existingTitles, existingSlugs, contentInventory, categories: new Set(categories.map((c) => c.slug)), products, relatedSlugs: publishedBlogSlugs, base, requiredFormat, ...(requestedOccasion ? { requestedOccasion } : {}) }),
+    `${contentSkillPrefix(project)}${prompt}`,
+    (output) => validatePost(output, { project, existingTitles, existingSlugs, contentInventory, categories: new Set(categories.map((c) => c.slug)), products, relatedSlugs: publishedBlogSlugs, base, requiredFormat, ...(requestedOccasion ? { requestedOccasion } : {}) }),
     signal,
     GeneratedPostJsonSchema,
     { freshRetries: 1 },
   );
-  const draft = await addBlogDraft({ ...post, authorName, environment });
-  return attachHeroImage(draft.id, post, products.find((p) => p.id === post.heroProductId)?.imageUrl, signal);
+  const draft = await addBlogDraft(project, { ...post, authorName, environment });
+  return attachHeroImage(project, draft.id, post, products.find((p) => p.id === post.heroProductId)?.imageUrl, signal);
 }
 
-export async function attachHeroImage(id: string, post: HeroInput, productImageUrl: string | null | undefined, signal?: AbortSignal) {
-  const ai = productImageUrl ? await generateHeroImage(id, post, productImageUrl, signal) : false;
-  return (await updateBlogDraft(id, (d) => ({ ...d, heroSource: ai ? "ai" : "product" })))!;
+export async function attachHeroImage(project: ProjectConfig, id: string, post: HeroInput, productImageUrl: string | null | undefined, signal?: AbortSignal) {
+  const ai = productImageUrl ? await generateHeroImage(project, id, post, productImageUrl, signal) : false;
+  return (await updateBlogDraft(project, id, (d) => ({ ...d, heroSource: ai ? "ai" : "product" })))!;
 }

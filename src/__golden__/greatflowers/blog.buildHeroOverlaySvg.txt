@@ -1,0 +1,7 @@
+<svg width="1712" height="624" xmlns="http://www.w3.org/2000/svg">
+    <rect x="930" y="286" width="710" height="296" rx="24" fill="#17120f" fill-opacity="0.76" stroke="#ffffff" stroke-opacity="0.16"/>
+    <rect x="976" y="324" width="46" height="4" rx="2" fill="#e7b85d"/>
+    <text x="976" y="364" font-family="Arial, sans-serif" font-size="16" font-weight="700" letter-spacing="3.5" fill="#f0d08d">GREAT FLOWERS JOURNAL</text>
+    <style>.title{font-family:Georgia,serif;font-size:36px;font-weight:700;fill:white}</style>
+    <text x="976" y="412" class="title">Thoughtful Thank You</text><text x="976" y="458" class="title">Flowers for Every Kind of</text><text x="976" y="504" class="title">Helper</text>
+  </svg>

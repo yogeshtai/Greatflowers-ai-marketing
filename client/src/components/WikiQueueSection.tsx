@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { approveWiki, deleteWiki, editWiki, generateWiki, getWikis, getWikiStatus, publishWikiNow, regenerateWikiImage, rejectWiki, wikiImageUrl, type WikiDraft, type WikiEdit, type WikiGenerationState } from "../api/wikis";
+import type { DraftSchedule } from "../api/blogs";
 
 const when = (iso?: string) => (iso ? new Date(iso).toLocaleString() : "");
 
@@ -7,6 +8,7 @@ export function WikiQueueSection() {
   const [wikis, setWikis] = useState<WikiDraft[]>([]);
   const [liveMode, setLiveMode] = useState(false);
   const [publishMode, setPublishMode] = useState<"immediate" | "scheduled">("immediate");
+  const [schedule, setSchedule] = useState<DraftSchedule | null>(null);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [generation, setGeneration] = useState<WikiGenerationState>({ running: false });
@@ -22,6 +24,7 @@ export function WikiQueueSection() {
       setWikis(data.wikis);
       setLiveMode(data.liveMode);
       setPublishMode(data.publishMode ?? "immediate");
+      setSchedule(data.schedule ?? null);
       setGeneration(data.generation);
       setError("");
     } catch (failure) {
@@ -77,7 +80,7 @@ export function WikiQueueSection() {
           <span className="step">Daily Flower Wiki</span>
           <h2>Wiki Queue{awaiting > 0 ? ` (${awaiting} waiting for approval)` : ""}</h2>
           <p style={{ margin: "6px 0 0", color: "#70706a", fontSize: 13 }}>
-            A new flower encyclopedia draft is written Tuesday, Thursday and Saturday at 7:00 PM IST. Timed-out runs retry later that evening. {publishMode === "immediate" ? "Approving an entry publishes it right away." : "Approved entries publish at 10:00 AM ET."} {liveMode ? "Live mode: entries are public." : "Safe mode: entries are created hidden."}
+            {schedule && (schedule.autogenerate ? `A new flower encyclopedia draft is written ${schedule.days} at ${schedule.time}. Timed-out runs retry later that ${schedule.retryPeriod ?? "day"}. ` : "Timed drafts are switched off for this brand. ")}{publishMode === "immediate" ? "Approving an entry publishes it right away." : "Approved entries publish at 10:00 AM ET."} {liveMode ? "Live mode: entries are public." : "Safe mode: entries are created hidden."}
           </p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
@@ -92,7 +95,7 @@ export function WikiQueueSection() {
         <div role="status" style={{ margin: "0 0 16px", padding: "14px 18px", borderRadius: 12, background: "#eef7ed", border: "1px solid #c9dfc5", color: "#275b2a" }}>
           <strong>{generation.phase === "image" ? "Article ready — creating its wiki image" : "Writing a new wiki article"}... {elapsedLabel}</strong>
           <div style={{ fontSize: 13, marginTop: 4 }}>
-            {generation.trigger === "schedule" ? "Started by a scheduled 7:00 PM IST run. " : "Started from this page. "}
+            {generation.trigger === "schedule" ? (schedule ? `Started by a scheduled ${schedule.time} run. ` : "Started by a scheduled run. ") : "Started from this page. "}
             {generation.phase === "image"
               ? "The draft is saved below. Approval becomes available when its 4:3 botanical image finishes or the product-photo fallback is selected. "
               : "The article is written first, followed by its 4:3 botanical image. "}
@@ -105,7 +108,7 @@ export function WikiQueueSection() {
       {!generation.running && generation.error && <p role="alert" className="creative-error-note">The last wiki draft attempt failed: {generation.error}</p>}
 
       {wikis.length === 0 ? (
-        <div className="empty-state"><h3>No wiki drafts yet</h3><p>The first draft appears after the next 7:00 PM IST run, or generate one now.</p></div>
+        <div className="empty-state"><h3>No wiki drafts yet</h3><p>{schedule && !schedule.autogenerate ? "Timed drafts are switched off for this brand. Generate one now." : `The first draft appears after the next ${schedule?.time ?? "scheduled"} run, or generate one now.`}</p></div>
       ) : (
         <div className="campaign-list">
           {wikis.map((wiki) => {

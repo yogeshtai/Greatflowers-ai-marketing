@@ -1,9 +1,5 @@
 import { withTimeoutSignal } from "./http.helpers.js";
-
-const WEBSITE_PAGES = [
-  "https://greatflowers.net/",
-  "https://greatflowers.net/build-your-bouquet/",
-];
+import type { ProjectConfig } from "./projects/index.js";
 
 export type WebsitePageContext = {
   url: string;
@@ -34,6 +30,7 @@ function extractTitle(html: string) {
 }
 
 async function fetchPage(
+  project: ProjectConfig,
   url: string,
   signal?: AbortSignal,
 ): Promise<WebsitePageContext> {
@@ -41,7 +38,7 @@ async function fetchPage(
     signal: withTimeoutSignal(15_000, signal),
     headers: {
       "User-Agent":
-        "GreatFlowers-AI-Marketing/1.0",
+        project.storefront.userAgent,
     },
   });
 
@@ -64,9 +61,10 @@ async function fetchPage(
   };
 }
 
-export async function getGreatFlowersWebsiteContext(signal?: AbortSignal) {
+// Live storefront pages used as website evidence for campaign recommendations.
+export async function getWebsiteContext(project: ProjectConfig, signal?: AbortSignal) {
   const results = await Promise.allSettled(
-    WEBSITE_PAGES.map((url) => fetchPage(url, signal))
+    project.storefront.websiteContextPages.map((url) => fetchPage(project, url, signal))
   );
 
   return results

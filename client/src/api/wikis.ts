@@ -1,6 +1,7 @@
 import axios from "axios";
 import { API_BASE } from "../constants";
-import type { GenerationState } from "./blogs";
+import { withProjectQuery } from "../project";
+import type { DraftSchedule, GenerationState } from "./blogs";
 
 export interface WikiGenerationState extends GenerationState {
   phase?: "article" | "image";
@@ -44,7 +45,7 @@ const unwrap = (error: unknown): never => {
 };
 const call = async <T,>(request: Promise<{ data: T }>) => request.then((response) => response.data).catch(unwrap);
 
-export const getWikis = () => call<{ wikis: WikiDraft[]; liveMode: boolean; publishMode: "immediate" | "scheduled"; generation: WikiGenerationState }>(axios.get(url()));
+export const getWikis = () => call<{ wikis: WikiDraft[]; liveMode: boolean; publishMode: "immediate" | "scheduled"; generation: WikiGenerationState; schedule?: DraftSchedule }>(axios.get(url()));
 export const getWikiStatus = () => call<{ generation: WikiGenerationState }>(axios.get(url("/status")));
 export const generateWiki = () => call<{ started: boolean }>(axios.post(url("/generate"), {}));
 export const editWiki = (id: string, edit: WikiEdit) => call<{ wiki: WikiDraft }>(axios.patch(url(`/${id}`), edit));
@@ -52,5 +53,5 @@ export const deleteWiki = (id: string) => call<{ success: true }>(axios.delete(u
 export const approveWiki = (id: string) => call<{ wiki: WikiDraft }>(axios.post(url(`/${id}/approve`)));
 export const rejectWiki = (id: string) => call<{ wiki: WikiDraft }>(axios.post(url(`/${id}/reject`)));
 export const publishWikiNow = (id: string) => call<{ wiki: WikiDraft }>(axios.post(url(`/${id}/publish-now`), {}, { timeout: 2 * 60_000 }));
-export const wikiImageUrl = (wiki: Pick<WikiDraft, "id" | "updatedAt">) => `${url(`/${wiki.id}/image`)}?v=${encodeURIComponent(wiki.updatedAt ?? "")}`;
+export const wikiImageUrl = (wiki: Pick<WikiDraft, "id" | "updatedAt">) => withProjectQuery(`${url(`/${wiki.id}/image`)}?v=${encodeURIComponent(wiki.updatedAt ?? "")}`);
 export const regenerateWikiImage = (id: string) => call<{ wiki: WikiDraft }>(axios.post(url(`/${id}/image/regenerate`), {}, { timeout: 12 * 60_000 }));

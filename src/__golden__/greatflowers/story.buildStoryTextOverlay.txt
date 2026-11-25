@@ -1,0 +1,15 @@
+<svg width="1024" height="1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="scrim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#000" stop-opacity="0.62"/>
+      <stop offset="0.7" stop-color="#000" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+  <rect width="1024" height="411" fill="url(#scrim)"/>
+  <text font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="56" font-weight="700" fill="#ffffff" filter="url(#shadow)" letter-spacing="-0.5"><tspan x="64" y="144">A week worth</tspan><tspan x="64" y="207">celebrating</tspan></text>
+  <text font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="26" font-weight="400" fill="#ffffff" fill-opacity="0.94" filter="url(#shadow)"><tspan x="64" y="265">Flowers for the new job</tspan></text>
+</svg>

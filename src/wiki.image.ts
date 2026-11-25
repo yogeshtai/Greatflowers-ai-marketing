@@ -5,16 +5,17 @@ import path from "node:path";
 import sharp from "sharp";
 import { tryAcquire } from "./ai.limits.js";
 import { downloadToTemp, executeCodex } from "./codex.creative.js";
+import { projectDataPath, type ProjectConfig } from "./projects/index.js";
 
-const IMAGE_DIR = path.join(process.cwd(), "data", "wiki-images");
+const imageDir = (project: ProjectConfig) => projectDataPath(project, "wiki-images");
 export const WIKI_IMAGE_WIDTH = 1200;
 export const WIKI_IMAGE_HEIGHT = 900;
 export const WIKI_IMAGE_MIME_TYPE = "image/jpeg";
 export const WIKI_IMAGE_FILE_EXTENSION = "jpg";
-export const wikiImagePath = (id: string) => path.join(IMAGE_DIR, `${id}.${WIKI_IMAGE_FILE_EXTENSION}`);
-export const legacyWikiImagePath = (id: string) => path.join(IMAGE_DIR, `${id}.png`);
-export const wikiImagePaths = (id: string) => [wikiImagePath(id), legacyWikiImagePath(id)];
-export const existingWikiImagePath = (id: string) => wikiImagePaths(id).find(existsSync);
+export const wikiImagePath = (project: ProjectConfig, id: string) => path.join(imageDir(project), `${id}.${WIKI_IMAGE_FILE_EXTENSION}`);
+export const legacyWikiImagePath = (project: ProjectConfig, id: string) => path.join(imageDir(project), `${id}.png`);
+export const wikiImagePaths = (project: ProjectConfig, id: string) => [wikiImagePath(project, id), legacyWikiImagePath(project, id)];
+export const existingWikiImagePath = (project: ProjectConfig, id: string) => wikiImagePaths(project, id).find(existsSync);
 const WIKI_JPEG_QUALITY = 84;
 
 export interface WikiImageInput {
@@ -28,8 +29,8 @@ export const optimizeWikiImage = (input: Buffer | string) => sharp(input)
   .jpeg({ quality: WIKI_JPEG_QUALITY, progressive: true })
   .toBuffer();
 
-export function buildWikiImagePrompt(wiki: WikiImageInput): string {
-  return `Create a premium 4:3 editorial botanical photograph for the Great Flowers encyclopedia entry "${wiki.title}" (${wiki.botanicalName}).
+export function buildWikiImagePrompt(project: ProjectConfig, wiki: WikiImageInput): string {
+  return `Create a premium 4:3 editorial botanical photograph for the ${project.brand.displayName} encyclopedia entry "${wiki.title}" (${wiki.botanicalName}).
 
 CONCEPT:
 ${wiki.imageConcept}
@@ -42,7 +43,7 @@ FORMAT: landscape 4:3, 1200×900 final crop, photographic realism, natural color
 STRICTLY: no text, labels, letters, numbers, logos, watermarks, frames, diagrams or UI elements.`;
 }
 
-export async function generateWikiImage(id: string, wiki: WikiImageInput, productImageUrl: string, signal?: AbortSignal): Promise<boolean> {
+export async function generateWikiImage(project: ProjectConfig, id: string, wiki: WikiImageInput, productImageUrl: string, signal?: AbortSignal): Promise<boolean> {
   const release = tryAcquire("codex");
   if (!release) {
     console.warn("Wiki image skipped: another Codex job is running");
@@ -51,18 +52,18 @@ export async function generateWikiImage(id: string, wiki: WikiImageInput, produc
   const uuid = randomUUID().slice(0, 8);
   const temporary: string[] = [];
   try {
-    await mkdir(IMAGE_DIR, { recursive: true });
+    await mkdir(imageDir(project), { recursive: true });
     await mkdir(path.join(process.cwd(), "test-creatives"), { recursive: true });
     const productPath = await downloadToTemp(productImageUrl, `wiki-product-${uuid}.${productImageUrl.split(".").pop()?.split("?")[0] || "webp"}`);
     temporary.push(productPath);
-    const generated = await executeCodex(buildWikiImagePrompt(wiki), productPath, `wiki-image-${uuid}.png`, signal);
+    const generated = await executeCodex(buildWikiImagePrompt(project, wiki), productPath, `wiki-image-${uuid}.png`, signal);
     temporary.push(generated);
-    const finalPath = wikiImagePath(id);
+    const finalPath = wikiImagePath(project, id);
     const pendingPath = `${finalPath}.${uuid}.tmp`;
     temporary.push(pendingPath);
     await writeFile(pendingPath, await optimizeWikiImage(generated));
     await rename(pendingPath, finalPath);
-    await unlink(legacyWikiImagePath(id)).catch(() => undefined);
+    await unlink(legacyWikiImagePath(project, id)).catch(() => undefined);
     return true;
   } catch (error) {
     console.error("Wiki image generation failed, falling back to the product photo:", error instanceof Error ? error.message : error);
@@ -73,10 +74,10 @@ export async function generateWikiImage(id: string, wiki: WikiImageInput, produc
   }
 }
 
-export async function readWikiImage(id: string): Promise<Buffer | null> {
-  const file = existingWikiImagePath(id);
+export async function readWikiImage(project: ProjectConfig, id: string): Promise<Buffer | null> {
+  const file = existingWikiImagePath(project, id);
   if (!file) return null;
   const image = await readFile(file);
   // Convert legacy PNG drafts during publishing without requiring regeneration.
-  return file === legacyWikiImagePath(id) ? optimizeWikiImage(image) : image;
+  return file === legacyWikiImagePath(project, id) ? optimizeWikiImage(image) : image;
 }

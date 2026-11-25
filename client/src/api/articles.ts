@@ -1,6 +1,7 @@
 import axios from "axios";
 import { API_BASE } from "../constants";
-import type { GenerationState } from "./blogs";
+import { withProjectQuery } from "../project";
+import type { DraftSchedule, GenerationState } from "./blogs";
 
 export interface ArticleGenerationState extends GenerationState { phase?: "article" | "image" }
 export type ArticleStatus = "draft" | "approved" | "published" | "rejected" | "failed";
@@ -17,7 +18,7 @@ const url = (path = "") => `${API_BASE}/api/articles${path}`;
 const unwrap = (error: unknown): never => { throw new Error(axios.isAxiosError(error) && error.response?.data?.error ? error.response.data.error : error instanceof Error ? error.message : "Request failed"); };
 const call = async <T,>(request: Promise<{ data: T }>) => request.then((response) => response.data).catch(unwrap);
 
-export const getArticles = () => call<{ articles: ArticleDraft[]; topics: string[]; liveMode: boolean; publishMode: "immediate" | "scheduled"; generation: ArticleGenerationState }>(axios.get(url()));
+export const getArticles = () => call<{ articles: ArticleDraft[]; topics: string[]; liveMode: boolean; publishMode: "immediate" | "scheduled"; generation: ArticleGenerationState; schedule?: DraftSchedule }>(axios.get(url()));
 export const getArticleStatus = () => call<{ generation: ArticleGenerationState }>(axios.get(url("/status")));
 export const generateArticle = () => call<{ started: boolean }>(axios.post(url("/generate"), {}));
 export const editArticle = (id: string, edit: ArticleEdit) => call<{ article: ArticleDraft }>(axios.patch(url(`/${id}`), edit));
@@ -25,5 +26,5 @@ export const deleteArticle = (id: string) => call<{ success: true }>(axios.delet
 export const approveArticle = (id: string) => call<{ article: ArticleDraft }>(axios.post(url(`/${id}/approve`)));
 export const rejectArticle = (id: string) => call<{ article: ArticleDraft }>(axios.post(url(`/${id}/reject`)));
 export const publishArticleNow = (id: string) => call<{ article: ArticleDraft }>(axios.post(url(`/${id}/publish-now`), {}, { timeout: 2 * 60_000 }));
-export const articleImageUrl = (article: Pick<ArticleDraft, "id" | "updatedAt">) => `${url(`/${article.id}/image`)}?v=${encodeURIComponent(article.updatedAt ?? "")}`;
+export const articleImageUrl = (article: Pick<ArticleDraft, "id" | "updatedAt">) => withProjectQuery(`${url(`/${article.id}/image`)}?v=${encodeURIComponent(article.updatedAt ?? "")}`);
 export const regenerateArticleImage = (id: string) => call<{ article: ArticleDraft }>(axios.post(url(`/${id}/image/regenerate`), {}, { timeout: 12 * 60_000 }));

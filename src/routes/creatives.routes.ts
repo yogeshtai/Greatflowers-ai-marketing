@@ -3,6 +3,8 @@ import { z } from "zod";
 import { generateStoryCreativePlan } from "../hermes.js";
 import { singleFlight, abortOnDisconnect } from "../http.helpers.js";
 import { campaignSchema } from "./campaign.schema.js";
+import { projectLockKey } from "../projects/index.js";
+import { projectOf } from "../projects/http.js";
 import express from "express";
 
 const router = express.Router();
@@ -49,6 +51,7 @@ router.post(
 
       const creatives =
         await generateAllCreatives(
+          projectOf(res),
           productImageUrl,
           creativeBrief,
           undefined,
@@ -135,6 +138,7 @@ router.post(
       );
 
       await generateAllCreatives(
+        projectOf(res),
         productImageUrl,
         creativeBrief,
         (result, index, total) => {
@@ -183,7 +187,7 @@ router.post(
   })
 );
 
-router.post("/api/creatives/story/plan", singleFlight("story-plan", async (req, res) => {
+router.post("/api/creatives/story/plan", singleFlight((res) => projectLockKey(projectOf(res), "story-plan"), async (req, res) => {
   const parsed = z.object({
     input: campaignSchema,
     selectedProduct: z.object({ name: z.string().min(1), image: z.string().url() }).passthrough(),
@@ -198,7 +202,7 @@ router.post("/api/creatives/story/plan", singleFlight("story-plan", async (req, 
     return res.status(400).json({ success: false, error: "Selected product does not match the campaign" });
   }
   try {
-    const storyPlan = await generateStoryCreativePlan(input, selectedProduct, strategy);
+    const storyPlan = await generateStoryCreativePlan(projectOf(res), input, selectedProduct, strategy);
     return res.json({ success: true, storyPlan });
   } catch (error) {
     console.error("Story planning failed:", error);
@@ -260,6 +264,7 @@ router.post(
       );
 
       const result = await generateStoryCreatives(
+        projectOf(res),
         parsedPlan.data,
         creativeBrief,
         productImageUrl || null,
@@ -380,6 +385,7 @@ router.post(
       );
 
       const creative = await generateCreativeVariant(
+        projectOf(res),
         variant,
         productImageUrl,
         creativeBrief,

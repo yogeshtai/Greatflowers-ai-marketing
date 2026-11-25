@@ -1,18 +1,22 @@
+import type { ProjectConfig } from "./projects/index.js";
+
 const REQUEST_TIMEOUT_MS = 30_000;
 
 type Json = Record<string, any>;
 
-function config() {
-  const baseUrl = process.env.GF_ADMIN_API_URL?.replace(/\/+$/, "");
-  const email = process.env.GF_ADMIN_EMAIL;
-  const password = process.env.GF_ADMIN_PASSWORD;
+// Every project's storefront runs the same admin API; only the URL and login differ.
+function config(project: ProjectConfig) {
+  const baseUrl = project.env("GF_ADMIN_API_URL")?.replace(/\/+$/, "");
+  const email = project.env("GF_ADMIN_EMAIL");
+  const password = project.env("GF_ADMIN_PASSWORD");
   if (!baseUrl || !email || !password) {
-    throw new Error("GF_ADMIN_API_URL, GF_ADMIN_EMAIL and GF_ADMIN_PASSWORD must be set");
+    const [url, user, secret] = ["GF_ADMIN_API_URL", "GF_ADMIN_EMAIL", "GF_ADMIN_PASSWORD"].map(project.envName);
+    throw new Error(`${url}, ${user} and ${secret} must be set`);
   }
   return { baseUrl, email, password };
 }
 
-export const gfApiHost = () => new URL(config().baseUrl).host;
+export const gfApiHost = (project: ProjectConfig) => new URL(config(project).baseUrl).host;
 
 async function http(url: string, init: RequestInit & { headers?: Record<string, string> } = {}) {
   const res = await fetch(url, {
@@ -34,8 +38,8 @@ async function http(url: string, init: RequestInit & { headers?: Record<string, 
   return body;
 }
 
-export async function gfLogin(): Promise<string> {
-  const { baseUrl, email, password } = config();
+export async function gfLogin(project: ProjectConfig): Promise<string> {
+  const { baseUrl, email, password } = config(project);
   const body = await http(`${baseUrl}/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -47,33 +51,48 @@ export async function gfLogin(): Promise<string> {
 
 export type GfClient = ReturnType<typeof createGfClient>;
 
-export function createGfClient(token: string) {
-  const { baseUrl } = config();
+export function createGfClient(project: ProjectConfig, token: string) {
+  const { baseUrl } = config(project);
   const auth = { Authorization: `Bearer ${token}` };
   const get = (path: string, params: Record<string, string | number> = {}) => {
     const qs = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString();
     return http(`${baseUrl}${path}${qs ? `?${qs}` : ""}`, { headers: auth });
   };
   const rows = (body: any): Json[] => (Array.isArray(body) ? body : Array.isArray(body?.data) ? body.data : body?.data?.data ?? []);
+  // Fetches up to `wanted` rows. When the project's admin API caps the page size below that, it
+  // walks the pages instead; otherwise it sends the single request it always has.
+  const list = async (path: string, params: (paginate: number) => Record<string, string | number>, wanted: number): Promise<Json[]> => {
+    const maxPage = project.adminApiMaxPageSize;
+    if (!maxPage || wanted <= maxPage) return rows(await get(path, params(wanted)));
+    const all: Json[] = [];
+    for (let page = 1; ; page++) {
+      const body = await get(path, { ...params(maxPage), page });
+      const batch = rows(body);
+      all.push(...batch);
+      const lastPage = Number(body?.last_page ?? body?.data?.last_page ?? body?.meta?.last_page ?? page);
+      if (!batch.length || page >= lastPage || all.length >= wanted) break;
+    }
+    return all.slice(0, wanted);
+  };
 
   return {
     async listBlogs() {
-      return rows(await get("/blog", { paginate: 500 }));
+      return list("/blog", (paginate) => ({ paginate }), 500);
     },
     async listWikis() {
-      return rows(await get("/wiki", { paginate: 500 }));
+      return list("/wiki", (paginate) => ({ paginate }), 500);
     },
     async listArticles() {
-      return rows(await get("/article", { paginate: 500 }));
+      return list("/article", (paginate) => ({ paginate }), 500);
     },
     async listArticleTopics() {
       return rows(await get("/article-topic/options"));
     },
     async listBlogCategories() {
-      return rows(await get("/category", { type: "post", paginate: 200 }));
+      return list("/category", (paginate) => ({ type: "post", paginate }), 200);
     },
     async searchProducts(search: string, limit = 10) {
-      return rows(await get("/product", { status: 1, is_approved: 1, paginate: limit, ...(search ? { search } : {}) }));
+      return list("/product", (paginate) => ({ status: 1, is_approved: 1, paginate, ...(search ? { search } : {}) }), limit);
     },
     async uploadAttachment(file: Buffer, fileName: string, mimeType: string): Promise<number> {
       const form = new FormData();
@@ -123,6 +142,6 @@ export function createGfClient(token: string) {
   };
 }
 
-export async function withGfClient<T>(fn: (client: GfClient) => Promise<T>): Promise<T> {
-  return fn(createGfClient(await gfLogin()));
+export async function withGfClient<T>(project: ProjectConfig, fn: (client: GfClient) => Promise<T>): Promise<T> {
+  return fn(createGfClient(project, await gfLogin(project)));
 }

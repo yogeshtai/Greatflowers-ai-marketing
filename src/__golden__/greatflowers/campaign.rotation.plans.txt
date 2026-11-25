@@ -1,0 +1,93 @@
+[
+  {
+    "r": 0.01,
+    "contentTheme": "gifting-story",
+    "visualTreatment": "documentary-gifting",
+    "campaignGoal": "Generate orders",
+    "priority": "Conversions",
+    "guidance": "A fresh, specific reason to give flowers. Vary relationships and situations, not just occasion labels.",
+    "productCooldownRelaxed": false,
+    "candidates": [
+      1,
+      2
+    ]
+  },
+  {
+    "r": 0.18,
+    "contentTheme": "flower-care",
+    "visualTreatment": "flower-care-demonstration",
+    "campaignGoal": "Encourage saves and shares",
+    "priority": "Engagement",
+    "guidance": "Useful general flower-care education connected naturally to GreatFlowers. Do not invent species, longevity guarantees or product-specific care facts; omit uncertain advice. Invite saves or shares.",
+    "productCooldownRelaxed": false,
+    "candidates": [
+      1,
+      2
+    ]
+  },
+  {
+    "r": 0.35,
+    "contentTheme": "conversation-starter",
+    "visualTreatment": "botanical-macro",
+    "campaignGoal": "Encourage comments and shares",
+    "priority": "Engagement",
+    "guidance": "An inviting flower preference question or everyday conversation tied to GreatFlowers. No fake polls, testimonials, giveaways or unsupported product comparisons.",
+    "productCooldownRelaxed": false,
+    "candidates": [
+      1,
+      2
+    ]
+  },
+  {
+    "r": 0.52,
+    "contentTheme": "hosting-tablescape",
+    "visualTreatment": "editorial-flatlay",
+    "campaignGoal": "Inspire occasion hosting",
+    "priority": "Consideration",
+    "guidance": "Show a concrete hosting or tablescape use for a real arrangement: dinner, brunch, welcome table or small gathering. Make the setting the story and avoid unsupported claims about size, fragrance or longevity.",
+    "productCooldownRelaxed": false,
+    "candidates": [
+      1,
+      2
+    ]
+  },
+  {
+    "r": 0.69,
+    "contentTheme": "milestone-moment",
+    "visualTreatment": "doorstep-delivery",
+    "campaignGoal": "Generate orders for life moments",
+    "priority": "Conversions",
+    "guidance": "Choose one specific achievement or transition—new job, graduation, new home, retirement or personal goal—and dramatize the recognition moment. Keep it distinct from birthdays and generic congratulations.",
+    "productCooldownRelaxed": false,
+    "candidates": [
+      1,
+      2
+    ]
+  },
+  {
+    "r": 0.86,
+    "contentTheme": "occasion-planning",
+    "visualTreatment": "hosting-tablescape",
+    "campaignGoal": "Help customers plan ahead",
+    "priority": "Consideration",
+    "guidance": "Offer a concise planning angle for choosing flowers for one upcoming moment, covering decisions such as recipient, setting, palette or message. Do not claim delivery windows, availability or policies unless supplied by live evidence.",
+    "productCooldownRelaxed": false,
+    "candidates": [
+      1,
+      2
+    ]
+  },
+  {
+    "r": 0.99,
+    "contentTheme": "design-details",
+    "visualTreatment": "magazine-product-feature",
+    "campaignGoal": "Deepen product consideration",
+    "priority": "Consideration",
+    "guidance": "Invite a closer look at verified visible design elements such as palette, silhouette, contrast, texture or container. Use only catalog facts and visible image evidence; do not invent flower varieties, techniques or florist craftsmanship claims.",
+    "productCooldownRelaxed": false,
+    "candidates": [
+      1,
+      2
+    ]
+  }
+]

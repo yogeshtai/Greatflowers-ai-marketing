@@ -21,4 +21,6 @@ export function nextNewYorkHour(hour: number, from: Date = new Date()): Date {
   throw new Error("could not compute next New York publish time");
 }
 
-export const istDateKey = (date: Date = new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(date);
+// Calendar date (YYYY-MM-DD) in a time zone; scheduled drafts use one per project per day.
+export const dateKeyIn = (timeZone: string, date: Date = new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone }).format(date);
+export const istDateKey = (date: Date = new Date()) => dateKeyIn("Asia/Kolkata", date);
